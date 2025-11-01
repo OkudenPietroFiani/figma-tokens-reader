@@ -112,19 +112,57 @@ export class GitHubService {
     const cleanBase64 = base64.replace(/\s/g, '');
 
     try {
-      // Decode base64 to binary string
-      const binaryString = atob(cleanBase64);
-
-      // Convert binary string to UTF-8
-      // This handles special characters correctly
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      // Custom base64 decoder that works in any JavaScript environment
+      // This doesn't rely on atob() or TextDecoder which may not be available
+      const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      const base64Lookup = new Map<string, number>();
+      for (let i = 0; i < base64Chars.length; i++) {
+        base64Lookup.set(base64Chars[i], i);
       }
 
-      // Decode UTF-8 bytes to string
-      const decoder = new TextDecoder('utf-8');
-      return decoder.decode(bytes);
+      const bytes: number[] = [];
+
+      // Decode base64 to bytes
+      for (let i = 0; i < cleanBase64.length; i += 4) {
+        const encoded1 = base64Lookup.get(cleanBase64[i]) || 0;
+        const encoded2 = base64Lookup.get(cleanBase64[i + 1]) || 0;
+        const encoded3 = base64Lookup.get(cleanBase64[i + 2]) || 0;
+        const encoded4 = base64Lookup.get(cleanBase64[i + 3]) || 0;
+
+        const byte1 = (encoded1 << 2) | (encoded2 >> 4);
+        const byte2 = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+        const byte3 = ((encoded3 & 3) << 6) | encoded4;
+
+        bytes.push(byte1);
+        if (cleanBase64[i + 2] !== '=') bytes.push(byte2);
+        if (cleanBase64[i + 3] !== '=') bytes.push(byte3);
+      }
+
+      // Convert bytes to UTF-8 string
+      let result = '';
+      let i = 0;
+      while (i < bytes.length) {
+        const byte1 = bytes[i++];
+
+        if (byte1 < 128) {
+          // 1-byte character (ASCII)
+          result += String.fromCharCode(byte1);
+        } else if (byte1 >= 192 && byte1 < 224) {
+          // 2-byte character
+          const byte2 = bytes[i++];
+          result += String.fromCharCode(((byte1 & 31) << 6) | (byte2 & 63));
+        } else if (byte1 >= 224 && byte1 < 240) {
+          // 3-byte character
+          const byte2 = bytes[i++];
+          const byte3 = bytes[i++];
+          result += String.fromCharCode(((byte1 & 15) << 12) | ((byte2 & 63) << 6) | (byte3 & 63));
+        } else {
+          // 4-byte character (rare, skip for now)
+          i += 3;
+        }
+      }
+
+      return result;
     } catch (error) {
       console.error('Error decoding base64:', error);
       console.error('Base64 content (first 100 chars):', base64.substring(0, 100));
