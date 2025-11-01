@@ -637,8 +637,8 @@
         case "generate-documentation":
           await handleGenerateDocumentation();
           break;
-        case "connect-github":
-          await handleConnectGithub(msg.data);
+        case "save-github-config":
+          await handleSaveGithubConfig(msg.data);
           break;
         case "cancel":
           figma.closePlugin();
@@ -669,11 +669,13 @@
       message: "\u2713 Documentation generated successfully!"
     });
   }
-  async function handleConnectGithub(data) {
-    figma.notify("GitHub connection coming soon!", { timeout: 3e3 });
-    figma.ui.postMessage({
-      type: "github-info",
-      message: 'GitHub integration is not yet implemented. Please use "Import from Computer" for now.'
-    });
+  async function handleSaveGithubConfig(data) {
+    try {
+      await figma.clientStorage.setAsync("githubConfig", JSON.stringify(data));
+      figma.notify("GitHub sync configuration saved!", { timeout: 3e3 });
+    } catch (error) {
+      console.error("Error saving GitHub config:", error);
+      throw new Error("Failed to save GitHub configuration");
+    }
   }
 })();
