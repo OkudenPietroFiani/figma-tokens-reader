@@ -5,14 +5,15 @@ figma.showUI(__html__, { width: 800, height: 600 });
 // Store created variables for reference resolution
 const variableMap = new Map();
 const collectionMap = new Map();
+let importStats = { added: 0, updated: 0, skipped: 0 };
 figma.ui.onmessage = async (msg) => {
     try {
         if (msg.type === 'import-tokens') {
             const { primitives, semantics } = msg.data;
-            await importTokens(primitives, semantics);
+            const stats = await importTokens(primitives, semantics);
             figma.ui.postMessage({
                 type: 'import-success',
-                message: 'Design tokens imported successfully!'
+                message: `✓ Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
             });
         }
         else if (msg.type === 'cancel') {
@@ -29,6 +30,8 @@ figma.ui.onmessage = async (msg) => {
 };
 async function importTokens(primitives, semantics) {
     try {
+        // Reset stats
+        importStats = { added: 0, updated: 0, skipped: 0 };
         // Clear existing collections or get them
         const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
         // Create or get collections
@@ -50,7 +53,9 @@ async function importTokens(primitives, semantics) {
         if (semantics) {
             await processTokenGroup(semantics, 'Semantic', semanticCollection, []);
         }
-        figma.notify('✓ Design tokens imported successfully!', { timeout: 3000 });
+        const message = `✓ Tokens imported: ${importStats.added} added, ${importStats.updated} updated`;
+        figma.notify(message, { timeout: 3000 });
+        return importStats;
     }
     catch (error) {
         throw new Error(`Failed to import tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -79,13 +84,21 @@ async function createVariable(token, path, collection) {
         const figmaType = mapTokenTypeToFigma(tokenType);
         // Check if variable already exists
         let variable = await findVariableByName(variableName, collection);
+        let isNewVariable = false;
         if (!variable) {
             variable = figma.variables.createVariable(variableName, collection, figmaType);
+            isNewVariable = true;
+            importStats.added++;
         }
         else {
             // Update existing variable type if needed
             if (variable.resolvedType !== figmaType) {
                 variable = figma.variables.createVariable(variableName + '_new', collection, figmaType);
+                isNewVariable = true;
+                importStats.added++;
+            }
+            else {
+                importStats.updated++;
             }
         }
         // Process and set the value
@@ -108,7 +121,8 @@ async function createVariable(token, path, collection) {
     }
     catch (error) {
         console.error(`Error creating variable ${path.join('/')}: ${error}`);
-        throw error;
+        importStats.skipped++;
+        // Don't throw - continue with other tokens
     }
 }
 async function findVariableByName(name, collection) {
@@ -171,12 +185,14 @@ async function processTokenValue(value, tokenType, collection) {
             return { value: parseColor(value), isAlias: false };
         case 'dimension':
         case 'spacing':
+        case 'fontSize':
             return { value: parseDimension(value), isAlias: false };
         case 'number':
             return { value: parseFloat(value) || 0, isAlias: false };
         case 'typography':
             return { value: parseTypography(value), isAlias: false };
         case 'fontFamily':
+            return { value: parseFontFamily(value), isAlias: false };
         case 'fontWeight':
         case 'lineHeight':
         case 'string':
@@ -326,6 +342,17 @@ function parseTypography(value) {
     if (typeof value === 'object') {
         // Convert object to string representation
         return JSON.stringify(value);
+    }
+    return String(value);
+}
+function parseFontFamily(value) {
+    // If it's an array, extract only the first font family
+    if (Array.isArray(value)) {
+        return value[0] ? String(value[0]) : 'Arial';
+    }
+    // If it's a comma-separated string, extract the first one
+    if (typeof value === 'string' && value.includes(',')) {
+        return value.split(',')[0].trim();
     }
     return String(value);
 }
