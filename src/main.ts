@@ -77,12 +77,16 @@ async function handleGitHubFetchFiles(data: any): Promise<void> {
 
 async function handleGitHubImportFiles(data: any): Promise<void> {
   try {
+    console.log('handleGitHubImportFiles called with data:', data);
     const { token, owner, repo, branch, files } = data;
+
+    console.log('Fetching files from GitHub:', { owner, repo, branch, fileCount: files.length });
     const { primitives, semantics } = await githubService.fetchMultipleFiles(
       { token, owner, repo, branch },
       files
     );
 
+    console.log('Files fetched successfully, importing tokens...');
     // Import the tokens
     const stats = await variableManager.importTokens(primitives, semantics);
 
@@ -91,6 +95,7 @@ async function handleGitHubImportFiles(data: any): Promise<void> {
       message: `✓ Tokens imported from GitHub: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
     });
   } catch (error) {
+    console.error('Error in handleGitHubImportFiles:', error);
     figma.ui.postMessage({
       type: 'error',
       message: error instanceof Error ? error.message : 'Failed to import files from GitHub'
