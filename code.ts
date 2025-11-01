@@ -150,6 +150,14 @@ async function createVariable(
     // Process and set the value
     const processedValue = await processTokenValue(token.$value, tokenType, collection);
 
+    // Debug logging
+    console.log(`Setting variable ${variableName}:`, {
+      originalValue: token.$value,
+      tokenType,
+      processedValue: processedValue.value,
+      isAlias: processedValue.isAlias
+    });
+
     // Get the default mode
     const modeId = collection.modes[0].modeId;
 
@@ -389,28 +397,37 @@ function hslToRgb(h: number, s: number, l: number): RGB {
 }
 
 function parseDimension(value: any): number {
+  console.log('parseDimension input:', value, 'type:', typeof value);
+
   if (typeof value === 'number') {
+    console.log('parseDimension returning number:', value);
     return value;
   }
 
   if (typeof value === 'string') {
     // Remove 'px' suffix
     if (value.endsWith('px')) {
-      return parseFloat(value.replace('px', ''));
+      const result = parseFloat(value.replace('px', ''));
+      console.log('parseDimension parsed px:', value, '→', result);
+      return result;
     }
 
     // Convert rem to px (assuming 16px base)
     if (value.endsWith('rem')) {
-      return parseFloat(value.replace('rem', '')) * 16;
+      const result = parseFloat(value.replace('rem', '')) * 16;
+      console.log('parseDimension parsed rem:', value, '→', result);
+      return result;
     }
 
     // Try to parse as number
     const parsed = parseFloat(value);
     if (!isNaN(parsed)) {
+      console.log('parseDimension parsed number:', value, '→', parsed);
       return parsed;
     }
   }
 
+  console.log('parseDimension returning 0 for:', value);
   return 0;
 }
 
