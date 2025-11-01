@@ -21,20 +21,27 @@ interface ProcessedToken {
   originalValue?: any;
 }
 
+interface ImportStats {
+  added: number;
+  updated: number;
+  skipped: number;
+}
+
 // Store created variables for reference resolution
 const variableMap = new Map<string, Variable>();
 const collectionMap = new Map<string, VariableCollection>();
+let importStats: ImportStats = { added: 0, updated: 0, skipped: 0 };
 
 figma.ui.onmessage = async (msg: any) => {
   try {
     if (msg.type === 'import-tokens') {
       const { primitives, semantics } = msg.data;
 
-      await importTokens(primitives, semantics);
+      const stats = await importTokens(primitives, semantics);
 
       figma.ui.postMessage({
         type: 'import-success',
-        message: 'Design tokens imported successfully!'
+        message: `✓ Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
       });
     } else if (msg.type === 'cancel') {
       figma.closePlugin();
@@ -48,8 +55,11 @@ figma.ui.onmessage = async (msg: any) => {
   }
 };
 
-async function importTokens(primitives: TokenData, semantics: TokenData) {
+async function importTokens(primitives: TokenData, semantics: TokenData): Promise<ImportStats> {
   try {
+    // Reset stats
+    importStats = { added: 0, updated: 0, skipped: 0 };
+
     // Clear existing collections or get them
     const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
 
@@ -77,7 +87,10 @@ async function importTokens(primitives: TokenData, semantics: TokenData) {
       await processTokenGroup(semantics, 'Semantic', semanticCollection, []);
     }
 
-    figma.notify('✓ Design tokens imported successfully!', { timeout: 3000 });
+    const message = `✓ Tokens imported: ${importStats.added} added, ${importStats.updated} updated`;
+    figma.notify(message, { timeout: 3000 });
+
+    return importStats;
   } catch (error) {
     throw new Error(`Failed to import tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
@@ -117,13 +130,20 @@ async function createVariable(
 
     // Check if variable already exists
     let variable = await findVariableByName(variableName, collection);
+    let isNewVariable = false;
 
     if (!variable) {
       variable = figma.variables.createVariable(variableName, collection, figmaType);
+      isNewVariable = true;
+      importStats.added++;
     } else {
       // Update existing variable type if needed
       if (variable.resolvedType !== figmaType) {
         variable = figma.variables.createVariable(variableName + '_new', collection, figmaType);
+        isNewVariable = true;
+        importStats.added++;
+      } else {
+        importStats.updated++;
       }
     }
 
@@ -149,7 +169,8 @@ async function createVariable(
     }
   } catch (error) {
     console.error(`Error creating variable ${path.join('/')}: ${error}`);
-    throw error;
+    importStats.skipped++;
+    // Don't throw - continue with other tokens
   }
 }
 
@@ -223,6 +244,7 @@ async function processTokenValue(
 
     case 'dimension':
     case 'spacing':
+    case 'fontSize':
       return { value: parseDimension(value), isAlias: false };
 
     case 'number':
@@ -232,6 +254,8 @@ async function processTokenValue(
       return { value: parseTypography(value), isAlias: false };
 
     case 'fontFamily':
+      return { value: parseFontFamily(value), isAlias: false };
+
     case 'fontWeight':
     case 'lineHeight':
     case 'string':
@@ -399,6 +423,20 @@ function parseTypography(value: any): string {
   if (typeof value === 'object') {
     // Convert object to string representation
     return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function parseFontFamily(value: any): string {
+  // If it's an array, extract only the first font family
+  if (Array.isArray(value)) {
+    return value[0] ? String(value[0]) : 'Arial';
+  }
+
+  // If it's a comma-separated string, extract the first one
+  if (typeof value === 'string' && value.includes(',')) {
+    return value.split(',')[0].trim();
   }
 
   return String(value);
