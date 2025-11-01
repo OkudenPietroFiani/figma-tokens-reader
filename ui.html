@@ -12,52 +12,82 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 12px;
       line-height: 1.5;
       color: #333;
       background: #fff;
-      padding: 16px;
+      height: 100vh;
+      overflow: hidden;
     }
 
-    .container {
-      max-width: 100%;
+    .screen {
+      display: none;
       height: 100%;
+      padding: 24px;
+      overflow-y: auto;
     }
 
-    h1 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: #000;
+    .screen.active {
+      display: block;
     }
 
-    h2 {
-      font-size: 14px;
-      font-weight: 600;
+    /* Welcome Screen */
+    .welcome-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .welcome-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 40px;
+    }
+
+    .welcome-title {
+      font-size: 24px;
+      font-weight: 700;
       margin-bottom: 12px;
       color: #000;
     }
 
-    .section {
-      margin-bottom: 20px;
+    .welcome-subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 40px;
+      max-width: 400px;
     }
 
-    #file-input {
-      display: none;
-    }
-
-    /* Buttons */
-    .btn {
+    .welcome-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       width: 100%;
-      padding: 12px 20px;
+      max-width: 350px;
+    }
+
+    .btn {
+      padding: 14px 24px;
       border: none;
-      border-radius: 6px;
-      font-size: 13px;
+      border-radius: 8px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
     .btn-primary {
@@ -67,36 +97,80 @@
 
     .btn-primary:hover:not(:disabled) {
       background: #0b7fd4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(13, 153, 255, 0.3);
     }
 
     .btn-primary:active:not(:disabled) {
       background: #0a6eb8;
-    }
-
-    .btn-primary:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      opacity: 0.6;
+      transform: translateY(0);
     }
 
     .btn-secondary {
       background: #fff;
       color: #333;
-      border: 1px solid #e0e0e0;
-      margin-top: 8px;
+      border: 2px solid #e0e0e0;
     }
 
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background: #f5f5f5;
+      border-color: #c0c0c0;
+    }
+
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .btn-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Import Screen */
+    .import-screen h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #000;
+    }
+
+    .back-link {
+      color: #0d99ff;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #000;
+    }
+
+    #file-input {
+      display: none;
     }
 
     /* Messages */
     .message {
       display: none;
-      padding: 12px;
-      border-radius: 6px;
+      padding: 12px 16px;
+      border-radius: 8px;
       margin-bottom: 16px;
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1.5;
     }
 
@@ -116,26 +190,17 @@
       border: 1px solid #ffb3b3;
     }
 
-    .info-box {
-      padding: 12px;
+    .message.info {
       background: #f0f8ff;
-      border: 1px solid #b3d9ff;
-      border-radius: 6px;
-      font-size: 11px;
       color: #0066cc;
-      line-height: 1.6;
-      margin-bottom: 16px;
-    }
-
-    .info-box strong {
-      font-weight: 600;
+      border: 1px solid #b3d9ff;
     }
 
     /* Tabs */
     .tabs {
       display: none;
       border: 1px solid #e0e0e0;
-      border-radius: 6px;
+      border-radius: 8px;
       overflow: hidden;
       background: #fff;
       margin-bottom: 16px;
@@ -147,7 +212,7 @@
 
     .tab-buttons {
       display: flex;
-      background: #f5f5f5;
+      background: #f8f8f8;
       border-bottom: 1px solid #e0e0e0;
     }
 
@@ -170,7 +235,7 @@
     }
 
     .tab-button:hover {
-      background: #e8e8e8;
+      background: #ececec;
     }
 
     .tab-button.active {
@@ -182,8 +247,8 @@
 
     .tab-content {
       display: none;
-      padding: 12px;
-      max-height: 350px;
+      padding: 16px;
+      max-height: 300px;
       overflow-y: auto;
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       font-size: 11px;
@@ -201,24 +266,11 @@
       word-wrap: break-word;
     }
 
-    .json-key {
-      color: #0066cc;
-    }
-
-    .json-string {
-      color: #008000;
-    }
-
-    .json-number {
-      color: #cc6600;
-    }
-
-    .json-boolean {
-      color: #cc00cc;
-    }
-
-    .json-null {
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
       color: #999;
+      font-size: 12px;
     }
 
     /* Loading */
@@ -249,6 +301,13 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Action buttons container */
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 8px;
@@ -267,35 +326,67 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #a0a0a0;
     }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #999;
-      font-size: 12px;
-    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>W3C Design Tokens Importer</h1>
-
-    <div class="info-box">
-      <strong>Instructions:</strong> Click "Import Tokens" to upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files.
+  <!-- Welcome Screen -->
+  <div class="screen active welcome-screen" id="welcome-screen">
+    <div class="welcome-logo">🎨</div>
+    <h1 class="welcome-title">W3C Design Tokens Importer</h1>
+    <p class="welcome-subtitle">
+      Import design tokens from your computer or connect to a GitHub repository to sync your tokens automatically.
+    </p>
+    <div class="welcome-buttons">
+      <button class="btn btn-primary" id="import-from-computer-btn">
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        Import from Computer
+      </button>
+      <button class="btn btn-secondary" id="connect-github-btn">
+        <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        Connect to GitHub
+      </button>
+      <button class="btn btn-secondary" id="generate-docs-btn">
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Generate Documentation
+      </button>
     </div>
+  </div>
 
-    <!-- Import Message -->
+  <!-- Import Screen -->
+  <div class="screen import-screen" id="import-screen">
+    <a class="back-link" id="back-to-welcome">← Back</a>
+    <h1>Import Design Tokens</h1>
+    <p style="color: #666; margin-bottom: 24px; font-size: 13px;">
+      Upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files.
+    </p>
+
+    <!-- Messages -->
     <div class="message" id="import-message"></div>
 
-    <!-- Import Button Section -->
+    <!-- Import Section -->
     <div class="section">
-      <button class="btn btn-primary" id="import-btn">
-        Import Tokens
+      <button class="btn btn-primary" id="select-files-btn">
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        Select Files
       </button>
       <input type="file" id="file-input" accept=".zip,.json" multiple>
     </div>
 
-    <!-- Tabs Section -->
+    <!-- Loading -->
+    <div class="loading" id="import-loading">
+      <div class="spinner"></div>
+      <span>Processing tokens...</span>
+    </div>
+
+    <!-- Tabs for JSON Preview -->
     <div class="tabs" id="tabs-section">
       <div class="tab-buttons">
         <button class="tab-button active" data-tab="primitives">primitives.json</button>
@@ -309,210 +400,160 @@
       </div>
     </div>
 
-    <!-- Export Section -->
-    <div class="section">
-      <button class="btn btn-primary" id="export-btn" disabled>
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button class="btn btn-primary" id="import-to-figma-btn" disabled>
+        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+        </svg>
         Import to Figma Variables
       </button>
-      <button class="btn btn-primary" id="doc-btn" disabled style="margin-top: 12px;">
-        Generate Documentation
-      </button>
-      <button class="btn btn-secondary" id="cancel-btn">
-        Cancel
-      </button>
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <span>Importing to Figma...</span>
-      </div>
-      <div class="loading" id="doc-loading">
-        <div class="spinner"></div>
-        <span>Generating documentation...</span>
-      </div>
-      <div class="message" id="export-message"></div>
-      <div class="message" id="doc-message"></div>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
+    // ========================================
+    // Screen Navigation
+    // ========================================
+
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const importScreen = document.getElementById('import-screen');
+
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+    }
+
+    document.getElementById('import-from-computer-btn').addEventListener('click', () => {
+      showScreen('import-screen');
+    });
+
+    document.getElementById('back-to-welcome').addEventListener('click', () => {
+      showScreen('welcome-screen');
+    });
+
+    document.getElementById('connect-github-btn').addEventListener('click', () => {
+      showMessage('info', 'GitHub integration coming soon! Please use "Import from Computer" for now.');
+      parent.postMessage({ pluginMessage: { type: 'connect-github' } }, '*');
+    });
+
+    document.getElementById('generate-docs-btn').addEventListener('click', async () => {
+      showMessage('info', 'Generating documentation from existing Figma variables...');
+      parent.postMessage({ pluginMessage: { type: 'generate-documentation' } }, '*');
+    });
+
+    // ========================================
+    // File Import Logic
+    // ========================================
+
+    const fileInput = document.getElementById('file-input');
+    const selectFilesBtn = document.getElementById('select-files-btn');
+    const importToFigmaBtn = document.getElementById('import-to-figma-btn');
+    const tabsSection = document.getElementById('tabs-section');
+    const importLoading = document.getElementById('import-loading');
+
     let primitivesData = null;
     let semanticsData = null;
 
-    const fileInput = document.getElementById('file-input');
-    const importBtn = document.getElementById('import-btn');
-    const importMessage = document.getElementById('import-message');
-    const tabsSection = document.getElementById('tabs-section');
-    const primitivesTab = document.getElementById('primitives-tab');
-    const semanticsTab = document.getElementById('semantics-tab');
-    const exportBtn = document.getElementById('export-btn');
-    const docBtn = document.getElementById('doc-btn');
-    const cancelBtn = document.getElementById('cancel-btn');
-    const loading = document.getElementById('loading');
-    const docLoading = document.getElementById('doc-loading');
-    const exportMessage = document.getElementById('export-message');
-    const docMessage = document.getElementById('doc-message');
-    const tabButtons = document.querySelectorAll('.tab-button');
-
-    // Import button click
-    importBtn.addEventListener('click', () => {
+    selectFilesBtn.addEventListener('click', () => {
       fileInput.click();
     });
 
-    // File input change
     fileInput.addEventListener('change', async (e) => {
-      if (e.target.files.length === 0) return;
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
 
-      // Hide previous messages
-      importMessage.classList.remove('visible');
-      exportMessage.classList.remove('visible');
+      importLoading.classList.add('visible');
+      hideMessage();
 
-      await handleFiles(e.target.files);
-    });
-
-    // Tab switching
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const tabName = button.dataset.tab;
-
-        // Update button states
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-
-        // Update tab content
-        document.querySelectorAll('.tab-content').forEach(content => {
-          content.classList.remove('active');
-        });
-        document.getElementById(tabName + '-tab').classList.add('active');
-      });
-    });
-
-    async function handleFiles(files) {
       try {
-        // Reset data
-        primitivesData = null;
-        semanticsData = null;
-
-        const file = files[0];
-
-        if (file.name.endsWith('.zip')) {
-          await handleZipFile(file);
-        } else if (file.name.endsWith('.json')) {
-          await handleJsonFiles(files);
-        } else {
-          showImportError('Please upload a .zip file or .json files');
-          return;
+        for (const file of files) {
+          if (file.name.endsWith('.zip')) {
+            await handleZipFile(file);
+          } else if (file.name.endsWith('.json')) {
+            await handleJsonFile(file);
+          }
         }
 
         if (primitivesData || semanticsData) {
-          updateTabs();
-          tabsSection.classList.add('visible');
-          exportBtn.disabled = false;
-          docBtn.disabled = false;
-
-          const filesImported = [];
-          if (primitivesData) filesImported.push('primitives.json');
-          if (semanticsData) filesImported.push('semantics.json');
-
-          showImportSuccess(`Successfully imported: ${filesImported.join(', ')}`);
-        } else {
-          showImportError('No valid token files found');
+          displayTabs();
+          importToFigmaBtn.disabled = false;
+          showMessage('success', 'Files loaded successfully! Review the tokens and click "Import to Figma Variables".');
         }
       } catch (error) {
-        showImportError(`Error loading file: ${error.message}`);
+        showMessage('error', `Error loading files: ${error.message}`);
+      } finally {
+        importLoading.classList.remove('visible');
       }
-    }
+    });
 
     async function handleZipFile(file) {
-      const zip = new JSZip();
-      const contents = await zip.loadAsync(file);
+      const zip = await JSZip.loadAsync(file);
 
-      // Look for primitives.json and semantics.json
-      const primitivesFile = contents.file('primitives.json') ||
-                            contents.file('primitive.json') ||
-                            Object.keys(contents.files).find(f => f.includes('primitive') && f.endsWith('.json'));
-
-      const semanticsFile = contents.file('semantics.json') ||
-                           contents.file('semantic.json') ||
-                           Object.keys(contents.files).find(f => f.includes('semantic') && f.endsWith('.json'));
+      const primitivesFile = zip.file('primitives.json');
+      const semanticsFile = zip.file('semantives.json');
 
       if (primitivesFile) {
-        const text = await contents.files[primitivesFile].async('text');
-        primitivesData = JSON.parse(text);
+        const content = await primitivesFile.async('string');
+        primitivesData = JSON.parse(content);
       }
 
       if (semanticsFile) {
-        const text = await contents.files[semanticsFile].async('text');
-        semanticsData = JSON.parse(text);
-      }
-
-      if (!primitivesData && !semanticsData) {
-        throw new Error('No primitives.json or semantics.json found in ZIP file');
+        const content = await semanticsFile.async('string');
+        semanticsData = JSON.parse(content);
       }
     }
 
-    async function handleJsonFiles(files) {
-      for (const file of files) {
-        const text = await file.text();
-        const data = JSON.parse(text);
+    async function handleJsonFile(file) {
+      const content = await file.text();
+      const data = JSON.parse(content);
 
-        if (file.name.includes('primitive')) {
-          primitivesData = data;
-        } else if (file.name.includes('semantic')) {
-          semanticsData = data;
-        } else {
-          // Try to infer from content
-          if (!primitivesData) {
-            primitivesData = data;
-          } else if (!semanticsData) {
-            semanticsData = data;
-          }
-        }
-      }
-    }
-
-    function updateTabs() {
-      if (primitivesData) {
-        primitivesTab.innerHTML = syntaxHighlight(JSON.stringify(primitivesData, null, 2));
+      if (file.name.includes('primitive')) {
+        primitivesData = data;
+      } else if (file.name.includes('semantic')) {
+        semanticsData = data;
       } else {
-        primitivesTab.innerHTML = '<div class="empty-state">No primitives data</div>';
+        primitivesData = data;
+      }
+    }
+
+    function displayTabs() {
+      tabsSection.classList.add('visible');
+
+      if (primitivesData) {
+        document.getElementById('primitives-tab').innerHTML =
+          `<pre>${JSON.stringify(primitivesData, null, 2)}</pre>`;
       }
 
       if (semanticsData) {
-        semanticsTab.innerHTML = syntaxHighlight(JSON.stringify(semanticsData, null, 2));
-      } else {
-        semanticsTab.innerHTML = '<div class="empty-state">No semantics data</div>';
+        document.getElementById('semantics-tab').innerHTML =
+          `<pre>${JSON.stringify(semanticsData, null, 2)}</pre>`;
       }
     }
 
-    function syntaxHighlight(json) {
-      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return '<pre>' + json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        let cls = 'json-number';
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
-            cls = 'json-key';
-          } else {
-            cls = 'json-string';
-          }
-        } else if (/true|false/.test(match)) {
-          cls = 'json-boolean';
-        } else if (/null/.test(match)) {
-          cls = 'json-null';
-        }
-        return '<span class="' + cls + '">' + match + '</span>';
-      }) + '</pre>';
-    }
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        const tabName = button.dataset.tab;
 
-    // Export button
-    exportBtn.addEventListener('click', async () => {
-      if (!primitivesData && !semanticsData) {
-        showExportError('Please import tokens first');
-        return;
-      }
+        document.querySelectorAll('.tab-button').forEach(btn =>
+          btn.classList.remove('active')
+        );
+        document.querySelectorAll('.tab-content').forEach(content =>
+          content.classList.remove('active')
+        );
 
-      exportBtn.disabled = true;
-      loading.classList.add('visible');
-      exportMessage.classList.remove('visible');
+        button.classList.add('active');
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+      });
+    });
+
+    // Import to Figma
+    importToFigmaBtn.addEventListener('click', () => {
+      importToFigmaBtn.disabled = true;
+      importLoading.classList.add('visible');
+      hideMessage();
 
       parent.postMessage({
         pluginMessage: {
@@ -525,87 +566,47 @@
       }, '*');
     });
 
-    // Generate Documentation button
-    docBtn.addEventListener('click', async () => {
-      if (!primitivesData && !semanticsData) {
-        showDocError('Please import tokens first');
-        return;
-      }
+    // ========================================
+    // Message Handling
+    // ========================================
 
-      docBtn.disabled = true;
-      docLoading.classList.add('visible');
-      docMessage.classList.remove('visible');
+    function showMessage(type, text) {
+      const messageEl = document.getElementById('import-message');
+      messageEl.className = `message ${type} visible`;
+      messageEl.textContent = text;
+    }
 
-      parent.postMessage({
-        pluginMessage: {
-          type: 'generate-documentation'
-        }
-      }, '*');
-    });
-
-    // Cancel button
-    cancelBtn.addEventListener('click', () => {
-      parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
-    });
+    function hideMessage() {
+      document.getElementById('import-message').classList.remove('visible');
+    }
 
     // Listen for messages from plugin
-    window.onmessage = (event) => {
+    window.addEventListener('message', (event) => {
       const msg = event.data.pluginMessage;
+      if (!msg) return;
 
-      if (msg.type === 'import-success') {
-        exportBtn.disabled = false;
-        loading.classList.remove('visible');
-        showExportSuccess(msg.message);
+      importLoading.classList.remove('visible');
 
-        // Close plugin after 2 seconds
-        setTimeout(() => {
-          parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
-        }, 2000);
-      } else if (msg.type === 'import-error') {
-        exportBtn.disabled = false;
-        loading.classList.remove('visible');
-        showExportError(msg.message);
-      } else if (msg.type === 'documentation-success') {
-        docBtn.disabled = false;
-        docLoading.classList.remove('visible');
-        showDocSuccess(msg.message);
+      switch (msg.type) {
+        case 'import-success':
+          showMessage('success', msg.message);
+          importToFigmaBtn.disabled = false;
+          break;
 
-        // Close plugin after 3 seconds
-        setTimeout(() => {
-          parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
-        }, 3000);
+        case 'error':
+          showMessage('error', `Error: ${msg.message}`);
+          importToFigmaBtn.disabled = false;
+          break;
+
+        case 'documentation-success':
+          showMessage('success', msg.message);
+          break;
+
+        case 'github-info':
+          showMessage('info', msg.message);
+          break;
       }
-    };
-
-    function showImportSuccess(msg) {
-      importMessage.textContent = msg;
-      importMessage.className = 'message success visible';
-    }
-
-    function showImportError(msg) {
-      importMessage.textContent = msg;
-      importMessage.className = 'message error visible';
-    }
-
-    function showExportSuccess(msg) {
-      exportMessage.textContent = msg;
-      exportMessage.className = 'message success visible';
-    }
-
-    function showExportError(msg) {
-      exportMessage.textContent = msg;
-      exportMessage.className = 'message error visible';
-    }
-
-    function showDocSuccess(msg) {
-      docMessage.textContent = msg;
-      docMessage.className = 'message success visible';
-    }
-
-    function showDocError(msg) {
-      docMessage.textContent = msg;
-      docMessage.className = 'message error visible';
-    }
+    });
   </script>
 </body>
 </html>
