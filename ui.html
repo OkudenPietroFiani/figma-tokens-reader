@@ -34,11 +34,14 @@
 
     /* Welcome Screen */
     .welcome-screen {
-      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
+    }
+
+    .welcome-screen.active {
+      display: flex !important;
     }
 
     .welcome-logo {
@@ -88,6 +91,9 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      position: relative;
+      z-index: 1;
+      pointer-events: auto;
     }
 
     .btn-primary {
@@ -583,27 +589,52 @@
     // ========================================
 
     function showScreen(screenId) {
+      console.log('Navigating to screen:', screenId);
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screenId).classList.add('active');
+      const targetScreen = document.getElementById(screenId);
+      if (targetScreen) {
+        targetScreen.classList.add('active');
+        console.log('Screen activated:', screenId);
+      } else {
+        console.error('Screen not found:', screenId);
+      }
     }
 
-    document.getElementById('import-from-computer-btn').addEventListener('click', () => {
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM loaded, initializing buttons...');
+    });
+
+    document.getElementById('import-from-computer-btn').addEventListener('click', (e) => {
+      console.log('Import from computer button clicked');
+      e.preventDefault();
+      e.stopPropagation();
       showScreen('import-screen');
     });
 
-    document.getElementById('connect-github-btn').addEventListener('click', () => {
+    document.getElementById('connect-github-btn').addEventListener('click', (e) => {
+      console.log('Connect to GitHub button clicked');
+      e.preventDefault();
+      e.stopPropagation();
       showScreen('github-screen');
     });
 
-    document.getElementById('back-to-welcome-from-import').addEventListener('click', () => {
+    document.getElementById('back-to-welcome-from-import').addEventListener('click', (e) => {
+      console.log('Back to welcome (from import) clicked');
+      e.preventDefault();
       showScreen('welcome-screen');
     });
 
-    document.getElementById('back-to-welcome-from-github').addEventListener('click', () => {
+    document.getElementById('back-to-welcome-from-github').addEventListener('click', (e) => {
+      console.log('Back to welcome (from github) clicked');
+      e.preventDefault();
       showScreen('welcome-screen');
     });
 
-    document.getElementById('generate-docs-btn').addEventListener('click', () => {
+    document.getElementById('generate-docs-btn').addEventListener('click', (e) => {
+      console.log('Generate docs button clicked');
+      e.preventDefault();
+      e.stopPropagation();
       showMessage('welcome-message', 'info', 'Generating documentation from existing Figma variables...');
       parent.postMessage({ pluginMessage: { type: 'generate-documentation' } }, '*');
     });
