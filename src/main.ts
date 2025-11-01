@@ -3,11 +3,11 @@
 import { UI_CONFIG } from './constants';
 import { PluginMessage, TokenData } from './types';
 import { VariableManager } from './services/variableManager';
-import { DocumentationGenerator } from './services/documentationGenerator';
+import { GitHubService } from './services/githubService';
 
 // Initialize services
 const variableManager = new VariableManager();
-const documentationGenerator = new DocumentationGenerator();
+const githubService = new GitHubService();
 
 // Show UI
 figma.showUI(__html__, { width: UI_CONFIG.width, height: UI_CONFIG.height });
@@ -20,8 +20,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleImportTokens(msg.data);
         break;
 
-      case 'generate-documentation':
-        await handleGenerateDocumentation();
+      case 'github-fetch-files':
+        await handleGitHubFetchFiles(msg.data);
+        break;
+
+      case 'github-import-files':
+        await handleGitHubImportFiles(msg.data);
         break;
 
       case 'save-github-config':
@@ -54,13 +58,44 @@ async function handleImportTokens(data: { primitives: TokenData; semantics: Toke
   });
 }
 
-async function handleGenerateDocumentation(): Promise<void> {
-  await documentationGenerator.generateDocumentation();
+async function handleGitHubFetchFiles(data: any): Promise<void> {
+  try {
+    const { token, owner, repo, branch } = data;
+    const files = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
 
-  figma.ui.postMessage({
-    type: 'documentation-success',
-    message: '✓ Documentation generated successfully!'
-  });
+    figma.ui.postMessage({
+      type: 'github-files-fetched',
+      data: { files }
+    });
+  } catch (error) {
+    figma.ui.postMessage({
+      type: 'error',
+      message: error instanceof Error ? error.message : 'Failed to fetch repository files'
+    });
+  }
+}
+
+async function handleGitHubImportFiles(data: any): Promise<void> {
+  try {
+    const { token, owner, repo, branch, files } = data;
+    const { primitives, semantics } = await githubService.fetchMultipleFiles(
+      { token, owner, repo, branch },
+      files
+    );
+
+    // Import the tokens
+    const stats = await variableManager.importTokens(primitives, semantics);
+
+    figma.ui.postMessage({
+      type: 'import-success',
+      message: `✓ Tokens imported from GitHub: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
+    });
+  } catch (error) {
+    figma.ui.postMessage({
+      type: 'error',
+      message: error instanceof Error ? error.message : 'Failed to import files from GitHub'
+    });
+  }
 }
 
 async function handleSaveGithubConfig(data: any): Promise<void> {
@@ -73,3 +108,4 @@ async function handleSaveGithubConfig(data: any): Promise<void> {
     throw new Error('Failed to save GitHub configuration');
   }
 }
+

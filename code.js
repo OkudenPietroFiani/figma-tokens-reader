@@ -5,36 +5,6 @@
     width: 800,
     height: 600
   };
-  var DOCUMENTATION = {
-    columnWidths: [180, 90, 120, 130, 120, 260],
-    tableWidth: 900,
-    headerHeight: 40,
-    rowHeight: 60,
-    previewSize: 40,
-    spacing: 12,
-    padding: 32,
-    titleSpacing: 24
-  };
-  var FONT_CONFIG = {
-    defaultFamily: "Inter",
-    defaultStyle: "Regular",
-    boldStyle: "Bold",
-    titleSize: 24,
-    headerSize: 12,
-    cellSize: 11,
-    previewSize: 9,
-    fontPreviewSize: 18
-  };
-  var COLORS = {
-    white: { r: 1, g: 1, b: 1 },
-    black: { r: 0, g: 0, b: 0 },
-    gray: { r: 0.2, g: 0.2, b: 0.2 },
-    lightGray: { r: 0.8, g: 0.8, b: 0.8 },
-    backgroundGray: { r: 0.95, g: 0.95, b: 0.95 },
-    borderGray: { r: 0.9, g: 0.9, b: 0.9 },
-    spacingBlue: { r: 0.5, g: 0.7, b: 1 },
-    textGray: { r: 0.4, g: 0.4, b: 0.4 }
-  };
   var COLLECTION_NAMES = {
     primitive: "Primitive",
     semantic: "Semantic"
@@ -215,18 +185,6 @@
     }
     return "string";
   }
-  function formatValue(value, type) {
-    if (typeof value === "object" && value !== null) {
-      if ("value" in value && "unit" in value) {
-        return `${value.value}${value.unit}`;
-      }
-      if ("value" in value) {
-        return String(value.value);
-      }
-      return JSON.stringify(value);
-    }
-    return String(value);
-  }
 
   // src/utils/tokenProcessor.ts
   function mapTokenTypeToFigma(tokenType) {
@@ -390,243 +348,94 @@
     }
   };
 
-  // src/services/documentationGenerator.ts
-  var DocumentationGenerator = class {
-    async generateDocumentation() {
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      if (collections.length === 0) {
-        figma.notify("No variable collections found. Please create some variables first.", { timeout: 3e3 });
-        return;
-      }
-      const startX = figma.viewport.center.x - 400;
-      let currentY = figma.viewport.center.y;
-      for (const collection of collections) {
-        const tokens = await this.extractTokensFromCollection(collection);
-        if (tokens.length > 0) {
-          await this.createDocumentationFrame(collection.name, tokens, startX, currentY);
-          currentY += 100;
-        }
-      }
-      figma.notify("Documentation generated successfully", { timeout: 3e3 });
-    }
-    async extractTokensFromCollection(collection) {
-      const tokens = [];
-      for (const variableId of collection.variableIds) {
-        const variable = await figma.variables.getVariableByIdAsync(variableId);
-        if (!variable) continue;
-        const modeId = collection.modes[0].modeId;
-        const valueForMode = variable.valuesByMode[modeId];
-        let value;
-        let aliasTo;
-        let originalValue = valueForMode;
-        if (typeof valueForMode === "object" && valueForMode !== null && "type" in valueForMode) {
-          if (valueForMode.type === "VARIABLE_ALIAS") {
-            const aliasedVariable = await figma.variables.getVariableByIdAsync(valueForMode.id);
-            if (aliasedVariable) {
-              aliasTo = aliasedVariable.name;
-              value = aliasedVariable.valuesByMode[collection.modes[0].modeId];
-            }
+  // src/services/githubService.ts
+  var GitHubService = class {
+    async fetchRepositoryFiles(config) {
+      try {
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
+        const response = await fetch(url, {
+          headers: {
+            "Authorization": `token ${config.token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Figma-W3C-Tokens-Plugin"
           }
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`GitHub API error (${response.status}): ${errorText || response.statusText}`);
+        }
+        const data = await response.json();
+        const jsonFiles = data.tree.filter(
+          (item) => item.type === "blob" && item.path.endsWith(".json")
+        );
+        return jsonFiles.map((file) => ({
+          path: file.path,
+          type: file.type,
+          sha: file.sha
+        }));
+      } catch (error) {
+        console.error("GitHub fetch error:", error);
+        throw new Error(`Failed to fetch repository files: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+    async fetchFileContent(config, filePath) {
+      try {
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`;
+        const response = await fetch(url, {
+          headers: {
+            "Authorization": `token ${config.token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Figma-W3C-Tokens-Plugin"
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const content = this.decodeBase64(data.content);
+        return JSON.parse(content);
+      } catch (error) {
+        console.error(`Error fetching file ${filePath}:`, error);
+        throw error;
+      }
+    }
+    async fetchMultipleFiles(config, filePaths) {
+      let primitivesData = null;
+      let semanticsData = null;
+      for (const filePath of filePaths) {
+        const jsonData = await this.fetchFileContent(config, filePath);
+        if (filePath.toLowerCase().includes("primitive")) {
+          primitivesData = jsonData;
+        } else if (filePath.toLowerCase().includes("semantic")) {
+          semanticsData = jsonData;
         } else {
-          value = valueForMode;
+          primitivesData = jsonData;
         }
-        const type = this.figmaTypeToTokenType(variable.resolvedType);
-        const metadata = {
-          name: variable.name.split("/").pop() || variable.name,
-          fullPath: `${collection.name.toLowerCase()}.${variable.name.replace(/\//g, ".")}`,
-          type,
-          value,
-          originalValue,
-          description: variable.description || void 0,
-          aliasTo,
-          collection: collection.name
-        };
-        tokens.push(metadata);
       }
-      return tokens;
+      return { primitives: primitivesData, semantics: semanticsData };
     }
-    figmaTypeToTokenType(figmaType) {
-      switch (figmaType) {
-        case "COLOR":
-          return "color";
-        case "FLOAT":
-          return "number";
-        case "STRING":
-          return "string";
-        default:
-          return "string";
+    decodeBase64(base64) {
+      const cleanBase64 = base64.replace(/\s/g, "");
+      if (typeof Buffer !== "undefined") {
+        return Buffer.from(cleanBase64, "base64").toString("utf-8");
       }
+      return atob(cleanBase64);
     }
-    async createDocumentationFrame(title, tokens, x, y) {
-      const frame = figma.createFrame();
-      frame.name = `${title} Documentation`;
-      frame.x = x;
-      frame.y = y;
-      frame.fills = [{ type: "SOLID", color: COLORS.white }];
-      frame.layoutMode = "VERTICAL";
-      frame.primaryAxisSizingMode = "AUTO";
-      frame.counterAxisSizingMode = "AUTO";
-      frame.paddingTop = DOCUMENTATION.padding;
-      frame.paddingBottom = DOCUMENTATION.padding;
-      frame.paddingLeft = DOCUMENTATION.padding;
-      frame.paddingRight = DOCUMENTATION.padding;
-      frame.itemSpacing = 0;
-      const titleText = figma.createText();
-      await figma.loadFontAsync({ family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.boldStyle });
-      titleText.fontName = { family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.boldStyle };
-      titleText.fontSize = FONT_CONFIG.titleSize;
-      titleText.characters = title;
-      titleText.fills = [{ type: "SOLID", color: COLORS.black }];
-      frame.appendChild(titleText);
-      const spacer = figma.createRectangle();
-      spacer.resize(1, DOCUMENTATION.titleSpacing);
-      spacer.fills = [];
-      frame.appendChild(spacer);
-      const headerRow = await this.createTableRow(
-        ["Name", "Type", "Value", "Alias", "Preview", "Description"],
-        true
-      );
-      frame.appendChild(headerRow);
-      for (const token of tokens) {
-        const row = await this.createTokenRow(token);
-        frame.appendChild(row);
+    parseRepoUrl(url) {
+      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (!match) {
+        return null;
       }
-      figma.currentPage.appendChild(frame);
-    }
-    async createTableRow(cells, isHeader = false) {
-      const row = figma.createFrame();
-      row.name = isHeader ? "Header" : "Row";
-      row.layoutMode = "HORIZONTAL";
-      row.primaryAxisSizingMode = "FIXED";
-      row.counterAxisSizingMode = "AUTO";
-      row.resize(DOCUMENTATION.tableWidth, isHeader ? DOCUMENTATION.headerHeight : DOCUMENTATION.rowHeight);
-      row.itemSpacing = DOCUMENTATION.spacing;
-      row.paddingLeft = DOCUMENTATION.spacing;
-      row.paddingRight = DOCUMENTATION.spacing;
-      row.paddingTop = 10;
-      row.paddingBottom = 10;
-      row.fills = isHeader ? [{ type: "SOLID", color: COLORS.backgroundGray }] : [];
-      await figma.loadFontAsync({
-        family: FONT_CONFIG.defaultFamily,
-        style: isHeader ? FONT_CONFIG.boldStyle : FONT_CONFIG.defaultStyle
-      });
-      for (let index = 0; index < cells.length; index++) {
-        const text = cells[index];
-        const cell = figma.createFrame();
-        cell.name = `Cell ${index}`;
-        cell.layoutMode = "HORIZONTAL";
-        cell.primaryAxisSizingMode = "FIXED";
-        cell.counterAxisSizingMode = "AUTO";
-        cell.resize(DOCUMENTATION.columnWidths[index], cell.height);
-        cell.fills = [];
-        const textNode = figma.createText();
-        textNode.characters = text;
-        textNode.fontName = {
-          family: FONT_CONFIG.defaultFamily,
-          style: isHeader ? FONT_CONFIG.boldStyle : FONT_CONFIG.defaultStyle
-        };
-        textNode.fontSize = isHeader ? FONT_CONFIG.headerSize : FONT_CONFIG.cellSize;
-        textNode.fills = [{ type: "SOLID", color: COLORS.black }];
-        cell.appendChild(textNode);
-        row.appendChild(cell);
-      }
-      return row;
-    }
-    async createTokenRow(token) {
-      const row = figma.createFrame();
-      row.name = token.fullPath;
-      row.layoutMode = "HORIZONTAL";
-      row.primaryAxisSizingMode = "FIXED";
-      row.counterAxisSizingMode = "AUTO";
-      row.resize(DOCUMENTATION.tableWidth, DOCUMENTATION.rowHeight);
-      row.itemSpacing = DOCUMENTATION.spacing;
-      row.paddingLeft = DOCUMENTATION.spacing;
-      row.paddingRight = DOCUMENTATION.spacing;
-      row.paddingTop = 10;
-      row.paddingBottom = 10;
-      row.fills = [];
-      row.strokes = [{ type: "SOLID", color: COLORS.borderGray }];
-      row.strokeWeight = 1;
-      await figma.loadFontAsync({ family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle });
-      const nameCell = await this.createCell(token.fullPath, DOCUMENTATION.columnWidths[0]);
-      row.appendChild(nameCell);
-      const typeCell = await this.createCell(token.type, DOCUMENTATION.columnWidths[1]);
-      row.appendChild(typeCell);
-      const valueStr = formatValue(token.originalValue, token.type);
-      const valueCell = await this.createCell(valueStr, DOCUMENTATION.columnWidths[2]);
-      row.appendChild(valueCell);
-      const aliasCell = await this.createCell(token.aliasTo || "-", DOCUMENTATION.columnWidths[3]);
-      row.appendChild(aliasCell);
-      const previewCell = await this.createPreviewCell(token, DOCUMENTATION.columnWidths[4]);
-      row.appendChild(previewCell);
-      const descCell = await this.createCell(token.description || "-", DOCUMENTATION.columnWidths[5]);
-      row.appendChild(descCell);
-      return row;
-    }
-    async createCell(text, width) {
-      const cell = figma.createFrame();
-      cell.layoutMode = "HORIZONTAL";
-      cell.primaryAxisSizingMode = "FIXED";
-      cell.counterAxisSizingMode = "AUTO";
-      cell.resize(width, cell.height);
-      cell.fills = [];
-      await figma.loadFontAsync({ family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle });
-      const textNode = figma.createText();
-      textNode.characters = text;
-      textNode.fontName = { family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle };
-      textNode.fontSize = FONT_CONFIG.cellSize;
-      textNode.fills = [{ type: "SOLID", color: COLORS.gray }];
-      cell.appendChild(textNode);
-      return cell;
-    }
-    async createPreviewCell(token, width) {
-      const cell = figma.createFrame();
-      cell.layoutMode = "HORIZONTAL";
-      cell.primaryAxisSizingMode = "FIXED";
-      cell.counterAxisSizingMode = "AUTO";
-      cell.primaryAxisAlignItems = "CENTER";
-      cell.resize(width, DOCUMENTATION.previewSize);
-      cell.fills = [];
-      cell.itemSpacing = 6;
-      switch (token.type) {
-        case "color":
-          if (token.value && typeof token.value === "object" && "r" in token.value) {
-            const colorPreview = figma.createRectangle();
-            colorPreview.resize(DOCUMENTATION.previewSize, DOCUMENTATION.previewSize);
-            colorPreview.fills = [{ type: "SOLID", color: token.value }];
-            colorPreview.strokes = [{ type: "SOLID", color: COLORS.lightGray }];
-            colorPreview.strokeWeight = 1;
-            colorPreview.cornerRadius = 4;
-            cell.appendChild(colorPreview);
-          }
-          break;
-        case "number":
-          if (typeof token.value === "number") {
-            await figma.loadFontAsync({ family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle });
-            const numberText = figma.createText();
-            numberText.fontName = { family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle };
-            numberText.characters = `${token.value}`;
-            numberText.fontSize = FONT_CONFIG.cellSize;
-            cell.appendChild(numberText);
-          }
-          break;
-        case "string":
-        default:
-          await figma.loadFontAsync({ family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle });
-          const defaultText = figma.createText();
-          defaultText.fontName = { family: FONT_CONFIG.defaultFamily, style: FONT_CONFIG.defaultStyle };
-          const displayValue = String(token.value).substring(0, 15);
-          defaultText.characters = displayValue;
-          defaultText.fontSize = 10;
-          cell.appendChild(defaultText);
-      }
-      return cell;
+      return {
+        owner: match[1],
+        repo: match[2].replace(".git", "")
+      };
     }
   };
 
   // src/main.ts
   var variableManager = new VariableManager();
-  var documentationGenerator = new DocumentationGenerator();
+  var githubService = new GitHubService();
   figma.showUI(__html__, { width: UI_CONFIG.width, height: UI_CONFIG.height });
   figma.ui.onmessage = async (msg) => {
     try {
@@ -634,8 +443,11 @@
         case "import-tokens":
           await handleImportTokens(msg.data);
           break;
-        case "generate-documentation":
-          await handleGenerateDocumentation();
+        case "github-fetch-files":
+          await handleGitHubFetchFiles(msg.data);
+          break;
+        case "github-import-files":
+          await handleGitHubImportFiles(msg.data);
           break;
         case "save-github-config":
           await handleSaveGithubConfig(msg.data);
@@ -662,12 +474,39 @@
       message: `\u2713 Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
     });
   }
-  async function handleGenerateDocumentation() {
-    await documentationGenerator.generateDocumentation();
-    figma.ui.postMessage({
-      type: "documentation-success",
-      message: "\u2713 Documentation generated successfully!"
-    });
+  async function handleGitHubFetchFiles(data) {
+    try {
+      const { token, owner, repo, branch } = data;
+      const files = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
+      figma.ui.postMessage({
+        type: "github-files-fetched",
+        data: { files }
+      });
+    } catch (error) {
+      figma.ui.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to fetch repository files"
+      });
+    }
+  }
+  async function handleGitHubImportFiles(data) {
+    try {
+      const { token, owner, repo, branch, files } = data;
+      const { primitives, semantics } = await githubService.fetchMultipleFiles(
+        { token, owner, repo, branch },
+        files
+      );
+      const stats = await variableManager.importTokens(primitives, semantics);
+      figma.ui.postMessage({
+        type: "import-success",
+        message: `\u2713 Tokens imported from GitHub: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
+      });
+    } catch (error) {
+      figma.ui.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to import files from GitHub"
+      });
+    }
   }
   async function handleSaveGithubConfig(data) {
     try {

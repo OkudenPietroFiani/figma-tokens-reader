@@ -451,12 +451,6 @@
         </svg>
         Connect to GitHub
       </button>
-      <button class="btn btn-secondary" id="generate-docs-btn">
-        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-        </svg>
-        Generate Documentation
-      </button>
     </div>
   </div>
 
@@ -631,14 +625,6 @@
       showScreen('welcome-screen');
     });
 
-    document.getElementById('generate-docs-btn').addEventListener('click', (e) => {
-      console.log('Generate docs button clicked');
-      e.preventDefault();
-      e.stopPropagation();
-      showMessage('welcome-message', 'info', 'Generating documentation from existing Figma variables...');
-      parent.postMessage({ pluginMessage: { type: 'generate-documentation' } }, '*');
-    });
-
     // ========================================
     // File Import Logic
     // ========================================
@@ -798,40 +784,21 @@
       githubLoading.classList.add('visible');
       hideMessage('github-message');
 
-      try {
-        await loadGithubFiles();
-        showMessage('github-message', 'success', 'Connected to repository successfully!');
-        fileBrowser.style.display = 'block';
-      } catch (error) {
-        showMessage('github-message', 'error', `Error: ${error.message}`);
-      } finally {
-        githubLoading.classList.remove('visible');
-      }
+      await loadGithubFiles();
     });
 
     async function loadGithubFiles() {
       const { token, owner, repo, branch } = githubConfig;
 
-      const response = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
-        {
-          headers: {
-            'Authorization': `token ${token}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
+      // Send request to backend to fetch files
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-fetch-files',
+          data: { token, owner, repo, branch }
         }
-      );
+      }, '*');
 
-      if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const jsonFiles = data.tree.filter(item =>
-        item.type === 'blob' && item.path.endsWith('.json')
-      );
-
-      displayGithubFiles(jsonFiles);
+      // Response will be handled by message listener
     }
 
     function displayGithubFiles(files) {
@@ -886,15 +853,7 @@
       githubLoading.classList.add('visible');
       hideMessage('github-message');
 
-      try {
-        await importSelectedGithubFiles();
-        showMessage('github-message', 'success', 'Files imported successfully!');
-      } catch (error) {
-        showMessage('github-message', 'error', `Error: ${error.message}`);
-        importGithubFilesBtn.disabled = false;
-      } finally {
-        githubLoading.classList.remove('visible');
-      }
+      await importSelectedGithubFiles();
     });
 
     syncGithubBtn.addEventListener('click', async () => {
@@ -902,76 +861,38 @@
       githubLoading.classList.add('visible');
       hideMessage('github-message');
 
-      try {
-        await importSelectedGithubFiles();
+      await importSelectedGithubFiles();
 
-        // Store sync config
-        parent.postMessage({
-          pluginMessage: {
-            type: 'save-github-config',
-            data: {
-              ...githubConfig,
-              files: Array.from(selectedFiles)
-            }
+      // Store sync config
+      parent.postMessage({
+        pluginMessage: {
+          type: 'save-github-config',
+          data: {
+            ...githubConfig,
+            files: Array.from(selectedFiles)
           }
-        }, '*');
-
-        showMessage('github-message', 'success', 'Files synced successfully! Configuration saved for future syncs.');
-      } catch (error) {
-        showMessage('github-message', 'error', `Error: ${error.message}`);
-      } finally {
-        syncGithubBtn.disabled = false;
-        githubLoading.classList.remove('visible');
-      }
+        }
+      }, '*');
     });
 
     async function importSelectedGithubFiles() {
       const { token, owner, repo, branch } = githubConfig;
-      primitivesData = null;
-      semanticsData = null;
 
-      for (const filePath of selectedFiles) {
-        const response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`,
-          {
-            headers: {
-              'Authorization': `token ${token}`,
-              'Accept': 'application/vnd.github.v3+json'
-            }
+      // Send request to backend to import files
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-import-files',
+          data: {
+            token,
+            owner,
+            repo,
+            branch,
+            files: Array.from(selectedFiles)
           }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
         }
+      }, '*');
 
-        const data = await response.json();
-        const content = atob(data.content);
-        const jsonData = JSON.parse(content);
-
-        // Determine if it's primitives or semantics based on filename or content
-        if (filePath.includes('primitive') || data.name.includes('primitive')) {
-          primitivesData = jsonData;
-        } else if (filePath.includes('semantic') || data.name.includes('semantic')) {
-          semanticsData = jsonData;
-        } else {
-          // Default to primitives if unclear
-          primitivesData = jsonData;
-        }
-      }
-
-      // Import to Figma
-      if (primitivesData || semanticsData) {
-        parent.postMessage({
-          pluginMessage: {
-            type: 'import-tokens',
-            data: {
-              primitives: primitivesData,
-              semantics: semanticsData
-            }
-          }
-        }, '*');
-      }
+      // Response will be handled by message listener
     }
 
     // ========================================
@@ -1013,6 +934,15 @@
           }
           break;
 
+        case 'github-files-fetched':
+          // Display the fetched files
+          if (msg.data && msg.data.files) {
+            displayGithubFiles(msg.data.files);
+            showMessage('github-message', 'success', 'Connected to repository successfully!');
+            fileBrowser.style.display = 'block';
+          }
+          break;
+
         case 'error':
           if (document.getElementById('import-screen').classList.contains('active')) {
             showMessage('import-message', 'error', `Error: ${msg.message}`);
@@ -1022,10 +952,6 @@
           } else {
             showMessage('welcome-message', 'error', `Error: ${msg.message}`);
           }
-          break;
-
-        case 'documentation-success':
-          showMessage('welcome-message', 'success', msg.message);
           break;
       }
     });
