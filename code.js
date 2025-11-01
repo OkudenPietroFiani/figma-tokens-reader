@@ -416,10 +416,12 @@
     }
     decodeBase64(base64) {
       const cleanBase64 = base64.replace(/\s/g, "");
-      if (typeof Buffer !== "undefined") {
-        return Buffer.from(cleanBase64, "base64").toString("utf-8");
+      try {
+        return atob(cleanBase64);
+      } catch (error) {
+        console.error("Error decoding base64:", error);
+        throw new Error("Failed to decode file content from GitHub");
       }
-      return atob(cleanBase64);
     }
     parseRepoUrl(url) {
       const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
@@ -491,17 +493,21 @@
   }
   async function handleGitHubImportFiles(data) {
     try {
+      console.log("handleGitHubImportFiles called with data:", data);
       const { token, owner, repo, branch, files } = data;
+      console.log("Fetching files from GitHub:", { owner, repo, branch, fileCount: files.length });
       const { primitives, semantics } = await githubService.fetchMultipleFiles(
         { token, owner, repo, branch },
         files
       );
+      console.log("Files fetched successfully, importing tokens...");
       const stats = await variableManager.importTokens(primitives, semantics);
       figma.ui.postMessage({
         type: "import-success",
         message: `\u2713 Tokens imported from GitHub: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
       });
     } catch (error) {
+      console.error("Error in handleGitHubImportFiles:", error);
       figma.ui.postMessage({
         type: "error",
         message: error instanceof Error ? error.message : "Failed to import files from GitHub"

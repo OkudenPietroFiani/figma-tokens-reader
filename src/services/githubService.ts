@@ -98,16 +98,17 @@ export class GitHubService {
   }
 
   private decodeBase64(base64: string): string {
-    // Remove whitespace and newlines
+    // Remove whitespace and newlines from base64 content
     const cleanBase64 = base64.replace(/\s/g, '');
 
-    // For Node.js environment (Figma plugin backend)
-    if (typeof Buffer !== 'undefined') {
-      return Buffer.from(cleanBase64, 'base64').toString('utf-8');
+    // Figma plugin environment uses browser-like APIs
+    // Use atob for base64 decoding
+    try {
+      return atob(cleanBase64);
+    } catch (error) {
+      console.error('Error decoding base64:', error);
+      throw new Error('Failed to decode file content from GitHub');
     }
-
-    // Fallback for browser environment
-    return atob(cleanBase64);
   }
 
   parseRepoUrl(url: string): { owner: string; repo: string } | null {
