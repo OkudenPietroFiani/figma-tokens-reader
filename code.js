@@ -5,6 +5,7 @@ figma.showUI(__html__, { width: 800, height: 600 });
 // Store created variables for reference resolution
 const variableMap = new Map();
 const collectionMap = new Map();
+const tokenMetadata = [];
 let importStats = { added: 0, updated: 0, skipped: 0 };
 figma.ui.onmessage = async (msg) => {
     try {
@@ -14,6 +15,13 @@ figma.ui.onmessage = async (msg) => {
             figma.ui.postMessage({
                 type: 'import-success',
                 message: `✓ Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
+            });
+        }
+        else if (msg.type === 'generate-documentation') {
+            await generateDocumentation();
+            figma.ui.postMessage({
+                type: 'documentation-success',
+                message: '✓ Documentation generated successfully!'
             });
         }
         else if (msg.type === 'cancel') {
@@ -30,8 +38,9 @@ figma.ui.onmessage = async (msg) => {
 };
 async function importTokens(primitives, semantics) {
     try {
-        // Reset stats
+        // Reset stats and metadata
         importStats = { added: 0, updated: 0, skipped: 0 };
+        tokenMetadata.length = 0;
         // Clear existing collections or get them
         const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
         // Create or get collections
@@ -68,7 +77,7 @@ async function processTokenGroup(tokens, collectionName, collection, pathPrefix)
         if (value && typeof value === 'object') {
             if ('$value' in value) {
                 // This is a token
-                await createVariable(value, currentPath, collection);
+                await createVariable(value, currentPath, collection, collectionName);
             }
             else {
                 // This is a group, recurse
@@ -77,7 +86,7 @@ async function processTokenGroup(tokens, collectionName, collection, pathPrefix)
         }
     }
 }
-async function createVariable(token, path, collection) {
+async function createVariable(token, path, collection, collectionName) {
     try {
         const variableName = path.join('/');
         const tokenType = token.$type || inferTokenType(token.$value);
@@ -125,6 +134,19 @@ async function createVariable(token, path, collection) {
         if (token.$description) {
             variable.description = token.$description;
         }
+        // Store token metadata for documentation
+        const fullPath = `${collectionName.toLowerCase()}.${path.join('.')}`;
+        const metadata = {
+            name: path[path.length - 1],
+            fullPath: fullPath,
+            type: tokenType,
+            value: processedValue.value,
+            originalValue: token.$value,
+            description: token.$description,
+            aliasTo: processedValue.isAlias && processedValue.aliasVariable ? processedValue.aliasVariable.name : undefined,
+            collection: collectionName
+        };
+        tokenMetadata.push(metadata);
     }
     catch (error) {
         console.error(`Error creating variable ${path.join('/')}: ${error}`);
@@ -419,5 +441,242 @@ function parseFontFamily(value) {
         return result;
     }
     console.log('parseFontFamily returning:', String(value));
+    return String(value);
+}
+async function generateDocumentation() {
+    console.log('Generating documentation for', tokenMetadata.length, 'tokens');
+    if (tokenMetadata.length === 0) {
+        figma.notify('No tokens to document. Please import tokens first.', { timeout: 3000 });
+        return;
+    }
+    // Group tokens by collection
+    const primitiveTokens = tokenMetadata.filter(t => t.collection === 'Primitive');
+    const semanticTokens = tokenMetadata.filter(t => t.collection === 'Semantic');
+    const startX = figma.viewport.center.x - 400;
+    let currentY = figma.viewport.center.y;
+    // Create documentation for Primitive tokens
+    if (primitiveTokens.length > 0) {
+        await createDocumentationFrame('Primitive Tokens', primitiveTokens, startX, currentY);
+        currentY += 100; // Spacing between frames
+    }
+    // Create documentation for Semantic tokens
+    if (semanticTokens.length > 0) {
+        await createDocumentationFrame('Semantic Tokens', semanticTokens, startX, currentY);
+    }
+    figma.notify('Documentation generated successfully', { timeout: 3000 });
+}
+async function createDocumentationFrame(title, tokens, x, y) {
+    const frame = figma.createFrame();
+    frame.name = title;
+    frame.x = x;
+    frame.y = y;
+    frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+    frame.layoutMode = 'VERTICAL';
+    frame.primaryAxisSizingMode = 'AUTO';
+    frame.counterAxisSizingMode = 'AUTO';
+    frame.paddingTop = 32;
+    frame.paddingBottom = 32;
+    frame.paddingLeft = 32;
+    frame.paddingRight = 32;
+    frame.itemSpacing = 0;
+    // Add title
+    const titleText = figma.createText();
+    await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+    titleText.fontName = { family: 'Inter', style: 'Bold' };
+    titleText.fontSize = 24;
+    titleText.characters = title;
+    titleText.fills = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }];
+    frame.appendChild(titleText);
+    // Add spacing
+    const spacer1 = figma.createRectangle();
+    spacer1.resize(1, 24);
+    spacer1.fills = [];
+    frame.appendChild(spacer1);
+    // Create table header
+    const headerRow = await createTableRow(['Name', 'Type', 'Value', 'Alias', 'Preview', 'Description'], true);
+    frame.appendChild(headerRow);
+    // Add token rows
+    for (const token of tokens) {
+        const row = await createTokenRow(token);
+        frame.appendChild(row);
+    }
+    figma.currentPage.appendChild(frame);
+}
+async function createTableRow(cells, isHeader = false) {
+    const row = figma.createFrame();
+    row.name = isHeader ? 'Header' : 'Row';
+    row.layoutMode = 'HORIZONTAL';
+    row.primaryAxisSizingMode = 'FIXED';
+    row.counterAxisSizingMode = 'AUTO';
+    row.resize(900, isHeader ? 40 : 60);
+    row.itemSpacing = 12;
+    row.paddingLeft = 12;
+    row.paddingRight = 12;
+    row.paddingTop = 10;
+    row.paddingBottom = 10;
+    row.fills = isHeader ? [{ type: 'SOLID', color: { r: 0.95, g: 0.95, b: 0.95 } }] : [];
+    const columnWidths = [180, 90, 120, 130, 120, 260];
+    await figma.loadFontAsync({ family: 'Inter', style: isHeader ? 'Bold' : 'Regular' });
+    for (let index = 0; index < cells.length; index++) {
+        const text = cells[index];
+        const cell = figma.createFrame();
+        cell.name = `Cell ${index}`;
+        cell.layoutMode = 'HORIZONTAL';
+        cell.primaryAxisSizingMode = 'FIXED';
+        cell.counterAxisSizingMode = 'AUTO';
+        cell.resize(columnWidths[index], cell.height);
+        cell.fills = [];
+        const textNode = figma.createText();
+        textNode.characters = text;
+        textNode.fontName = { family: 'Inter', style: isHeader ? 'Bold' : 'Regular' };
+        textNode.fontSize = isHeader ? 12 : 11;
+        textNode.fills = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }];
+        cell.appendChild(textNode);
+        row.appendChild(cell);
+    }
+    return row;
+}
+async function createTokenRow(token) {
+    const row = figma.createFrame();
+    row.name = token.fullPath;
+    row.layoutMode = 'HORIZONTAL';
+    row.primaryAxisSizingMode = 'FIXED';
+    row.counterAxisSizingMode = 'AUTO';
+    row.resize(900, 60);
+    row.itemSpacing = 12;
+    row.paddingLeft = 12;
+    row.paddingRight = 12;
+    row.paddingTop = 10;
+    row.paddingBottom = 10;
+    row.fills = [];
+    row.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+    row.strokeWeight = 1;
+    const columnWidths = [180, 90, 120, 130, 120, 260];
+    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+    // Name
+    const nameCell = await createCell(token.fullPath, columnWidths[0]);
+    row.appendChild(nameCell);
+    // Type
+    const typeCell = await createCell(token.type, columnWidths[1]);
+    row.appendChild(typeCell);
+    // Value
+    const valueStr = formatValue(token.originalValue, token.type);
+    const valueCell = await createCell(valueStr, columnWidths[2]);
+    row.appendChild(valueCell);
+    // Alias
+    const aliasCell = await createCell(token.aliasTo || '-', columnWidths[3]);
+    row.appendChild(aliasCell);
+    // Preview
+    const previewCell = await createPreviewCell(token, columnWidths[4]);
+    row.appendChild(previewCell);
+    // Description
+    const descCell = await createCell(token.description || '-', columnWidths[5]);
+    row.appendChild(descCell);
+    return row;
+}
+async function createCell(text, width) {
+    const cell = figma.createFrame();
+    cell.layoutMode = 'HORIZONTAL';
+    cell.primaryAxisSizingMode = 'FIXED';
+    cell.counterAxisSizingMode = 'AUTO';
+    cell.resize(width, cell.height);
+    cell.fills = [];
+    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+    const textNode = figma.createText();
+    textNode.characters = text;
+    textNode.fontName = { family: 'Inter', style: 'Regular' };
+    textNode.fontSize = 11;
+    textNode.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
+    cell.appendChild(textNode);
+    return cell;
+}
+async function createPreviewCell(token, width) {
+    const cell = figma.createFrame();
+    cell.layoutMode = 'HORIZONTAL';
+    cell.primaryAxisSizingMode = 'FIXED';
+    cell.counterAxisSizingMode = 'AUTO';
+    cell.primaryAxisAlignItems = 'CENTER';
+    cell.resize(width, 40);
+    cell.fills = [];
+    cell.itemSpacing = 6;
+    switch (token.type) {
+        case 'color':
+            if (token.value && typeof token.value === 'object' && 'r' in token.value) {
+                const colorPreview = figma.createRectangle();
+                colorPreview.resize(40, 40);
+                colorPreview.fills = [{ type: 'SOLID', color: token.value }];
+                colorPreview.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
+                colorPreview.strokeWeight = 1;
+                colorPreview.cornerRadius = 4;
+                cell.appendChild(colorPreview);
+            }
+            break;
+        case 'spacing':
+        case 'dimension':
+            if (typeof token.value === 'number') {
+                const spacingPreview = figma.createRectangle();
+                const size = Math.min(token.value, 40);
+                spacingPreview.resize(size, size);
+                spacingPreview.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.7, b: 1 } }];
+                spacingPreview.cornerRadius = 2;
+                cell.appendChild(spacingPreview);
+                // Add size label
+                await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+                const sizeText = figma.createText();
+                sizeText.fontName = { family: 'Inter', style: 'Regular' };
+                sizeText.characters = `${token.value}px`;
+                sizeText.fontSize = 9;
+                sizeText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
+                cell.appendChild(sizeText);
+            }
+            break;
+        case 'fontFamily':
+            if (typeof token.value === 'string') {
+                const fontText = figma.createText();
+                try {
+                    await figma.loadFontAsync({ family: token.value, style: 'Regular' });
+                    fontText.fontName = { family: token.value, style: 'Regular' };
+                }
+                catch (_a) {
+                    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+                    fontText.fontName = { family: 'Inter', style: 'Regular' };
+                }
+                fontText.characters = 'Aa';
+                fontText.fontSize = 18;
+                cell.appendChild(fontText);
+            }
+            break;
+        case 'number':
+            if (typeof token.value === 'number') {
+                await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+                const numberText = figma.createText();
+                numberText.fontName = { family: 'Inter', style: 'Regular' };
+                const percentage = Math.round(token.value * 100);
+                numberText.characters = `${percentage}%`;
+                numberText.fontSize = 11;
+                cell.appendChild(numberText);
+            }
+            break;
+        default:
+            await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+            const defaultText = figma.createText();
+            defaultText.fontName = { family: 'Inter', style: 'Regular' };
+            const displayValue = String(token.value).substring(0, 15);
+            defaultText.characters = displayValue;
+            defaultText.fontSize = 10;
+            cell.appendChild(defaultText);
+    }
+    return cell;
+}
+function formatValue(value, type) {
+    if (typeof value === 'object' && value !== null) {
+        if ('value' in value && 'unit' in value) {
+            return `${value.value}${value.unit}`;
+        }
+        if ('value' in value) {
+            return String(value.value);
+        }
+        return JSON.stringify(value);
+    }
     return String(value);
 }
