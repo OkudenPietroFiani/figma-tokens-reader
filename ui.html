@@ -1,17 +1,574 @@
-<h2>Rectangle Creator</h2>
-<p>Count: <input id="count" type="number" value="5"></p>
-<button id="create">Create</button>
-<button id="cancel">Cancel</button>
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>W3C Design Tokens Importer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-document.getElementById('create').onclick = () => {
-  const textbox = document.getElementById('count');
-  const count = parseInt(textbox.value, 10);
-  parent.postMessage({ pluginMessage: { type: 'create-shapes', count } }, '*')
-}
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+    }
 
-document.getElementById('cancel').onclick = () => {
-  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*')
-}
+    .container {
+      max-width: 100%;
+      height: 100%;
+    }
 
-</script>
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #000;
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #000;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    /* File Upload Section */
+    .upload-section {
+      border: 2px dashed #d0d0d0;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      background: #f9f9f9;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .upload-section:hover {
+      border-color: #0d99ff;
+      background: #f0f8ff;
+    }
+
+    .upload-section.drag-over {
+      border-color: #0d99ff;
+      background: #e6f4ff;
+    }
+
+    .upload-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      color: #999;
+    }
+
+    .upload-text {
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #666;
+    }
+
+    .upload-subtext {
+      font-size: 11px;
+      color: #999;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .file-name {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #333;
+      display: none;
+    }
+
+    .file-name.visible {
+      display: block;
+    }
+
+    /* Preview Section */
+    .preview-section {
+      display: none;
+    }
+
+    .preview-section.visible {
+      display: block;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .preview-column {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .preview-header {
+      padding: 12px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: 600;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .preview-content {
+      padding: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      background: #fafafa;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .json-key {
+      color: #0066cc;
+    }
+
+    .json-string {
+      color: #008000;
+    }
+
+    .json-number {
+      color: #cc6600;
+    }
+
+    .json-boolean {
+      color: #cc00cc;
+    }
+
+    .json-null {
+      color: #999;
+    }
+
+    /* Export Section */
+    .export-section {
+      display: none;
+    }
+
+    .export-section.visible {
+      display: block;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #0d99ff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0b7fd4;
+    }
+
+    .btn-primary:active {
+      background: #0a6eb8;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: #333;
+      border: 1px solid #e0e0e0;
+      margin-top: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: #f5f5f5;
+    }
+
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
+      color: #666;
+      font-size: 12px;
+    }
+
+    .loading.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e0e0e0;
+      border-top-color: #0d99ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .message {
+      display: none;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+
+    .message.visible {
+      display: block;
+    }
+
+    .message.success {
+      background: #e6f7e6;
+      color: #006600;
+      border: 1px solid #99dd99;
+    }
+
+    .message.error {
+      background: #ffe6e6;
+      color: #cc0000;
+      border: 1px solid #ffb3b3;
+    }
+
+    .info-box {
+      padding: 12px;
+      background: #f0f8ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #0066cc;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .info-box strong {
+      font-weight: 600;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f0f0f0;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #c0c0c0;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a0a0a0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>W3C Design Tokens Importer</h1>
+
+    <div class="info-box">
+      <strong>Instructions:</strong> Upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files. The plugin will convert W3C Design Tokens to Figma variables.
+    </div>
+
+    <!-- Upload Section -->
+    <div class="section">
+      <div class="upload-section" id="drop-zone">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">
+          <strong>Drop a ZIP file here or click to browse</strong>
+        </div>
+        <div class="upload-subtext">
+          Supports .zip files or individual .json files (primitives.json, semantics.json)
+        </div>
+        <input type="file" id="file-input" accept=".zip,.json" multiple>
+      </div>
+      <div class="file-name" id="file-name"></div>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="section preview-section" id="preview-section">
+      <h2>JSON Preview</h2>
+      <div class="preview-grid">
+        <div class="preview-column">
+          <div class="preview-header">primitives.json</div>
+          <div class="preview-content" id="primitives-preview">
+            <pre>No data loaded</pre>
+          </div>
+        </div>
+        <div class="preview-column">
+          <div class="preview-header">semantics.json</div>
+          <div class="preview-content" id="semantics-preview">
+            <pre>No data loaded</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="section export-section" id="export-section">
+      <button class="btn btn-primary" id="export-btn">
+        Export to Figma Variables
+      </button>
+      <button class="btn btn-secondary" id="cancel-btn">
+        Cancel
+      </button>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <span>Importing tokens...</span>
+      </div>
+      <div class="message" id="message"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    let primitivesData = null;
+    let semanticsData = null;
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const previewSection = document.getElementById('preview-section');
+    const exportSection = document.getElementById('export-section');
+    const exportBtn = document.getElementById('export-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const loading = document.getElementById('loading');
+    const message = document.getElementById('message');
+    const primitivesPreview = document.getElementById('primitives-preview');
+    const semanticsPreview = document.getElementById('semantics-preview');
+
+    // Click to upload
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+    });
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    async function handleFiles(files) {
+      if (files.length === 0) return;
+
+      try {
+        const file = files[0];
+        fileName.textContent = file.name;
+        fileName.classList.add('visible');
+
+        if (file.name.endsWith('.zip')) {
+          await handleZipFile(file);
+        } else if (file.name.endsWith('.json')) {
+          await handleJsonFiles(files);
+        } else {
+          showError('Please upload a .zip file or .json files');
+          return;
+        }
+
+        if (primitivesData || semanticsData) {
+          updatePreviews();
+          previewSection.classList.add('visible');
+          exportSection.classList.add('visible');
+        }
+      } catch (error) {
+        showError(`Error loading file: ${error.message}`);
+      }
+    }
+
+    async function handleZipFile(file) {
+      const zip = new JSZip();
+      const contents = await zip.loadAsync(file);
+
+      // Look for primitives.json and semantics.json
+      const primitivesFile = contents.file('primitives.json') ||
+                            contents.file('primitive.json') ||
+                            Object.keys(contents.files).find(f => f.includes('primitive') && f.endsWith('.json'));
+
+      const semanticsFile = contents.file('semantics.json') ||
+                           contents.file('semantic.json') ||
+                           Object.keys(contents.files).find(f => f.includes('semantic') && f.endsWith('.json'));
+
+      if (primitivesFile) {
+        const text = await contents.files[primitivesFile].async('text');
+        primitivesData = JSON.parse(text);
+      }
+
+      if (semanticsFile) {
+        const text = await contents.files[semanticsFile].async('text');
+        semanticsData = JSON.parse(text);
+      }
+
+      if (!primitivesData && !semanticsData) {
+        throw new Error('No primitives.json or semantics.json found in ZIP file');
+      }
+    }
+
+    async function handleJsonFiles(files) {
+      for (const file of files) {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (file.name.includes('primitive')) {
+          primitivesData = data;
+        } else if (file.name.includes('semantic')) {
+          semanticsData = data;
+        } else {
+          // Try to infer from content
+          if (!primitivesData) {
+            primitivesData = data;
+          } else if (!semanticsData) {
+            semanticsData = data;
+          }
+        }
+      }
+    }
+
+    function updatePreviews() {
+      if (primitivesData) {
+        primitivesPreview.innerHTML = syntaxHighlight(JSON.stringify(primitivesData, null, 2));
+      }
+
+      if (semanticsData) {
+        semanticsPreview.innerHTML = syntaxHighlight(JSON.stringify(semanticsData, null, 2));
+      }
+    }
+
+    function syntaxHighlight(json) {
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    // Export button
+    exportBtn.addEventListener('click', async () => {
+      if (!primitivesData && !semanticsData) {
+        showError('Please upload tokens first');
+        return;
+      }
+
+      exportBtn.disabled = true;
+      loading.classList.add('visible');
+      message.classList.remove('visible');
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'import-tokens',
+          data: {
+            primitives: primitivesData,
+            semantics: semanticsData
+          }
+        }
+      }, '*');
+    });
+
+    // Cancel button
+    cancelBtn.addEventListener('click', () => {
+      parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+    });
+
+    // Listen for messages from plugin
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+
+      if (msg.type === 'import-success') {
+        exportBtn.disabled = false;
+        loading.classList.remove('visible');
+        showSuccess(msg.message);
+
+        // Close plugin after 2 seconds
+        setTimeout(() => {
+          parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+        }, 2000);
+      } else if (msg.type === 'import-error') {
+        exportBtn.disabled = false;
+        loading.classList.remove('visible');
+        showError(msg.message);
+      }
+    };
+
+    function showSuccess(msg) {
+      message.textContent = msg;
+      message.className = 'message success visible';
+    }
+
+    function showError(msg) {
+      message.textContent = msg;
+      message.className = 'message error visible';
+    }
+  </script>
+</body>
+</html>
