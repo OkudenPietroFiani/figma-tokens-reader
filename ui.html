@@ -35,148 +35,19 @@
     h2 {
       font-size: 14px;
       font-weight: 600;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       color: #000;
     }
 
     .section {
-      margin-bottom: 24px;
-    }
-
-    /* File Upload Section */
-    .upload-section {
-      border: 2px dashed #d0d0d0;
-      border-radius: 8px;
-      padding: 24px;
-      text-align: center;
-      background: #f9f9f9;
-      transition: all 0.2s ease;
-      cursor: pointer;
-    }
-
-    .upload-section:hover {
-      border-color: #0d99ff;
-      background: #f0f8ff;
-    }
-
-    .upload-section.drag-over {
-      border-color: #0d99ff;
-      background: #e6f4ff;
-    }
-
-    .upload-icon {
-      font-size: 32px;
-      margin-bottom: 8px;
-      color: #999;
-    }
-
-    .upload-text {
-      font-size: 13px;
-      margin-bottom: 8px;
-      color: #666;
-    }
-
-    .upload-subtext {
-      font-size: 11px;
-      color: #999;
+      margin-bottom: 20px;
     }
 
     #file-input {
       display: none;
     }
 
-    .file-name {
-      margin-top: 12px;
-      padding: 8px 12px;
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #333;
-      display: none;
-    }
-
-    .file-name.visible {
-      display: block;
-    }
-
-    /* Preview Section */
-    .preview-section {
-      display: none;
-    }
-
-    .preview-section.visible {
-      display: block;
-    }
-
-    .preview-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .preview-column {
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .preview-header {
-      padding: 12px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #e0e0e0;
-      font-weight: 600;
-      font-size: 12px;
-      color: #333;
-    }
-
-    .preview-content {
-      padding: 12px;
-      max-height: 300px;
-      overflow-y: auto;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 11px;
-      line-height: 1.6;
-      background: #fafafa;
-    }
-
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .json-key {
-      color: #0066cc;
-    }
-
-    .json-string {
-      color: #008000;
-    }
-
-    .json-number {
-      color: #cc6600;
-    }
-
-    .json-boolean {
-      color: #cc00cc;
-    }
-
-    .json-null {
-      color: #999;
-    }
-
-    /* Export Section */
-    .export-section {
-      display: none;
-    }
-
-    .export-section.visible {
-      display: block;
-    }
-
+    /* Buttons */
     .btn {
       width: 100%;
       padding: 12px 20px;
@@ -194,17 +65,18 @@
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       background: #0b7fd4;
     }
 
-    .btn-primary:active {
+    .btn-primary:active:not(:disabled) {
       background: #0a6eb8;
     }
 
     .btn-primary:disabled {
       background: #ccc;
       cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .btn-secondary {
@@ -218,39 +90,14 @@
       background: #f5f5f5;
     }
 
-    .loading {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      margin-top: 12px;
-      color: #666;
-      font-size: 12px;
-    }
-
-    .loading.visible {
-      display: flex;
-    }
-
-    .spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid #e0e0e0;
-      border-top-color: #0d99ff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
+    /* Messages */
     .message {
       display: none;
       padding: 12px;
       border-radius: 6px;
-      margin-top: 12px;
+      margin-bottom: 16px;
       font-size: 12px;
+      line-height: 1.5;
     }
 
     .message.visible {
@@ -284,6 +131,124 @@
       font-weight: 600;
     }
 
+    /* Tabs */
+    .tabs {
+      display: none;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+      margin-bottom: 16px;
+    }
+
+    .tabs.visible {
+      display: block;
+    }
+
+    .tab-buttons {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid #e0e0e0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .tab-button:last-child {
+      border-right: none;
+    }
+
+    .tab-button:hover {
+      background: #e8e8e8;
+    }
+
+    .tab-button.active {
+      background: #fff;
+      color: #0d99ff;
+      border-bottom: 2px solid #0d99ff;
+      margin-bottom: -1px;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 12px;
+      max-height: 350px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      background: #fafafa;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .json-key {
+      color: #0066cc;
+    }
+
+    .json-string {
+      color: #008000;
+    }
+
+    .json-number {
+      color: #cc6600;
+    }
+
+    .json-boolean {
+      color: #cc00cc;
+    }
+
+    .json-null {
+      color: #999;
+    }
+
+    /* Loading */
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
+      color: #666;
+      font-size: 12px;
+    }
+
+    .loading.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e0e0e0;
+      border-top-color: #0d99ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 8px;
@@ -302,6 +267,13 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #a0a0a0;
     }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -309,56 +281,47 @@
     <h1>W3C Design Tokens Importer</h1>
 
     <div class="info-box">
-      <strong>Instructions:</strong> Upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files. The plugin will convert W3C Design Tokens to Figma variables.
+      <strong>Instructions:</strong> Click "Import Tokens" to upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files.
     </div>
 
-    <!-- Upload Section -->
+    <!-- Import Message -->
+    <div class="message" id="import-message"></div>
+
+    <!-- Import Button Section -->
     <div class="section">
-      <div class="upload-section" id="drop-zone">
-        <div class="upload-icon">📁</div>
-        <div class="upload-text">
-          <strong>Drop a ZIP file here or click to browse</strong>
-        </div>
-        <div class="upload-subtext">
-          Supports .zip files or individual .json files (primitives.json, semantics.json)
-        </div>
-        <input type="file" id="file-input" accept=".zip,.json" multiple>
-      </div>
-      <div class="file-name" id="file-name"></div>
+      <button class="btn btn-primary" id="import-btn">
+        Import Tokens
+      </button>
+      <input type="file" id="file-input" accept=".zip,.json" multiple>
     </div>
 
-    <!-- Preview Section -->
-    <div class="section preview-section" id="preview-section">
-      <h2>JSON Preview</h2>
-      <div class="preview-grid">
-        <div class="preview-column">
-          <div class="preview-header">primitives.json</div>
-          <div class="preview-content" id="primitives-preview">
-            <pre>No data loaded</pre>
-          </div>
-        </div>
-        <div class="preview-column">
-          <div class="preview-header">semantics.json</div>
-          <div class="preview-content" id="semantics-preview">
-            <pre>No data loaded</pre>
-          </div>
-        </div>
+    <!-- Tabs Section -->
+    <div class="tabs" id="tabs-section">
+      <div class="tab-buttons">
+        <button class="tab-button active" data-tab="primitives">primitives.json</button>
+        <button class="tab-button" data-tab="semantics">semantics.json</button>
+      </div>
+      <div class="tab-content active" id="primitives-tab">
+        <div class="empty-state">No data imported</div>
+      </div>
+      <div class="tab-content" id="semantics-tab">
+        <div class="empty-state">No data imported</div>
       </div>
     </div>
 
     <!-- Export Section -->
-    <div class="section export-section" id="export-section">
-      <button class="btn btn-primary" id="export-btn">
-        Export to Figma Variables
+    <div class="section">
+      <button class="btn btn-primary" id="export-btn" disabled>
+        Import to Figma Variables
       </button>
       <button class="btn btn-secondary" id="cancel-btn">
         Cancel
       </button>
       <div class="loading" id="loading">
         <div class="spinner"></div>
-        <span>Importing tokens...</span>
+        <span>Importing to Figma...</span>
       </div>
-      <div class="message" id="message"></div>
+      <div class="message" id="export-message"></div>
     </div>
   </div>
 
@@ -367,72 +330,83 @@
     let primitivesData = null;
     let semanticsData = null;
 
-    const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-    const fileName = document.getElementById('file-name');
-    const previewSection = document.getElementById('preview-section');
-    const exportSection = document.getElementById('export-section');
+    const importBtn = document.getElementById('import-btn');
+    const importMessage = document.getElementById('import-message');
+    const tabsSection = document.getElementById('tabs-section');
+    const primitivesTab = document.getElementById('primitives-tab');
+    const semanticsTab = document.getElementById('semantics-tab');
     const exportBtn = document.getElementById('export-btn');
     const cancelBtn = document.getElementById('cancel-btn');
     const loading = document.getElementById('loading');
-    const message = document.getElementById('message');
-    const primitivesPreview = document.getElementById('primitives-preview');
-    const semanticsPreview = document.getElementById('semantics-preview');
+    const exportMessage = document.getElementById('export-message');
+    const tabButtons = document.querySelectorAll('.tab-button');
 
-    // Click to upload
-    dropZone.addEventListener('click', () => {
+    // Import button click
+    importBtn.addEventListener('click', () => {
       fileInput.click();
     });
 
     // File input change
-    fileInput.addEventListener('change', (e) => {
-      handleFiles(e.target.files);
+    fileInput.addEventListener('change', async (e) => {
+      if (e.target.files.length === 0) return;
+
+      // Hide previous messages
+      importMessage.classList.remove('visible');
+      exportMessage.classList.remove('visible');
+
+      await handleFiles(e.target.files);
     });
 
-    // Drag and drop
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.add('drag-over');
-    });
+    // Tab switching
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabName = button.dataset.tab;
 
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove('drag-over');
-    });
+        // Update button states
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
 
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZone.classList.remove('drag-over');
-      handleFiles(e.dataTransfer.files);
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        document.getElementById(tabName + '-tab').classList.add('active');
+      });
     });
 
     async function handleFiles(files) {
-      if (files.length === 0) return;
-
       try {
+        // Reset data
+        primitivesData = null;
+        semanticsData = null;
+
         const file = files[0];
-        fileName.textContent = file.name;
-        fileName.classList.add('visible');
 
         if (file.name.endsWith('.zip')) {
           await handleZipFile(file);
         } else if (file.name.endsWith('.json')) {
           await handleJsonFiles(files);
         } else {
-          showError('Please upload a .zip file or .json files');
+          showImportError('Please upload a .zip file or .json files');
           return;
         }
 
         if (primitivesData || semanticsData) {
-          updatePreviews();
-          previewSection.classList.add('visible');
-          exportSection.classList.add('visible');
+          updateTabs();
+          tabsSection.classList.add('visible');
+          exportBtn.disabled = false;
+
+          const filesImported = [];
+          if (primitivesData) filesImported.push('primitives.json');
+          if (semanticsData) filesImported.push('semantics.json');
+
+          showImportSuccess(`Successfully imported: ${filesImported.join(', ')}`);
+        } else {
+          showImportError('No valid token files found');
         }
       } catch (error) {
-        showError(`Error loading file: ${error.message}`);
+        showImportError(`Error loading file: ${error.message}`);
       }
     }
 
@@ -484,19 +458,23 @@
       }
     }
 
-    function updatePreviews() {
+    function updateTabs() {
       if (primitivesData) {
-        primitivesPreview.innerHTML = syntaxHighlight(JSON.stringify(primitivesData, null, 2));
+        primitivesTab.innerHTML = syntaxHighlight(JSON.stringify(primitivesData, null, 2));
+      } else {
+        primitivesTab.innerHTML = '<div class="empty-state">No primitives data</div>';
       }
 
       if (semanticsData) {
-        semanticsPreview.innerHTML = syntaxHighlight(JSON.stringify(semanticsData, null, 2));
+        semanticsTab.innerHTML = syntaxHighlight(JSON.stringify(semanticsData, null, 2));
+      } else {
+        semanticsTab.innerHTML = '<div class="empty-state">No semantics data</div>';
       }
     }
 
     function syntaxHighlight(json) {
       json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+      return '<pre>' + json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
         let cls = 'json-number';
         if (/^"/.test(match)) {
           if (/:$/.test(match)) {
@@ -510,19 +488,19 @@
           cls = 'json-null';
         }
         return '<span class="' + cls + '">' + match + '</span>';
-      });
+      }) + '</pre>';
     }
 
     // Export button
     exportBtn.addEventListener('click', async () => {
       if (!primitivesData && !semanticsData) {
-        showError('Please upload tokens first');
+        showExportError('Please import tokens first');
         return;
       }
 
       exportBtn.disabled = true;
       loading.classList.add('visible');
-      message.classList.remove('visible');
+      exportMessage.classList.remove('visible');
 
       parent.postMessage({
         pluginMessage: {
@@ -547,7 +525,7 @@
       if (msg.type === 'import-success') {
         exportBtn.disabled = false;
         loading.classList.remove('visible');
-        showSuccess(msg.message);
+        showExportSuccess(msg.message);
 
         // Close plugin after 2 seconds
         setTimeout(() => {
@@ -556,18 +534,28 @@
       } else if (msg.type === 'import-error') {
         exportBtn.disabled = false;
         loading.classList.remove('visible');
-        showError(msg.message);
+        showExportError(msg.message);
       }
     };
 
-    function showSuccess(msg) {
-      message.textContent = msg;
-      message.className = 'message success visible';
+    function showImportSuccess(msg) {
+      importMessage.textContent = msg;
+      importMessage.className = 'message success visible';
     }
 
-    function showError(msg) {
-      message.textContent = msg;
-      message.className = 'message error visible';
+    function showImportError(msg) {
+      importMessage.textContent = msg;
+      importMessage.className = 'message error visible';
+    }
+
+    function showExportSuccess(msg) {
+      exportMessage.textContent = msg;
+      exportMessage.className = 'message success visible';
+    }
+
+    function showExportError(msg) {
+      exportMessage.textContent = msg;
+      exportMessage.className = 'message error visible';
     }
   </script>
 </body>
