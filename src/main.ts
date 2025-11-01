@@ -24,8 +24,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleGenerateDocumentation();
         break;
 
-      case 'connect-github':
-        await handleConnectGithub(msg.data);
+      case 'save-github-config':
+        await handleSaveGithubConfig(msg.data);
         break;
 
       case 'cancel':
@@ -63,11 +63,13 @@ async function handleGenerateDocumentation(): Promise<void> {
   });
 }
 
-async function handleConnectGithub(data: any): Promise<void> {
-  // TODO: Implement GitHub connection
-  figma.notify('GitHub connection coming soon!', { timeout: 3000 });
-  figma.ui.postMessage({
-    type: 'github-info',
-    message: 'GitHub integration is not yet implemented. Please use "Import from Computer" for now.'
-  });
+async function handleSaveGithubConfig(data: any): Promise<void> {
+  try {
+    // Save GitHub configuration to plugin data
+    await figma.clientStorage.setAsync('githubConfig', JSON.stringify(data));
+    figma.notify('GitHub sync configuration saved!', { timeout: 3000 });
+  } catch (error) {
+    console.error('Error saving GitHub config:', error);
+    throw new Error('Failed to save GitHub configuration');
+  }
 }
