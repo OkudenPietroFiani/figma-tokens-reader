@@ -314,6 +314,9 @@
       <button class="btn btn-primary" id="export-btn" disabled>
         Import to Figma Variables
       </button>
+      <button class="btn btn-primary" id="doc-btn" disabled style="margin-top: 12px;">
+        Generate Documentation
+      </button>
       <button class="btn btn-secondary" id="cancel-btn">
         Cancel
       </button>
@@ -321,7 +324,12 @@
         <div class="spinner"></div>
         <span>Importing to Figma...</span>
       </div>
+      <div class="loading" id="doc-loading">
+        <div class="spinner"></div>
+        <span>Generating documentation...</span>
+      </div>
       <div class="message" id="export-message"></div>
+      <div class="message" id="doc-message"></div>
     </div>
   </div>
 
@@ -337,9 +345,12 @@
     const primitivesTab = document.getElementById('primitives-tab');
     const semanticsTab = document.getElementById('semantics-tab');
     const exportBtn = document.getElementById('export-btn');
+    const docBtn = document.getElementById('doc-btn');
     const cancelBtn = document.getElementById('cancel-btn');
     const loading = document.getElementById('loading');
+    const docLoading = document.getElementById('doc-loading');
     const exportMessage = document.getElementById('export-message');
+    const docMessage = document.getElementById('doc-message');
     const tabButtons = document.querySelectorAll('.tab-button');
 
     // Import button click
@@ -396,6 +407,7 @@
           updateTabs();
           tabsSection.classList.add('visible');
           exportBtn.disabled = false;
+          docBtn.disabled = false;
 
           const filesImported = [];
           if (primitivesData) filesImported.push('primitives.json');
@@ -513,6 +525,24 @@
       }, '*');
     });
 
+    // Generate Documentation button
+    docBtn.addEventListener('click', async () => {
+      if (!primitivesData && !semanticsData) {
+        showDocError('Please import tokens first');
+        return;
+      }
+
+      docBtn.disabled = true;
+      docLoading.classList.add('visible');
+      docMessage.classList.remove('visible');
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'generate-documentation'
+        }
+      }, '*');
+    });
+
     // Cancel button
     cancelBtn.addEventListener('click', () => {
       parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
@@ -535,6 +565,15 @@
         exportBtn.disabled = false;
         loading.classList.remove('visible');
         showExportError(msg.message);
+      } else if (msg.type === 'documentation-success') {
+        docBtn.disabled = false;
+        docLoading.classList.remove('visible');
+        showDocSuccess(msg.message);
+
+        // Close plugin after 3 seconds
+        setTimeout(() => {
+          parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+        }, 3000);
       }
     };
 
@@ -556,6 +595,16 @@
     function showExportError(msg) {
       exportMessage.textContent = msg;
       exportMessage.className = 'message error visible';
+    }
+
+    function showDocSuccess(msg) {
+      docMessage.textContent = msg;
+      docMessage.className = 'message success visible';
+    }
+
+    function showDocError(msg) {
+      docMessage.textContent = msg;
+      docMessage.className = 'message error visible';
     }
   </script>
 </body>
