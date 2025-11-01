@@ -9,11 +9,7 @@
   "editorType": [
     "figma"
   ],
-  "ui": {
-    "file": "ui.html",
-    "width": 800,
-    "height": 600
-  },
+  "ui": "ui.html",
   "networkAccess": {
     "allowedDomains": [
       "none"
