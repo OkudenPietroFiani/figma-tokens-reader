@@ -1,257 +1,639 @@
 {
-  "button": {
-    "primary": {
+  "semantic": {
+    "color": {
       "background": {
-        "$value": "{color.primary.600}",
-        "$type": "color",
-        "$description": "Primary button background color"
-      },
-      "backgroundHover": {
-        "$value": "{color.primary.700}",
-        "$type": "color",
-        "$description": "Primary button background color on hover"
-      },
-      "text": {
-        "$value": "{color.neutral.white}",
-        "$type": "color",
-        "$description": "Primary button text color"
-      },
-      "padding": {
-        "$value": "{spacing.md}",
-        "$type": "spacing"
-      },
-      "borderRadius": {
-        "$value": "{dimension.borderRadius.md}",
-        "$type": "dimension"
-      }
-    },
-    "secondary": {
-      "background": {
-        "$value": "{color.neutral.gray.200}",
-        "$type": "color"
-      },
-      "backgroundHover": {
-        "$value": "{color.neutral.gray.300}",
-        "$type": "color"
-      },
-      "text": {
-        "$value": "{color.neutral.gray.900}",
-        "$type": "color"
-      },
-      "padding": {
-        "$value": "{spacing.md}",
-        "$type": "spacing"
-      },
-      "borderRadius": {
-        "$value": "{dimension.borderRadius.md}",
-        "$type": "dimension"
-      }
-    }
-  },
-  "card": {
-    "background": {
-      "$value": "{color.neutral.white}",
-      "$type": "color"
-    },
-    "border": {
-      "$value": "{color.neutral.gray.200}",
-      "$type": "color"
-    },
-    "borderWidth": {
-      "$value": "{dimension.borderWidth.thin}",
-      "$type": "dimension"
-    },
-    "borderRadius": {
-      "$value": "{dimension.borderRadius.lg}",
-      "$type": "dimension"
-    },
-    "padding": {
-      "$value": "{spacing.lg}",
-      "$type": "spacing"
-    },
-    "shadow": {
-      "$value": "{color.neutral.black}",
-      "$type": "color"
-    },
-    "shadowOpacity": {
-      "$value": "{opacity.50}",
-      "$type": "number"
-    }
-  },
-  "text": {
-    "heading": {
-      "1": {
-        "fontSize": {
-          "$value": "{fontSize.4xl}",
-          "$type": "dimension"
+        "primary": {
+          "solid": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.600}",
+              "$description": "Primary solid background for high-emphasis buttons and filled components"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.700}",
+              "$description": "Primary solid background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.800}",
+              "$description": "Primary solid background pressed/active state"
+            }
+          },
+          "surface": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.50}",
+              "$description": "Primary surface background for subtle containers and cards with primary context"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.100}",
+              "$description": "Primary surface background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.200}",
+              "$description": "Primary surface background pressed/active state"
+            }
+          }
         },
-        "fontWeight": {
-          "$value": "{fontWeight.bold}",
-          "$type": "fontWeight"
+        "neutral": {
+          "solid": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.500}",
+              "$description": "Neutral solid background for secondary buttons and low-emphasis filled components"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.600}",
+              "$description": "Neutral solid background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.700}",
+              "$description": "Neutral solid background pressed/active state"
+            }
+          },
+          "surface": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.50}",
+              "$description": "Neutral surface background for general containers, cards, and page backgrounds"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.100}",
+              "$description": "Neutral surface background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.200}",
+              "$description": "Neutral surface background pressed/active state"
+            }
+          }
         },
-        "lineHeight": {
-          "$value": "{lineHeight.tight}",
-          "$type": "lineHeight"
+        "secondary": {
+          "solid": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.600}",
+              "$description": "Secondary solid background for accent buttons and highlighting components"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.700}",
+              "$description": "Secondary solid background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.800}",
+              "$description": "Secondary solid background pressed/active state"
+            }
+          },
+          "surface": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.50}",
+              "$description": "Secondary surface background for subtle accent containers and info panels"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.100}",
+              "$description": "Secondary surface background hover state"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.secondary.200}",
+              "$description": "Secondary surface background pressed/active state"
+            }
+          }
         },
-        "color": {
-          "$value": "{color.neutral.gray.900}",
-          "$type": "color"
+        "transparency": {
+          "overlay": {
+            "$type": "color",
+            "$value": "{primitive.color.neutral.900}",
+            "$description": "Dark overlay background for modals, dialogs, and backdrop components"
+          }
+        },
+        "feedback": {
+          "error": {
+            "solid": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.error.600}",
+                "$description": "Error solid background for destructive buttons and critical alerts"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.error.700}",
+                "$description": "Error solid background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.error.800}",
+                "$description": "Error solid background pressed/active state"
+              }
+            },
+            "surface": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.error.50}",
+                "$description": "Error surface background for subtle error messages and validation containers"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.error.100}",
+                "$description": "Error surface background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.error.200}",
+                "$description": "Error surface background pressed/active state"
+              }
+            }
+          },
+          "success": {
+            "solid": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.success.600}",
+                "$description": "Success solid background for confirmation buttons and positive action components"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.success.700}",
+                "$description": "Success solid background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.success.800}",
+                "$description": "Success solid background pressed/active state"
+              }
+            },
+            "surface": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.success.50}",
+                "$description": "Success surface background for subtle success messages and completion indicators"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.success.100}",
+                "$description": "Success surface background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.success.200}",
+                "$description": "Success surface background pressed/active state"
+              }
+            }
+          },
+          "warning": {
+            "solid": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.600}",
+                "$description": "Warning solid background for caution buttons and important notice components"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.700}",
+                "$description": "Warning solid background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.800}",
+                "$description": "Warning solid background pressed/active state"
+              }
+            },
+            "surface": {
+              "default": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.50}",
+                "$description": "Warning surface background for subtle warning messages and advisory notices"
+              },
+              "hover": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.100}",
+                "$description": "Warning surface background hover state"
+              },
+              "pressed": {
+                "$type": "color",
+                "$value": "{primitive.color.warning.200}",
+                "$description": "Warning surface background pressed/active state"
+              }
+            }
+          }
         }
       },
-      "2": {
-        "fontSize": {
-          "$value": "{fontSize.3xl}",
-          "$type": "dimension"
+      "text": {
+        "primary": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.900}",
+              "$description": "Primary strong text for headings and high-emphasis content with brand context"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.800}",
+              "$description": "Primary strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.700}",
+              "$description": "Primary strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.400}",
+              "$description": "Primary weak text for secondary labels and supporting content with primary context"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.500}",
+              "$description": "Primary weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.primary.600}",
+              "$description": "Primary weak text pressed/active state"
+            }
+          }
         },
-        "fontWeight": {
-          "$value": "{fontWeight.bold}",
-          "$type": "fontWeight"
+        "neutral": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.900}",
+              "$description": "Neutral strong text for body copy, headings, and primary content"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.800}",
+              "$description": "Neutral strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.700}",
+              "$description": "Neutral strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.400}",
+              "$description": "Neutral weak text for captions, helper text, and disabled states"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.500}",
+              "$description": "Neutral weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.600}",
+              "$description": "Neutral weak text pressed/active state"
+            }
+          }
         },
-        "lineHeight": {
-          "$value": "{lineHeight.tight}",
-          "$type": "lineHeight"
+        "error": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.error.700}",
+              "$description": "Error strong text for error messages, validation text, and destructive action labels"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.error.800}",
+              "$description": "Error strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.error.900}",
+              "$description": "Error strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.error.400}",
+              "$description": "Error weak text for secondary error indicators and subtle warnings"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.error.500}",
+              "$description": "Error weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.error.600}",
+              "$description": "Error weak text pressed/active state"
+            }
+          }
         },
-        "color": {
-          "$value": "{color.neutral.gray.900}",
-          "$type": "color"
+        "warning": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.700}",
+              "$description": "Warning strong text for caution messages and important advisory notices"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.800}",
+              "$description": "Warning strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.900}",
+              "$description": "Warning strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.400}",
+              "$description": "Warning weak text for secondary warning indicators and subtle advisories"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.500}",
+              "$description": "Warning weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.warning.600}",
+              "$description": "Warning weak text pressed/active state"
+            }
+          }
+        },
+        "success": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.success.700}",
+              "$description": "Success strong text for confirmation messages and positive feedback"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.success.800}",
+              "$description": "Success strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.success.900}",
+              "$description": "Success strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.success.400}",
+              "$description": "Success weak text for secondary success indicators and completion hints"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.success.500}",
+              "$description": "Success weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.success.600}",
+              "$description": "Success weak text pressed/active state"
+            }
+          }
+        },
+        "inversed": {
+          "strong": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.50}",
+              "$description": "Inversed strong text for content on dark backgrounds and filled components"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.100}",
+              "$description": "Inversed strong text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.200}",
+              "$description": "Inversed strong text pressed/active state"
+            }
+          },
+          "weak": {
+            "default": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.300}",
+              "$description": "Inversed weak text for secondary content on dark backgrounds"
+            },
+            "hover": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.200}",
+              "$description": "Inversed weak text hover state for interactive elements"
+            },
+            "pressed": {
+              "$type": "color",
+              "$value": "{primitive.color.neutral.100}",
+              "$description": "Inversed weak text pressed/active state"
+            }
+          }
         }
       },
-      "3": {
-        "fontSize": {
-          "$value": "{fontSize.2xl}",
-          "$type": "dimension"
+      "stroke": {
+        "primary": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.primary.700}",
+            "$description": "Primary strong stroke for borders, dividers, and outlines with high emphasis"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.primary.300}",
+            "$description": "Primary weak stroke for subtle borders and decorative elements"
+          }
         },
-        "fontWeight": {
-          "$value": "{fontWeight.semibold}",
-          "$type": "fontWeight"
+        "neutral": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.neutral.700}",
+            "$description": "Neutral strong stroke for standard borders, dividers, and input outlines"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.neutral.300}",
+            "$description": "Neutral weak stroke for subtle dividers and card borders"
+          }
         },
-        "lineHeight": {
-          "$value": "{lineHeight.normal}",
-          "$type": "lineHeight"
+        "error": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.error.700}",
+            "$description": "Error strong stroke for validation borders and error state outlines"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.error.300}",
+            "$description": "Error weak stroke for subtle error indicators and warning borders"
+          }
         },
-        "color": {
-          "$value": "{color.neutral.gray.900}",
-          "$type": "color"
+        "warning": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.warning.700}",
+            "$description": "Warning strong stroke for caution borders and advisory outlines"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.warning.300}",
+            "$description": "Warning weak stroke for subtle warning indicators and notice borders"
+          }
+        },
+        "success": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.success.700}",
+            "$description": "Success strong stroke for confirmation borders and positive state outlines"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.success.300}",
+            "$description": "Success weak stroke for subtle success indicators and completion borders"
+          }
+        }
+      },
+      "icon": {
+        "primary": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.primary.800}",
+            "$description": "Primary strong icon color for high-emphasis icons with brand context"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.primary.400}",
+            "$description": "Primary weak icon color for secondary icons and decorative elements"
+          }
+        },
+        "neutral": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.neutral.800}",
+            "$description": "Neutral strong icon color for standard UI icons and interactive elements"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.neutral.400}",
+            "$description": "Neutral weak icon color for secondary icons, placeholders, and disabled states"
+          }
+        },
+        "secondary": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.secondary.700}",
+            "$description": "Secondary strong icon color for accent icons and highlighting elements"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.secondary.400}",
+            "$description": "Secondary weak icon color for subtle accent icons"
+          }
+        },
+        "error": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.error.700}",
+            "$description": "Error strong icon color for error indicators, alerts, and destructive action icons"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.error.400}",
+            "$description": "Error weak icon color for subtle error indicators and warning symbols"
+          }
+        },
+        "warning": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.warning.700}",
+            "$description": "Warning strong icon color for caution indicators and advisory symbols"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.warning.400}",
+            "$description": "Warning weak icon color for subtle warning indicators and notice symbols"
+          }
+        },
+        "success": {
+          "strong": {
+            "$type": "color",
+            "$value": "{primitive.color.success.700}",
+            "$description": "Success strong icon color for confirmation indicators and positive action icons"
+          },
+          "weak": {
+            "$type": "color",
+            "$value": "{primitive.color.success.400}",
+            "$description": "Success weak icon color for subtle success indicators and completion symbols"
+          }
         }
       }
     },
-    "body": {
-      "fontSize": {
-        "$value": "{fontSize.base}",
-        "$type": "dimension"
+    "spacing": {
+      "2xs": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.1}",
+        "$description": "Extra extra small spacing (4px) for minimal gaps between tightly coupled elements"
       },
-      "fontWeight": {
-        "$value": "{fontWeight.normal}",
-        "$type": "fontWeight"
+      "xs": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.2}",
+        "$description": "Extra small spacing (8px) for compact layouts and small element spacing"
       },
-      "lineHeight": {
-        "$value": "{lineHeight.normal}",
-        "$type": "lineHeight"
+      "sm": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.4}",
+        "$description": "Small spacing (16px) for related elements and component internal padding"
       },
-      "color": {
-        "$value": "{color.neutral.gray.700}",
-        "$type": "color"
-      }
-    },
-    "caption": {
-      "fontSize": {
-        "$value": "{fontSize.sm}",
-        "$type": "dimension"
+      "md": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.6}",
+        "$description": "Medium spacing (24px) for standard component spacing and moderate separation"
       },
-      "fontWeight": {
-        "$value": "{fontWeight.normal}",
-        "$type": "fontWeight"
+      "lg": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.8}",
+        "$description": "Large spacing (32px) for sections and distinct content groups"
       },
-      "lineHeight": {
-        "$value": "{lineHeight.normal}",
-        "$type": "lineHeight"
+      "xl": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.10}",
+        "$description": "Extra large spacing (40px) for major sections and prominent separations"
       },
-      "color": {
-        "$value": "{color.neutral.gray.600}",
-        "$type": "color"
-      }
-    }
-  },
-  "input": {
-    "background": {
-      "$value": "{color.neutral.white}",
-      "$type": "color"
-    },
-    "border": {
-      "$value": "{color.neutral.gray.300}",
-      "$type": "color"
-    },
-    "borderFocus": {
-      "$value": "{color.primary.500}",
-      "$type": "color"
-    },
-    "borderWidth": {
-      "$value": "{dimension.borderWidth.thin}",
-      "$type": "dimension"
-    },
-    "borderRadius": {
-      "$value": "{dimension.borderRadius.md}",
-      "$type": "dimension"
-    },
-    "padding": {
-      "$value": "{spacing.sm}",
-      "$type": "spacing"
-    },
-    "text": {
-      "$value": "{color.neutral.gray.900}",
-      "$type": "color"
-    },
-    "placeholder": {
-      "$value": "{color.neutral.gray.400}",
-      "$type": "color"
-    }
-  },
-  "alert": {
-    "success": {
-      "background": {
-        "$value": "{color.success}",
-        "$type": "color"
+      "2xl": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.12}",
+        "$description": "Extra extra large spacing (48px) for page sections and large content blocks"
       },
-      "text": {
-        "$value": "{color.neutral.white}",
-        "$type": "color"
-      }
-    },
-    "warning": {
-      "background": {
-        "$value": "{color.warning}",
-        "$type": "color"
+      "3xl": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.16}",
+        "$description": "Triple extra large spacing (64px) for major page divisions and hero sections"
       },
-      "text": {
-        "$value": "{color.neutral.white}",
-        "$type": "color"
-      }
-    },
-    "error": {
-      "background": {
-        "$value": "{color.error}",
-        "$type": "color"
-      },
-      "text": {
-        "$value": "{color.neutral.white}",
-        "$type": "color"
+      "4xl": {
+        "$type": "spacing",
+        "$value": "{primitive.spacing.20}",
+        "$description": "Quadruple extra large spacing (80px) for maximum separation and layout breathing room"
       }
     }
   },
-  "layout": {
-    "maxWidth": {
-      "$value": "1280px",
-      "$type": "dimension"
-    },
-    "gutter": {
-      "$value": "{spacing.lg}",
-      "$type": "spacing"
-    },
-    "section": {
-      "paddingY": {
-        "$value": "{spacing.3xl}",
-        "$type": "spacing"
-      }
-    }
+  "$metadata": {
+    "tokenSetOrder": [
+      "semantic"
+    ]
   }
 }
