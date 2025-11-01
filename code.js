@@ -195,7 +195,7 @@ async function processTokenValue(value, tokenType, collection) {
         case 'fontSize':
             return { value: parseDimension(value), isAlias: false };
         case 'number':
-            return { value: parseFloat(value) || 0, isAlias: false };
+            return { value: parseNumber(value), isAlias: false };
         case 'typography':
             return { value: parseTypography(value), isAlias: false };
         case 'fontFamily':
@@ -233,6 +233,12 @@ function resolveReference(reference) {
     return null;
 }
 function parseColor(value) {
+    console.log('parseColor input:', value, 'type:', typeof value);
+    // Handle object format: {value: "#ff0000"}
+    if (typeof value === 'object' && value !== null && 'value' in value) {
+        console.log('parseColor using object.value:', value.value);
+        return parseColor(value.value); // Recursively parse the value property
+    }
     if (typeof value === 'string') {
         // Handle hex colors
         if (value.startsWith('#')) {
@@ -251,6 +257,7 @@ function parseColor(value) {
     if (typeof value === 'object' && value.hex) {
         return hexToRgb(value.hex);
     }
+    console.log('parseColor returning black for:', value);
     // Default to black
     return { r: 0, g: 0, b: 0 };
 }
@@ -320,8 +327,40 @@ function hslToRgb(h, s, l) {
     }
     return { r, g, b };
 }
+function parseNumber(value) {
+    console.log('parseNumber input:', value, 'type:', typeof value);
+    // Handle object format: {value: 0.5}
+    if (typeof value === 'object' && value !== null && 'value' in value) {
+        const result = parseFloat(value.value);
+        console.log('parseNumber parsed object:', value, '→', result);
+        return result || 0;
+    }
+    if (typeof value === 'number') {
+        console.log('parseNumber returning number:', value);
+        return value;
+    }
+    if (typeof value === 'string') {
+        const result = parseFloat(value);
+        console.log('parseNumber parsed string:', value, '→', result);
+        return result || 0;
+    }
+    console.log('parseNumber returning 0 for:', value);
+    return 0;
+}
 function parseDimension(value) {
     console.log('parseDimension input:', value, 'type:', typeof value);
+    // Handle object format: {value: 4, unit: "px"}
+    if (typeof value === 'object' && value !== null && 'value' in value) {
+        const numValue = parseFloat(value.value);
+        const unit = value.unit || 'px';
+        if (unit === 'rem') {
+            const result = numValue * 16; // Convert rem to px
+            console.log('parseDimension parsed object rem:', value, '→', result);
+            return result;
+        }
+        console.log('parseDimension parsed object:', value, '→', numValue);
+        return numValue;
+    }
     if (typeof value === 'number') {
         console.log('parseDimension returning number:', value);
         return value;
@@ -361,13 +400,24 @@ function parseTypography(value) {
     return String(value);
 }
 function parseFontFamily(value) {
+    console.log('parseFontFamily input:', value, 'type:', typeof value);
+    // Handle object format: {value: "Inter"}
+    if (typeof value === 'object' && value !== null && 'value' in value) {
+        console.log('parseFontFamily using object.value:', value.value);
+        return parseFontFamily(value.value); // Recursively parse the value property
+    }
     // If it's an array, extract only the first font family
     if (Array.isArray(value)) {
-        return value[0] ? String(value[0]) : 'Arial';
+        const result = value[0] ? String(value[0]) : 'Arial';
+        console.log('parseFontFamily from array:', value, '→', result);
+        return result;
     }
     // If it's a comma-separated string, extract the first one
     if (typeof value === 'string' && value.includes(',')) {
-        return value.split(',')[0].trim();
+        const result = value.split(',')[0].trim();
+        console.log('parseFontFamily from comma-separated:', value, '→', result);
+        return result;
     }
+    console.log('parseFontFamily returning:', String(value));
     return String(value);
 }
