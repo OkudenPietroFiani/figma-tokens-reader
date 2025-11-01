@@ -30,7 +30,7 @@ figma.ui.onmessage = async (msg) => {
 async function importTokens(primitives, semantics) {
     try {
         // Clear existing collections or get them
-        const existingCollections = figma.variables.getLocalVariableCollections();
+        const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
         // Create or get collections
         let primitiveCollection = existingCollections.find(c => c.name === 'Primitive');
         let semanticCollection = existingCollections.find(c => c.name === 'Semantic');
@@ -78,7 +78,7 @@ async function createVariable(token, path, collection) {
         const tokenType = token.$type || inferTokenType(token.$value);
         const figmaType = mapTokenTypeToFigma(tokenType);
         // Check if variable already exists
-        let variable = findVariableByName(variableName, collection);
+        let variable = await findVariableByName(variableName, collection);
         if (!variable) {
             variable = figma.variables.createVariable(variableName, collection, figmaType);
         }
@@ -111,8 +111,9 @@ async function createVariable(token, path, collection) {
         throw error;
     }
 }
-function findVariableByName(name, collection) {
-    const allVariables = collection.variableIds.map(id => figma.variables.getVariableById(id));
+async function findVariableByName(name, collection) {
+    const variablePromises = collection.variableIds.map(id => figma.variables.getVariableByIdAsync(id));
+    const allVariables = await Promise.all(variablePromises);
     return allVariables.find(v => v && v.name === name) || null;
 }
 function inferTokenType(value) {
