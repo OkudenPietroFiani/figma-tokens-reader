@@ -1,5 +1,5 @@
 {
-  "name": "tokens-reader",
+  "name": "W3C Design Tokens Importer",
   "id": "1566396382572790407",
   "api": "1.0.0",
   "main": "code.js",
@@ -9,7 +9,11 @@
   "editorType": [
     "figma"
   ],
-  "ui": "ui.html",
+  "ui": {
+    "file": "ui.html",
+    "width": 800,
+    "height": 600
+  },
   "networkAccess": {
     "allowedDomains": [
       "none"
