@@ -52,6 +52,7 @@ export class GitHubService {
   async fetchFileContent(config: GitHubConfig, filePath: string): Promise<any> {
     try {
       const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`;
+      console.log(`Fetching file: ${filePath}`);
 
       const response = await fetch(url, {
         headers: {
@@ -62,13 +63,22 @@ export class GitHubService {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`GitHub API error for ${filePath}:`, response.status, errorText);
         throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log(`File fetched successfully: ${filePath}, encoding: ${data.encoding}, size: ${data.size}`);
+
+      if (!data.content) {
+        throw new Error(`No content field in GitHub response for ${filePath}`);
+      }
 
       // Decode base64 content
       const content = this.decodeBase64(data.content);
+      console.log(`Content decoded, length: ${content.length} chars`);
+
       return JSON.parse(content);
     } catch (error) {
       console.error(`Error fetching file ${filePath}:`, error);
@@ -101,13 +111,24 @@ export class GitHubService {
     // Remove whitespace and newlines from base64 content
     const cleanBase64 = base64.replace(/\s/g, '');
 
-    // Figma plugin environment uses browser-like APIs
-    // Use atob for base64 decoding
     try {
-      return atob(cleanBase64);
+      // Decode base64 to binary string
+      const binaryString = atob(cleanBase64);
+
+      // Convert binary string to UTF-8
+      // This handles special characters correctly
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Decode UTF-8 bytes to string
+      const decoder = new TextDecoder('utf-8');
+      return decoder.decode(bytes);
     } catch (error) {
       console.error('Error decoding base64:', error);
-      throw new Error('Failed to decode file content from GitHub');
+      console.error('Base64 content (first 100 chars):', base64.substring(0, 100));
+      throw new Error(`Failed to decode file content from GitHub: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
