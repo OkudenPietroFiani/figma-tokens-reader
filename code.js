@@ -190,28 +190,6 @@
   function mapTokenTypeToFigma(tokenType) {
     return TYPE_MAPPING[tokenType] || "STRING";
   }
-  function getScopesForTokenType(tokenType, isAlias) {
-    if (!isAlias) {
-      return [];
-    }
-    switch (tokenType) {
-      case "color":
-        return ["ALL_FILLS", "STROKE_COLOR"];
-      case "dimension":
-      case "spacing":
-        return ["WIDTH_HEIGHT", "GAP", "MIN_WIDTH", "MAX_WIDTH", "MIN_HEIGHT", "MAX_HEIGHT"];
-      case "fontSize":
-        return ["FONT_SIZE"];
-      case "fontFamily":
-        return ["FONT_FAMILY"];
-      case "fontWeight":
-        return ["FONT_WEIGHT"];
-      case "lineHeight":
-        return ["LINE_HEIGHT"];
-      default:
-        return [];
-    }
-  }
   async function processTokenValue(value, tokenType, variableMap) {
     if (typeof value === "string" && value.includes("{") && value.includes("}")) {
       const reference = extractReference(value);
@@ -523,18 +501,7 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
-        const scopes = getScopesForTokenType(tokenType, processedValue.isAlias);
-        try {
-          variable.scopes = scopes;
-          console.log(`\u2713 Scopes set for ${variableName}:`, {
-            isAlias: processedValue.isAlias,
-            tokenType,
-            scopesCount: scopes.length,
-            scopes: scopes.length === 0 ? "NONE (primitive)" : scopes.join(", ")
-          });
-        } catch (error) {
-          console.error(`Failed to set scopes for ${variableName}:`, error);
-        }
+        variable.scopes = [];
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
