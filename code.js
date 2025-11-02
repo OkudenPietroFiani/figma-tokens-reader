@@ -258,11 +258,13 @@
         this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
         this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
         if (primitives) {
-          const cleanedPrimitives = this.prepareTokensForImport(primitives, "primitive");
+          console.log("\n=== PROCESSING PRIMITIVES ===");
+          const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
           await this.processTokenGroup(cleanedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
         }
         if (semantics) {
-          const cleanedSemantics = this.prepareTokensForImport(semantics, "semantic");
+          console.log("\n=== PROCESSING SEMANTICS ===");
+          const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
           await this.processTokenGroup(cleanedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
         }
         figma.notify(
@@ -295,23 +297,25 @@
       return collection;
     }
     /**
-     * Prepare tokens for import by:
-     * 1. Unwrapping file-keyed structure (multiple files)
-     * 2. Removing redundant collection-name wrapper from EACH file
-     * 3. Deep merging all token trees
+     * Prepare and validate token structure before import
+     * Ensures no redundant collection-name wrappers exist
+     *
+     * Clean code principle: Single responsibility - only prepares tokens
      */
-    prepareTokensForImport(data, collectionType) {
-      if (!data || typeof data !== "object") {
-        return {};
-      }
-      console.log(`[${collectionType}] Input keys:`, Object.keys(data));
+    prepareAndValidateTokens(data, collectionType) {
+      console.log(`
+[PREPARE] Input structure for ${collectionType}:`, this.getStructureSummary(data));
       const isFileKeyed = this.isFileKeyedStructure(data);
+      console.log(`[PREPARE] Is file-keyed: ${isFileKeyed}`);
+      let processed;
       if (isFileKeyed) {
-        console.log(`[${collectionType}] Processing file-keyed structure`);
-        return this.mergeTokenFiles(data, collectionType);
+        processed = this.processMultipleFiles(data, collectionType);
+      } else {
+        processed = this.removeAllCollectionWrappers(data, collectionType);
       }
-      console.log(`[${collectionType}] Processing single structure`);
-      return this.unwrapCollectionKey(data, collectionType);
+      this.validateNoCollectionWrappers(processed, collectionType);
+      console.log(`[PREPARE] Final structure for ${collectionType}:`, this.getStructureSummary(processed));
+      return processed;
     }
     /**
      * Check if data structure has file names as keys
@@ -323,45 +327,102 @@
       );
     }
     /**
-     * Merge multiple token files:
-     * 1. Unwrap collection name from each file individually
-     * 2. Deep merge the unwrapped contents
-     * 3. Unwrap the merged result if still has collection wrapper
+     * Process multiple token files and merge them
+     * Clean code: Separated concerns - file processing vs merging
      */
-    mergeTokenFiles(filesData, collectionType) {
-      const merged = {};
+    processMultipleFiles(filesData, collectionType) {
+      console.log(`[MULTI-FILE] Processing ${Object.keys(filesData).length} files`);
+      const cleanedFiles = [];
       for (const [fileName, fileContent] of Object.entries(filesData)) {
         if (!fileContent || typeof fileContent !== "object") continue;
-        console.log(`[${collectionType}] Processing file: ${fileName}, keys:`, Object.keys(fileContent));
-        const unwrapped = this.unwrapCollectionKey(fileContent, collectionType);
-        console.log(`[${collectionType}] After unwrap:`, Object.keys(unwrapped));
-        this.deepMerge(merged, unwrapped);
+        console.log(`
+[FILE] Processing: ${fileName}`);
+        console.log(`[FILE] Before clean:`, this.getStructureSummary(fileContent));
+        const cleaned = this.removeAllCollectionWrappers(fileContent, collectionType);
+        console.log(`[FILE] After clean:`, this.getStructureSummary(cleaned));
+        cleanedFiles.push(cleaned);
       }
-      console.log(`[${collectionType}] After merge, keys:`, Object.keys(merged));
-      const finalUnwrapped = this.unwrapCollectionKey(merged, collectionType);
-      console.log(`[${collectionType}] Final unwrapped keys:`, Object.keys(finalUnwrapped));
-      return finalUnwrapped;
+      const merged = this.deepMergeAll(cleanedFiles);
+      console.log(`[MULTI-FILE] After merge:`, this.getStructureSummary(merged));
+      return merged;
     }
     /**
-     * Remove redundant top-level key that matches collection name
+     * Remove ALL collection-name wrappers recursively
+     * This handles nested cases like: { "primitive": { "primitive": { ... } } }
+     *
+     * Clean code: Clear intent, handles edge cases
+     */
+    removeAllCollectionWrappers(data, collectionType) {
+      let current = data;
+      let iterations = 0;
+      const maxIterations = 5;
+      while (iterations < maxIterations) {
+        const keys = Object.keys(current);
+        if (keys.length === 1) {
+          const key = keys[0];
+          if (this.isCollectionNameKey(key, collectionType)) {
+            const unwrapped = current[key];
+            if (unwrapped && typeof unwrapped === "object" && !("$value" in unwrapped)) {
+              console.log(`[UNWRAP] Removed wrapper: '${key}'`);
+              current = unwrapped;
+              iterations++;
+              continue;
+            }
+          }
+        }
+        break;
+      }
+      if (iterations >= maxIterations) {
+        console.warn(`[UNWRAP] Warning: Max iterations reached. Possible circular structure.`);
+      }
+      return current;
+    }
+    /**
+     * Check if a key matches the collection name
      * Handles: "primitive", "primitives", "semantic", "semantics"
      */
-    unwrapCollectionKey(data, collectionType) {
+    isCollectionNameKey(key, collectionType) {
+      const normalized = key.toLowerCase();
+      return normalized === collectionType || normalized === collectionType + "s" || normalized === collectionType.slice(0, -1);
+    }
+    /**
+     * Validate that no collection-name keys remain in structure
+     * Throws error if found - fail fast principle
+     */
+    validateNoCollectionWrappers(data, collectionType) {
       const keys = Object.keys(data);
-      if (keys.length !== 1) {
-        return data;
-      }
-      const topKey = keys[0];
-      const normalizedKey = topKey.toLowerCase();
-      const matchesCollection = normalizedKey === collectionType || normalizedKey === collectionType + "s" || normalizedKey === collectionType.replace(/s$/, "");
-      if (matchesCollection) {
-        const unwrapped = data[topKey];
-        if (unwrapped && typeof unwrapped === "object") {
-          console.log(`Unwrapped redundant '${topKey}' key`);
-          return unwrapped;
+      for (const key of keys) {
+        if (this.isCollectionNameKey(key, collectionType)) {
+          const value = data[key];
+          if (value && typeof value === "object" && !("$value" in value)) {
+            console.error(`[VALIDATION] Found collection wrapper that should have been removed: '${key}'`);
+            console.error(`[VALIDATION] This will create duplicate levels in Figma!`);
+            throw new Error(`Validation failed: Collection wrapper '${key}' still exists in ${collectionType} data`);
+          }
         }
       }
-      return data;
+      console.log(`[VALIDATION] \u2713 No collection wrappers found in ${collectionType}`);
+    }
+    /**
+     * Get structure summary for logging
+     * Clean code: Helper for debugging
+     */
+    getStructureSummary(data) {
+      const keys = Object.keys(data);
+      if (keys.length === 0) return "{}";
+      if (keys.length <= 3) return `{ ${keys.join(", ")} }`;
+      return `{ ${keys.slice(0, 3).join(", ")}, ... (${keys.length} keys) }`;
+    }
+    /**
+     * Deep merge multiple token objects
+     * Clean code: Pure function, no side effects
+     */
+    deepMergeAll(sources) {
+      const result = {};
+      for (const source of sources) {
+        this.deepMerge(result, source);
+      }
+      return result;
     }
     /**
      * Deep merge source into target (handles nested objects correctly)
@@ -398,15 +459,12 @@
         const tokenType = token.$type || inferTokenType(token.$value);
         const figmaType = mapTokenTypeToFigma(tokenType);
         let variable = await this.findVariableByName(variableName, collection);
-        let isNewVariable = false;
         if (!variable) {
           variable = figma.variables.createVariable(variableName, collection, figmaType);
-          isNewVariable = true;
           this.importStats.added++;
         } else {
           if (variable.resolvedType !== figmaType) {
             variable = figma.variables.createVariable(variableName + "_new", collection, figmaType);
-            isNewVariable = true;
             this.importStats.added++;
           } else {
             this.importStats.updated++;
@@ -419,7 +477,7 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
-        await this.setCodeSyntax(variable, path, collectionName);
+        this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
           variable.description = token.$description;
@@ -442,46 +500,20 @@
       }
     }
     /**
-     * Set CSS variable code syntax for easy developer access
-     * Uses Figma's codeSyntax property for variables
+     * Set code syntax using Figma's official API
+     * Uses setVariableCodeSyntax() method as documented
      */
-    async setCodeSyntax(variable, path, collectionName) {
+    setCodeSyntax(variable, path, collectionName) {
       try {
         const collection = collectionName.toLowerCase();
         const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
         const cssVarName = `--${collection}-${tokenPath}`;
-        if ("codeSyntax" in variable) {
-          try {
-            const platforms = ["WEB", "ANDROID", "iOS"];
-            for (const platform of platforms) {
-              const value = platform === "WEB" ? cssVarName : `${collection}.${path.join(".")}`;
-              if (typeof variable.setCodeSyntax === "function") {
-                variable.setCodeSyntax(platform, value);
-              }
-            }
-            console.log(`\u2713 Code syntax set for ${variable.name}: ${cssVarName}`);
-          } catch (err) {
-            const cssInfo = `
-CSS: ${cssVarName}`;
-            if (variable.description && !variable.description.includes("CSS:")) {
-              variable.description = variable.description + cssInfo;
-            } else if (!variable.description) {
-              variable.description = `CSS variable: ${cssVarName}`;
-            }
-            console.log(`\u2713 Added CSS variable to description for ${variable.name}`);
-          }
-        } else {
-          const cssInfo = `CSS: ${cssVarName}`;
-          if (variable.description && !variable.description.includes("CSS:")) {
-            variable.description = variable.description + `
-${cssInfo}`;
-          } else if (!variable.description) {
-            variable.description = cssInfo;
-          }
-          console.log(`\u2713 Added CSS variable to description for ${variable.name} (codeSyntax not available)`);
-        }
+        variable.setVariableCodeSyntax("WEB", `var(${cssVarName})`);
+        variable.setVariableCodeSyntax("ANDROID", `@dimen/${collection}_${path.join("_").replace(/[^a-z0-9_]/g, "_")}`);
+        variable.setVariableCodeSyntax("iOS", `${collection}.${path.join(".")}`);
+        console.log(`\u2713 Code syntax set for ${variable.name}: var(${cssVarName})`);
       } catch (error) {
-        console.error(`Error setting code syntax for ${path.join("/")}: ${error}`);
+        console.warn(`Could not set code syntax for ${path.join("/")}: ${error}`);
       }
     }
     async findVariableByName(name, collection) {
