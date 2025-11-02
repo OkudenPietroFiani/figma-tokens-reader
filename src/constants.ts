@@ -16,7 +16,7 @@ export const TYPE_MAPPING: { [key: string]: VariableResolvedDataType } = {
   'spacing': 'FLOAT',
   'number': 'FLOAT',
   'fontFamily': 'STRING',
-  'fontWeight': 'STRING',
+  'fontWeight': 'FLOAT',
   'fontSize': 'FLOAT',
   'lineHeight': 'STRING',
   'typography': 'STRING',
