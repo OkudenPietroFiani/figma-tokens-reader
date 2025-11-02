@@ -292,7 +292,9 @@
     }
     async createVariable(token, path, collection, collectionName) {
       try {
-        const variableName = path.join("/");
+        const variableName = path.map(
+          (segment) => segment.replace(/[^a-zA-Z0-9-_]/g, "-")
+        ).join("/");
         const tokenType = token.$type || inferTokenType(token.$value);
         const figmaType = mapTokenTypeToFigma(tokenType);
         let variable = await this.findVariableByName(variableName, collection);
@@ -532,12 +534,14 @@
   async function handleGitHubFetchFiles(data) {
     try {
       const { token, owner, repo, branch } = data;
-      const files = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
+      const fileObjects = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
+      const files = fileObjects.map((file) => file.path);
       figma.ui.postMessage({
         type: "github-files-fetched",
         data: { files }
       });
     } catch (error) {
+      console.error("Error fetching GitHub files:", error);
       figma.ui.postMessage({
         type: "error",
         message: error instanceof Error ? error.message : "Failed to fetch repository files"
