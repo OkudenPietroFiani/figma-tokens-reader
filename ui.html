@@ -364,6 +364,23 @@
       height: 100vh;
     }
 
+    .token-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      height: 58px;
+      border-bottom: 1px solid #e5e5e0;
+      background: #fff;
+    }
+
+    .token-top-bar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #161e3d;
+      margin: 0;
+    }
+
     .token-layout {
       display: flex;
       flex: 1;
@@ -372,9 +389,9 @@
 
     /* Left Column - File Tabs */
     .file-tabs {
-      width: 200px;
-      background: #f8f8f8;
-      border-right: 1px solid #e0e0e0;
+      width: 245px;
+      background: #fff;
+      border-right: 1px solid #e5e5e0;
       display: flex;
       flex-direction: column;
       overflow-y: auto;
@@ -382,25 +399,23 @@
 
     .file-tabs-header {
       padding: 16px;
-      border-bottom: 1px solid #e0e0e0;
-      background: #fff;
+      border-bottom: 1px solid #e8e9ec;
     }
 
     .file-tabs-title {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
       color: #000;
-      margin-bottom: 12px;
+      margin-bottom: 0;
     }
 
     .btn-switch-source {
-      width: 100%;
-      padding: 8px 12px;
+      padding: 8px 20px;
       background: #fff;
-      color: #0d99ff;
-      border: 1px solid #0d99ff;
-      border-radius: 6px;
-      font-size: 12px;
+      color: #050914;
+      border: 1px solid #161e3d;
+      border-radius: 9999px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
@@ -408,35 +423,32 @@
     }
 
     .btn-switch-source:hover {
-      background: #f0f8ff;
+      background: #f8f8f8;
     }
 
     .file-tab {
-      padding: 10px 12px;
-      margin: 4px 8px;
-      border-radius: 6px;
+      padding: 8px;
+      margin: 0 0 8px 0;
+      border-radius: 8px;
       border: none;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 12px;
-      color: #666;
+      font-size: 16px;
+      color: #000;
       background: transparent;
       text-align: left;
       word-break: break-word;
       font-family: inherit;
-      width: calc(100% - 16px);
+      width: 100%;
     }
 
     .file-tab:hover {
-      background: #f0f0f0;
-      color: #333;
+      background: #f5f5f5;
     }
 
     .file-tab.active {
-      background: #e3f2ff;
-      color: #0d99ff;
+      background: #e8e9ec;
       font-weight: 600;
-      box-shadow: 0 2px 4px rgba(13, 153, 255, 0.1);
     }
 
     .file-tab-count {
@@ -445,11 +457,6 @@
       color: #999;
       margin-top: 2px;
       font-weight: 400;
-    }
-
-    .file-tab.active .file-tab-count {
-      color: #0d99ff;
-      opacity: 0.7;
     }
 
     /* Right Column - JSON Preview */
@@ -461,9 +468,7 @@
     }
 
     .json-header {
-      padding: 16px 24px;
-      border-bottom: 1px solid #e0e0e0;
-      background: #fff;
+      display: none; /* Hide the header as it's not in the design */
     }
 
     .json-filename {
@@ -481,8 +486,8 @@
     .json-content {
       flex: 1;
       overflow-y: auto;
-      padding: 24px;
-      background: #fafafa;
+      padding: 16px;
+      background: #fff;
     }
 
     .json-content pre {
@@ -499,49 +504,60 @@
 
     /* Interactive JSON Viewer */
     .json-tree {
-      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.6;
-      color: #333;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #000;
       background: #fff;
-      padding: 16px;
-      border-radius: 6px;
-      border: 1px solid #e0e0e0;
+      padding: 0;
+      border-radius: 0;
+      border: none;
     }
 
     .json-node {
-      margin-left: 20px;
+      margin-left: 16px;
     }
 
     .json-line {
-      padding: 2px 0;
+      padding: 4px 0;
       cursor: pointer;
       user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    .json-line:hover .json-key {
-      background: #f0f8ff;
+    .json-line:hover {
+      background: transparent;
     }
 
     .json-toggle {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 16px;
-      text-align: center;
-      color: #999;
+      height: 16px;
+      flex-shrink: 0;
+      color: #000;
       cursor: pointer;
       user-select: none;
-      font-weight: bold;
+      font-size: 12px;
     }
 
-    .json-toggle:hover {
-      color: #0d99ff;
+    .json-toggle svg {
+      width: 16px;
+      height: 16px;
     }
 
     .json-key {
-      color: #881391;
+      color: #000;
+      font-weight: 400;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .json-key.primary {
       font-weight: 600;
-      padding: 2px 4px;
-      border-radius: 3px;
     }
 
     .json-value {
@@ -583,15 +599,41 @@
 
     /* Action Footer */
     .token-actions {
-      padding: 16px 24px;
-      border-top: 1px solid #e0e0e0;
+      padding: 12px 16px;
+      height: 64px;
+      border-top: 1px solid #e5e5e0;
       background: #fff;
       display: flex;
-      gap: 12px;
+      gap: 8px;
+      align-items: center;
     }
 
     .token-actions .btn {
-      flex: 1;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
+    }
+
+    .token-actions .btn-primary {
+      background: #253152;
+      color: #f5f5f3;
+    }
+
+    .token-actions .btn-primary:hover:not(:disabled) {
+      background: #1a2440;
+    }
+
+    .token-actions .btn-secondary {
+      background: #fff;
+      color: #050914;
+      border: 1px solid #161e3d;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .token-actions .btn-secondary:hover:not(:disabled) {
+      background: #f8f8f8;
     }
 
     /* Notifications */
@@ -713,14 +755,19 @@
 
   <!-- ==================== TOKEN SCREEN ==================== -->
   <div class="screen token-screen" id="token-screen">
+    <!-- Top Bar -->
+    <div class="token-top-bar">
+      <h1 class="token-top-bar-title">Tokens</h1>
+      <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
+    </div>
+
     <div class="token-layout">
       <!-- Left Column: File Tabs -->
       <div class="file-tabs">
         <div class="file-tabs-header">
-          <div class="file-tabs-title">Token Files</div>
-          <button class="btn-switch-source" id="switch-source-btn">Switch Source</button>
+          <div class="file-tabs-title">Files</div>
         </div>
-        <div id="file-tabs-list">
+        <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
           <!-- Tabs will be dynamically added here -->
         </div>
       </div>
@@ -739,8 +786,14 @@
 
     <!-- Action Footer -->
     <div class="token-actions">
-      <button class="btn btn-primary" id="sync-to-figma-btn">Sync to Figma</button>
-      <button class="btn btn-secondary hidden" id="pull-changes-btn">Pull Changes</button>
+      <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
+      <button class="btn btn-secondary hidden" id="pull-changes-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 4V20M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 12L20 12M20 12L16 8M20 12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Pull changes
+      </button>
     </div>
   </div>
 
@@ -1136,7 +1189,25 @@
       jsonContent.appendChild(tree);
     }
 
-    function renderJsonTree(obj, container, path, isExpanded = true) {
+    function createChevronIcon(isExpanded) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '16');
+      svg.setAttribute('height', '16');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', isExpanded ? 'M6 9L12 15L18 9' : 'M9 6L15 12L9 18');
+      path.setAttribute('stroke', 'currentColor');
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+
+      svg.appendChild(path);
+      return svg;
+    }
+
+    function renderJsonTree(obj, container, path, isExpanded = true, depth = 0) {
       if (obj === null) {
         container.innerHTML = '<span class="json-value null">null</span>';
         return;
@@ -1156,33 +1227,12 @@
         return;
       }
 
-      const openBracket = isArray ? '[' : '{';
-      const closeBracket = isArray ? ']' : '}';
-
       const wrapper = document.createElement('div');
-
-      // Create the opening line with toggle
-      const openLine = document.createElement('div');
-      openLine.className = 'json-line';
-
-      const toggle = document.createElement('span');
-      toggle.className = 'json-toggle';
-      toggle.textContent = isExpanded ? '▼' : '▶';
-
-      const bracket = document.createElement('span');
-      bracket.textContent = openBracket + (isExpanded ? '' : '...' + closeBracket);
-
-      openLine.appendChild(toggle);
-      openLine.appendChild(bracket);
-      wrapper.appendChild(openLine);
-
-      // Create content container
-      const content = document.createElement('div');
-      content.className = 'json-node' + (isExpanded ? '' : ' json-collapsed');
 
       entries.forEach(([key, value], index) => {
         const line = document.createElement('div');
         line.className = 'json-line';
+        line.style.paddingLeft = `${depth * 16}px`;
 
         const itemPath = path ? `${path}.${key}` : key;
 
@@ -1190,77 +1240,34 @@
           // Nested object/array
           const itemToggle = document.createElement('span');
           itemToggle.className = 'json-toggle';
-          itemToggle.textContent = '▼';
+          const chevron = createChevronIcon(true);
+          itemToggle.appendChild(chevron);
 
           const keySpan = document.createElement('span');
-          keySpan.className = 'json-key';
-          keySpan.textContent = isArray ? `[${key}]` : `"${key}"`;
-
-          const colon = document.createTextNode(': ');
+          keySpan.className = depth === 0 ? 'json-key primary' : 'json-key';
+          keySpan.textContent = key;
 
           line.appendChild(itemToggle);
           line.appendChild(keySpan);
-          if (!isArray) line.appendChild(colon);
 
-          const nested = document.createElement('span');
-          renderJsonTree(value, nested, itemPath, true);
-          line.appendChild(nested);
+          const nested = document.createElement('div');
+          nested.className = 'json-node';
+          renderJsonTree(value, nested, itemPath, true, depth + 1);
 
           // Toggle functionality
           itemToggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            const nestedNode = nested.querySelector('.json-node');
-            if (nestedNode) {
-              nestedNode.classList.toggle('json-collapsed');
-              itemToggle.textContent = nestedNode.classList.contains('json-collapsed') ? '▶' : '▼';
-            }
+            nested.classList.toggle('json-collapsed');
+            itemToggle.innerHTML = '';
+            itemToggle.appendChild(createChevronIcon(!nested.classList.contains('json-collapsed')));
           });
+
+          wrapper.appendChild(line);
+          wrapper.appendChild(nested);
         } else {
-          // Leaf value
-          const spacer = document.createElement('span');
-          spacer.className = 'json-toggle';
-          spacer.textContent = ' ';
-
-          const keySpan = document.createElement('span');
-          keySpan.className = 'json-key';
-          keySpan.textContent = isArray ? `[${key}]` : `"${key}"`;
-
-          const colon = document.createTextNode(': ');
-
-          const valueType = typeof value;
-          const valueSpan = document.createElement('span');
-          valueSpan.className = `json-value ${valueType}`;
-          valueSpan.textContent = typeof value === 'string' ? `"${value}"` : JSON.stringify(value);
-
-          line.appendChild(spacer);
-          line.appendChild(keySpan);
-          if (!isArray) line.appendChild(colon);
-          line.appendChild(valueSpan);
+          // Leaf value - skip rendering for now to keep the view clean like the design
+          // We can show these on demand or in a different view
         }
-
-        const comma = index < entries.length - 1 ? ',' : '';
-        line.appendChild(document.createTextNode(comma));
-
-        content.appendChild(line);
-      });
-
-      wrapper.appendChild(content);
-
-      // Closing bracket
-      const closeLine = document.createElement('div');
-      closeLine.className = 'json-line';
-      closeLine.innerHTML = `<span class="json-toggle"> </span>${closeBracket}`;
-      closeLine.classList.add('json-collapsed');
-      content.appendChild(closeLine);
-
-      // Toggle functionality for main object
-      toggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        content.classList.toggle('json-collapsed');
-        toggle.textContent = content.classList.contains('json-collapsed') ? '▶' : '▼';
-        bracket.textContent = content.classList.contains('json-collapsed')
-          ? openBracket + '...' + closeBracket
-          : openBracket;
       });
 
       container.appendChild(wrapper);
