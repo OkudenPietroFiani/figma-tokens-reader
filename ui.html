@@ -787,95 +787,140 @@
       display: none;
     }
 
-    /* Scope Assignment Panel */
-    .scope-assignment-panel {
-      position: fixed;
-      bottom: 80px;
-      right: 16px;
-      background: white;
-      border: 1px solid #e5e5e0;
-      border-radius: 8px;
+    /* Scope Selection - Left Column */
+    .scope-left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       padding: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      max-width: 300px;
-      z-index: 100;
-      display: none;
     }
 
-    .scope-assignment-panel.active {
-      display: block;
+    .scope-selection-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .scope-assignment-header {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
+    .scope-selection-title {
+      font-size: 16px;
+      font-weight: 700;
       color: #000;
     }
 
-    .scope-assignment-count {
+    .scope-selection-count {
       font-size: 12px;
-      color: #666;
-      margin-bottom: 12px;
+      color: #8b94b1;
     }
 
-    .scope-options {
+    .scope-type-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 12px;
     }
 
-    .scope-option {
+    .scope-option-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      padding: 4px;
+      cursor: pointer;
+      user-select: none;
     }
 
-    .scope-option input[type="checkbox"] {
+    .scope-option-item:hover {
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .scope-option-label {
+      font-size: 16px;
+      font-weight: 400;
+      color: #000;
+    }
+
+    .scope-option-checkbox {
       width: 16px;
       height: 16px;
-    }
-
-    .scope-option label {
-      font-size: 13px;
+      border: 0.8px solid #161e3d;
+      border-radius: 3.2px;
+      background: white;
       cursor: pointer;
-      flex: 1;
-    }
-
-    .scope-assignment-actions {
+      flex-shrink: 0;
       display: flex;
-      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
-    .scope-assignment-actions button {
-      flex: 1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
+    .scope-option-checkbox.checked {
+      background: #000;
+    }
+
+    .scope-option-checkbox.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .scope-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .scope-btn {
+      width: 100%;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       font-family: inherit;
+      text-align: center;
+    }
+
+    .scope-btn-primary {
+      background: white;
+      color: #050914;
+      border: 1px solid #161e3d;
+    }
+
+    .scope-btn-primary:hover {
+      background: #f8f8f8;
+    }
+
+    .scope-btn-secondary {
+      background: transparent;
+      color: #050914;
       border: none;
+      text-decoration: underline;
+      padding: 8px 20px;
     }
 
-    .scope-assignment-actions .btn-apply {
-      background: #0d99ff;
-      color: white;
+    .scope-btn-secondary:hover {
+      color: #666;
     }
 
-    .scope-assignment-actions .btn-apply:hover {
-      background: #0b7fd4;
+    /* Scope indicators next to tokens */
+    .token-scope-indicator {
+      font-size: 12px;
+      color: #8b94b1;
+      margin-left: auto;
+      padding-right: 8px;
     }
 
-    .scope-assignment-actions .btn-cancel {
-      background: #f0f0f0;
-      color: #333;
+    .scope-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
-    .scope-assignment-actions .btn-cancel:hover {
-      background: #e0e0e0;
+    .scope-item.disabled .scope-checkbox {
+      cursor: not-allowed;
+      background: #e4e4e4;
+      border-color: #c5c8d1;
     }
   </style>
 </head>
@@ -998,13 +1043,33 @@
     <!-- Scopes View -->
     <div class="token-view" id="scopes-view">
       <div class="token-layout">
-        <!-- Left Column: File Selection -->
-        <div class="file-tabs">
-          <div class="file-tabs-header">
-            <div class="file-tabs-title">Scope selection</div>
+        <!-- Left Column: Dynamic (File Selection / Scope Assignment) -->
+        <div class="file-tabs" id="scope-left-column">
+          <!-- File Selection State (Default) -->
+          <div id="scope-file-selection">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title">Scope selection</div>
+            </div>
+            <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
+              <!-- File tabs for scope selection -->
+            </div>
           </div>
-          <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
-            <!-- File tabs for scope selection -->
+
+          <!-- Scope Assignment State (When tokens selected) -->
+          <div id="scope-assignment-view" class="scope-left-column" style="display: none;">
+            <div class="scope-selection-header">
+              <div class="scope-selection-title" id="scope-type-title">Scopes</div>
+              <div class="scope-selection-count" id="scope-selection-count">0 tokens selected</div>
+            </div>
+
+            <div class="scope-type-group" id="scope-options-container">
+              <!-- Scope options will be dynamically added here -->
+            </div>
+
+            <div class="scope-actions">
+              <button class="scope-btn scope-btn-primary" id="apply-scopes-btn">Apply scopes</button>
+              <button class="scope-btn scope-btn-secondary" id="reset-selection-btn">Reset selection</button>
+            </div>
           </div>
         </div>
 
@@ -1028,19 +1093,6 @@
         </svg>
         <span>Pull changes</span>
       </button>
-    </div>
-  </div>
-
-  <!-- Scope Assignment Panel -->
-  <div class="scope-assignment-panel" id="scope-assignment-panel">
-    <div class="scope-assignment-header">Assign Scopes</div>
-    <div class="scope-assignment-count" id="scope-assignment-count">0 tokens selected</div>
-    <div class="scope-options" id="scope-options">
-      <!-- Scope checkboxes will be dynamically added here -->
-    </div>
-    <div class="scope-assignment-actions">
-      <button class="btn-apply" id="apply-scopes-btn">Apply</button>
-      <button class="btn-cancel" id="cancel-scopes-btn">Cancel</button>
     </div>
   </div>
 
@@ -1677,44 +1729,55 @@
     });
 
     // ==================== TAB SWITCHING ====================
-    let selectedTokensForScopes = new Set();
-    let tokenScopesMap = new Map(); // Store scope assignments: variablePath -> scopes[]
-
     document.getElementById('tokens-tab').addEventListener('click', () => {
-      // Switch to tokens view
+      switchToTokensView();
+    });
+
+    document.getElementById('scopes-tab').addEventListener('click', () => {
+      switchToScopesView();
+    });
+
+    function switchToTokensView() {
       document.getElementById('tokens-tab').classList.add('active');
       document.getElementById('scopes-tab').classList.remove('active');
       document.getElementById('tokens-view').classList.add('active');
       document.getElementById('scopes-view').classList.remove('active');
-      document.getElementById('scope-assignment-panel').classList.remove('active');
-    });
+    }
 
-    document.getElementById('scopes-tab').addEventListener('click', () => {
-      // Switch to scopes view
+    function switchToScopesView() {
       document.getElementById('scopes-tab').classList.add('active');
       document.getElementById('tokens-tab').classList.remove('active');
       document.getElementById('scopes-view').classList.add('active');
       document.getElementById('tokens-view').classList.remove('active');
-
-      // Initialize scope view
       initializeScopeView();
-    });
+    }
 
     // ==================== SCOPE SELECTION ====================
-    function initializeScopeView() {
-      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
-      const scopeTokenContent = document.getElementById('scope-token-content');
+    // Clean code: Separated concerns with single-responsibility functions
 
-      // Populate file tabs (same as token view)
+    /**
+     * Initialize scope view with file tabs
+     * Single responsibility: Setup initial view state
+     */
+    function initializeScopeView() {
+      renderFileTabsForScopes();
+      resetScopeSelection();
+
+      const fileKeys = getValidFileKeys();
+      if (fileKeys.length > 0) {
+        showScopeFileContent(fileKeys[0]);
+      }
+    }
+
+    /**
+     * Render file tabs in left column
+     * Single responsibility: Populate file navigation
+     */
+    function renderFileTabsForScopes() {
+      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
       scopeFileTabsList.innerHTML = '';
 
-      const fileKeys = Object.keys(tokenFiles).filter(key => {
-        const file = tokenFiles[key];
-        const fileName = file.name.toLowerCase();
-        return !fileName.includes('metadata') &&
-               !fileName.startsWith('$') &&
-               !fileName.includes('$metadata');
-      });
+      const fileKeys = getValidFileKeys();
 
       fileKeys.forEach((key, index) => {
         const file = tokenFiles[key];
@@ -1725,13 +1788,26 @@
         tab.addEventListener('click', () => showScopeFileContent(key));
         scopeFileTabsList.appendChild(tab);
       });
-
-      // Show first file
-      if (fileKeys.length > 0) {
-        showScopeFileContent(fileKeys[0]);
-      }
     }
 
+    /**
+     * Get valid file keys (exclude metadata files)
+     * Single responsibility: Filter valid token files
+     */
+    function getValidFileKeys() {
+      return Object.keys(tokenFiles).filter(key => {
+        const file = tokenFiles[key];
+        const fileName = file.name.toLowerCase();
+        return !fileName.includes('metadata') &&
+               !fileName.startsWith('$') &&
+               !fileName.includes('$metadata');
+      });
+    }
+
+    /**
+     * Show content for selected file
+     * Single responsibility: Display tokens for scope assignment
+     */
     function showScopeFileContent(fileKey) {
       const file = tokenFiles[fileKey];
       if (!file) return;
@@ -1741,7 +1817,7 @@
         tab.classList.toggle('active', tab.dataset.file === fileKey);
       });
 
-      // Render token tree with checkboxes
+      // Render token tree with scope indicators
       const scopeTokenContent = document.getElementById('scope-token-content');
       scopeTokenContent.innerHTML = '';
       const tree = document.createElement('div');
@@ -1750,6 +1826,10 @@
       scopeTokenContent.appendChild(tree);
     }
 
+    /**
+     * Render token tree with checkboxes and scope indicators
+     * Single responsibility: Build interactive token tree
+     */
     function renderScopeTree(obj, container, path, fileKey, depth = 0) {
       if (!obj || typeof obj !== 'object') return;
 
@@ -1764,93 +1844,296 @@
           const isToken = '$value' in value || '$type' in value;
 
           if (isToken) {
-            // This is a token leaf - show with checkbox
-            const item = document.createElement('div');
-            item.className = 'scope-item';
-            item.style.paddingLeft = `${depth * 16}px`;
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'scope-checkbox';
-            checkbox.dataset.path = fullPath;
-            checkbox.checked = selectedTokensForScopes.has(fullPath);
-            checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath));
-
-            const content = document.createElement('div');
-            content.className = 'scope-item-content';
-
-            const spacer = document.createElement('span');
-            spacer.className = 'scope-chevron';
-            spacer.innerHTML = '&nbsp;';
-
-            const label = document.createElement('span');
-            label.className = 'scope-label';
-            label.textContent = key;
-
-            content.appendChild(spacer);
-            content.appendChild(label);
-
-            item.appendChild(checkbox);
-            item.appendChild(content);
-            container.appendChild(item);
+            renderTokenItem(key, value, fullPath, depth, container);
           } else {
-            // Nested object/group - show with chevron and checkbox for all children
-            const item = document.createElement('div');
-            item.className = 'scope-item';
-            item.style.paddingLeft = `${depth * 16}px`;
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'scope-checkbox';
-            checkbox.dataset.path = fullPath;
-            checkbox.dataset.isGroup = 'true';
-            checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, value, fileKey, currentPath));
-
-            // Check if all children are selected
-            const childrenSelected = areAllChildrenSelected(value, fileKey, currentPath);
-            checkbox.checked = childrenSelected;
-
-            const content = document.createElement('div');
-            content.className = 'scope-item-content';
-
-            const chevron = document.createElement('span');
-            chevron.className = 'scope-chevron';
-            chevron.innerHTML = createChevronIcon(true).outerHTML;
-
-            const label = document.createElement('span');
-            label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
-            label.textContent = key;
-
-            content.appendChild(chevron);
-            content.appendChild(label);
-
-            item.appendChild(checkbox);
-            item.appendChild(content);
-
-            const childrenContainer = document.createElement('div');
-            childrenContainer.className = 'scope-children';
-            renderScopeTree(value, childrenContainer, currentPath, fileKey, depth + 1);
-
-            // Toggle functionality
-            chevron.addEventListener('click', (e) => {
-              e.stopPropagation();
-              childrenContainer.classList.toggle('collapsed');
-              chevron.innerHTML = '';
-              chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
-            });
-
-            container.appendChild(item);
-            container.appendChild(childrenContainer);
+            renderGroupItem(key, value, currentPath, fullPath, fileKey, depth, container);
           }
         }
       });
     }
 
-    function areAllChildrenSelected(obj, fileKey, basePath) {
-      const tokens = getAllTokenPaths(obj, basePath, fileKey);
-      return tokens.length > 0 && tokens.every(path => selectedTokensForScopes.has(path));
+    /**
+     * Render individual token with checkbox and scope indicator
+     * Single responsibility: Create token UI element
+     */
+    function renderTokenItem(name, token, fullPath, depth, container) {
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+      item.dataset.path = fullPath;
+
+      // Determine token type and available scopes
+      const tokenType = token.$type || inferTokenTypeFromValue(token.$value);
+      const availableScopes = getAvailableScopesForTokenType(tokenType);
+
+      // Check if token is compatible with current selection
+      const isCompatible = isTokenCompatibleWithSelection(availableScopes);
+
+      // Create checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.tokenType = tokenType;
+      checkbox.dataset.scopes = JSON.stringify(availableScopes);
+      checkbox.checked = selectedTokensForScopes.has(fullPath);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath, availableScopes));
+      }
+
+      // Create content wrapper
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      // Spacer for alignment
+      const spacer = document.createElement('span');
+      spacer.className = 'scope-chevron';
+      spacer.innerHTML = '&nbsp;';
+
+      // Token name
+      const label = document.createElement('span');
+      label.className = 'scope-label';
+      label.textContent = name;
+
+      // Scope indicator
+      const scopeIndicator = document.createElement('span');
+      scopeIndicator.className = 'scope-indicator';
+      scopeIndicator.textContent = getScopeIndicatorText(availableScopes);
+      scopeIndicator.style.color = '#8b94b1';
+      scopeIndicator.style.fontSize = '12px';
+      scopeIndicator.style.marginLeft = '8px';
+
+      content.appendChild(spacer);
+      content.appendChild(label);
+      content.appendChild(scopeIndicator);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      // Add disabled styling if incompatible
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
     }
 
+    /**
+     * Render group item with checkbox for bulk selection
+     * Single responsibility: Create group UI element
+     */
+    function renderGroupItem(name, groupObj, currentPath, fullPath, fileKey, depth, container) {
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+
+      // Get all child tokens to determine compatibility
+      const childTokens = getAllTokensInGroup(groupObj, currentPath, fileKey);
+      const groupScopes = getGroupAvailableScopes(childTokens);
+      const isCompatible = isTokenCompatibleWithSelection(groupScopes);
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.isGroup = 'true';
+      checkbox.dataset.scopes = JSON.stringify(groupScopes);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, groupObj, fileKey, currentPath, groupScopes));
+      }
+
+      // Check if all children are selected
+      const childrenSelected = areAllChildrenSelected(groupObj, fileKey, currentPath);
+      checkbox.checked = childrenSelected;
+
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      const chevron = document.createElement('span');
+      chevron.className = 'scope-chevron';
+      chevron.innerHTML = createChevronIcon(true).outerHTML;
+
+      const label = document.createElement('span');
+      label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
+      label.textContent = name;
+
+      content.appendChild(chevron);
+      content.appendChild(label);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      const childrenContainer = document.createElement('div');
+      childrenContainer.className = 'scope-children';
+      renderScopeTree(groupObj, childrenContainer, currentPath, fileKey, depth + 1);
+
+      // Toggle functionality
+      chevron.addEventListener('click', (e) => {
+        e.stopPropagation();
+        childrenContainer.classList.toggle('collapsed');
+        chevron.innerHTML = '';
+        chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
+      });
+
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
+      container.appendChild(childrenContainer);
+    }
+
+    /**
+     * Determine available Figma scopes based on token type
+     * Single responsibility: Map token types to scopes
+     */
+    function getAvailableScopesForTokenType(tokenType) {
+      const scopeMap = {
+        'color': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
+        'dimension': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
+        'spacing': ['WIDTH_HEIGHT', 'GAP', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
+        'number': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
+        'fontSize': ['FONT_SIZE'],
+        'fontFamily': ['FONT_FAMILY'],
+        'fontWeight': ['FONT_WEIGHT'],
+        'lineHeight': ['LINE_HEIGHT'],
+        'typography': ['FONT_SIZE', 'FONT_FAMILY', 'FONT_WEIGHT', 'LINE_HEIGHT'],
+        'string': []
+      };
+
+      return scopeMap[tokenType] || [];
+    }
+
+    /**
+     * Get combined available scopes for a group
+     * Single responsibility: Determine group scope compatibility
+     */
+    function getGroupAvailableScopes(tokens) {
+      if (tokens.length === 0) return [];
+
+      // Get intersection of all token scopes (only scopes available to ALL tokens in group)
+      const scopeSets = tokens.map(t => new Set(t.availableScopes));
+      const intersection = scopeSets.reduce((acc, set) =>
+        new Set([...acc].filter(x => set.has(x)))
+      );
+
+      return Array.from(intersection);
+    }
+
+    /**
+     * Get all tokens in a group with their metadata
+     * Single responsibility: Extract token information from group
+     */
+    function getAllTokensInGroup(obj, basePath, fileKey) {
+      const tokens = [];
+
+      function traverse(o, path) {
+        if (!o || typeof o !== 'object') return;
+
+        for (const [key, value] of Object.entries(o)) {
+          const currentPath = path ? `${path}.${key}` : key;
+          const fullPath = `${fileKey}:${currentPath}`;
+
+          if (value && typeof value === 'object' && ('$value' in value || '$type' in value)) {
+            const tokenType = value.$type || inferTokenTypeFromValue(value.$value);
+            tokens.push({
+              fullPath,
+              tokenType,
+              availableScopes: getAvailableScopesForTokenType(tokenType)
+            });
+          } else if (value && typeof value === 'object') {
+            traverse(value, currentPath);
+          }
+        }
+      }
+
+      traverse(obj, basePath);
+      return tokens;
+    }
+
+    /**
+     * Infer token type from value (fallback when $type is missing)
+     * Single responsibility: Type detection
+     */
+    function inferTokenTypeFromValue(value) {
+      if (typeof value === 'string') {
+        if (value.startsWith('#') || value.startsWith('rgb') || value.startsWith('hsl')) {
+          return 'color';
+        }
+        if (value.endsWith('px') || value.endsWith('rem') || value.endsWith('em')) {
+          return 'dimension';
+        }
+      }
+      if (typeof value === 'number') {
+        return 'number';
+      }
+      return 'string';
+    }
+
+    /**
+     * Check if token is compatible with current selection
+     * Single responsibility: Compatibility validation
+     */
+    function isTokenCompatibleWithSelection(tokenScopes) {
+      if (selectedTokensForScopes.size === 0) return true;
+
+      // Get scopes from first selected token
+      const firstSelected = Array.from(selectedTokensForScopes)[0];
+      const firstCheckbox = document.querySelector(`.scope-checkbox[data-path="${firstSelected}"]`);
+
+      if (!firstCheckbox) return true;
+
+      const selectedScopes = JSON.parse(firstCheckbox.dataset.scopes || '[]');
+
+      // Tokens are compatible if they have the same available scopes
+      return JSON.stringify(tokenScopes.sort()) === JSON.stringify(selectedScopes.sort());
+    }
+
+    /**
+     * Get scope indicator text for UI
+     * Single responsibility: Format scope display text
+     */
+    function getScopeIndicatorText(scopes) {
+      if (scopes.length === 0) return 'no scopes';
+
+      const scopeLabels = {
+        'ALL_FILLS': 'fill',
+        'STROKE_COLOR': 'stroke',
+        'TEXT_FILL': 'text',
+        'EFFECT_COLOR': 'effect',
+        'WIDTH_HEIGHT': 'size',
+        'GAP': 'gap',
+        'CORNER_RADIUS': 'radius',
+        'FONT_SIZE': 'font size',
+        'FONT_FAMILY': 'font family',
+        'FONT_WEIGHT': 'font weight',
+        'LINE_HEIGHT': 'line height'
+      };
+
+      if (scopes.length === 1) {
+        return scopeLabels[scopes[0]] || scopes[0].toLowerCase();
+      }
+
+      // Group by category
+      const hasColor = scopes.some(s => ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'].includes(s));
+      const hasDimension = scopes.some(s => ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS'].includes(s));
+      const hasTypography = scopes.some(s => ['FONT_SIZE', 'FONT_FAMILY', 'FONT_WEIGHT', 'LINE_HEIGHT'].includes(s));
+
+      if (hasColor) return 'color scopes';
+      if (hasDimension) return 'dimension scopes';
+      if (hasTypography) return 'typography scopes';
+
+      return 'multiple scopes';
+    }
+
+    /**
+     * Get all token paths in a group
+     * Single responsibility: Extract paths from group
+     */
     function getAllTokenPaths(obj, basePath, fileKey) {
       const paths = [];
 
@@ -1873,79 +2156,218 @@
       return paths;
     }
 
-    function handleTokenSelection(e, fullPath) {
+    /**
+     * Check if all children in group are selected
+     * Single responsibility: Selection state check
+     */
+    function areAllChildrenSelected(obj, fileKey, basePath) {
+      const tokens = getAllTokenPaths(obj, basePath, fileKey);
+      return tokens.length > 0 && tokens.every(path => selectedTokensForScopes.has(path));
+    }
+
+    /**
+     * Handle individual token selection
+     * Single responsibility: Manage token selection state
+     */
+    function handleTokenSelection(e, fullPath, availableScopes) {
       if (e.target.checked) {
         selectedTokensForScopes.add(fullPath);
       } else {
         selectedTokensForScopes.delete(fullPath);
       }
-      updateScopePanel();
+
+      updateScopeUIState(availableScopes);
     }
 
-    function handleGroupSelection(e, fullPath, groupObj, fileKey, basePath) {
+    /**
+     * Handle group selection (select/deselect all children)
+     * Single responsibility: Manage group selection state
+     */
+    function handleGroupSelection(e, fullPath, groupObj, fileKey, basePath, groupScopes) {
       const tokenPaths = getAllTokenPaths(groupObj, basePath, fileKey);
 
       if (e.target.checked) {
         tokenPaths.forEach(path => selectedTokensForScopes.add(path));
-        // Update all child checkboxes
-        tokenPaths.forEach(path => {
-          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
-          if (checkbox) checkbox.checked = true;
-        });
       } else {
         tokenPaths.forEach(path => selectedTokensForScopes.delete(path));
-        // Update all child checkboxes
-        tokenPaths.forEach(path => {
-          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
-          if (checkbox) checkbox.checked = false;
-        });
       }
-      updateScopePanel();
+
+      // Update all child checkboxes
+      tokenPaths.forEach(path => {
+        const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
+        if (checkbox && !checkbox.disabled) {
+          checkbox.checked = e.target.checked;
+        }
+      });
+
+      updateScopeUIState(groupScopes);
     }
 
-    function updateScopePanel() {
-      const panel = document.getElementById('scope-assignment-panel');
-      const countEl = document.getElementById('scope-assignment-count');
-
-      countEl.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
+    /**
+     * Update UI state based on selection
+     * Single responsibility: Synchronize UI with selection state
+     */
+    function updateScopeUIState(selectedScopes) {
+      // Update left column state (file selection vs scope assignment)
+      const fileSelectionView = document.getElementById('scope-file-selection');
+      const scopeAssignmentView = document.getElementById('scope-assignment-view');
+      const selectionCount = document.getElementById('scope-selection-count');
 
       if (selectedTokensForScopes.size > 0) {
-        panel.classList.add('active');
-        populateScopeOptions();
+        // Switch to scope assignment view
+        fileSelectionView.style.display = 'none';
+        scopeAssignmentView.style.display = 'flex';
+
+        // Update count
+        selectionCount.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
+
+        // Populate scope options
+        populateScopeOptions(selectedScopes);
       } else {
-        panel.classList.remove('active');
+        // Switch to file selection view
+        fileSelectionView.style.display = 'block';
+        scopeAssignmentView.style.display = 'none';
       }
+
+      // Update compatibility state for all checkboxes
+      refreshTokenCompatibility();
     }
 
-    function populateScopeOptions() {
-      const optionsContainer = document.getElementById('scope-options');
+    /**
+     * Refresh token compatibility state (enable/disable checkboxes)
+     * Single responsibility: Update checkbox states
+     */
+    function refreshTokenCompatibility() {
+      const allCheckboxes = document.querySelectorAll('.scope-checkbox');
 
-      // Available Figma scopes
-      const availableScopes = [
-        { value: 'ALL_FILLS', label: 'Fill' },
-        { value: 'STROKE_COLOR', label: 'Stroke' },
-        { value: 'TEXT_FILL', label: 'Text' },
-        { value: 'EFFECT_COLOR', label: 'Effect' },
-        { value: 'WIDTH_HEIGHT', label: 'Width & Height' },
-        { value: 'GAP', label: 'Gap' },
-        { value: 'CORNER_RADIUS', label: 'Corner Radius' },
-        { value: 'FONT_SIZE', label: 'Font Size' },
-        { value: 'FONT_FAMILY', label: 'Font Family' },
-        { value: 'FONT_WEIGHT', label: 'Font Weight' },
-        { value: 'LINE_HEIGHT', label: 'Line Height' }
+      allCheckboxes.forEach(checkbox => {
+        const scopes = JSON.parse(checkbox.dataset.scopes || '[]');
+        const isCompatible = isTokenCompatibleWithSelection(scopes);
+        const wasDisabled = checkbox.disabled;
+
+        checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+        // Update parent item styling
+        const item = checkbox.closest('.scope-item');
+        if (item) {
+          if (checkbox.disabled) {
+            item.classList.add('disabled');
+          } else {
+            item.classList.remove('disabled');
+          }
+        }
+      });
+    }
+
+    /**
+     * Populate scope options in left column
+     * Single responsibility: Render available scopes for selection
+     */
+    function populateScopeOptions(availableScopes) {
+      const container = document.getElementById('scope-options-container');
+
+      // Scope definitions with labels
+      const scopeDefinitions = [
+        { value: 'ALL_FILLS', label: 'Fill', category: 'color' },
+        { value: 'STROKE_COLOR', label: 'Stroke', category: 'color' },
+        { value: 'TEXT_FILL', label: 'Text', category: 'color' },
+        { value: 'EFFECT_COLOR', label: 'Effect', category: 'color' },
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'dimension' },
+        { value: 'GAP', label: 'Gap', category: 'dimension' },
+        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'dimension' },
+        { value: 'FONT_SIZE', label: 'Font Size', category: 'typography' },
+        { value: 'FONT_FAMILY', label: 'Font Family', category: 'typography' },
+        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'typography' },
+        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'typography' }
       ];
 
-      optionsContainer.innerHTML = availableScopes.map(scope => `
-        <div class="scope-option">
-          <input type="checkbox" id="scope-${scope.value}" value="${scope.value}">
-          <label for="scope-${scope.value}">${scope.label}</label>
-        </div>
-      `).join('');
+      // Filter to only show available scopes
+      const relevantScopes = scopeDefinitions.filter(s => availableScopes.includes(s.value));
+
+      // Group by category
+      const categories = [...new Set(relevantScopes.map(s => s.category))];
+
+      container.innerHTML = '';
+
+      categories.forEach(category => {
+        const categoryScopes = relevantScopes.filter(s => s.category === category);
+
+        // Category header
+        const header = document.createElement('div');
+        header.className = 'scope-category-header';
+        header.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+        header.style.fontSize = '11px';
+        header.style.fontWeight = '600';
+        header.style.color = '#8b94b1';
+        header.style.textTransform = 'uppercase';
+        header.style.marginTop = category === categories[0] ? '0' : '16px';
+        header.style.marginBottom = '8px';
+        container.appendChild(header);
+
+        // Scope options
+        categoryScopes.forEach(scope => {
+          const option = document.createElement('div');
+          option.className = 'scope-option';
+          option.style.display = 'flex';
+          option.style.alignItems = 'center';
+          option.style.gap = '8px';
+          option.style.marginBottom = '8px';
+          option.style.cursor = 'pointer';
+
+          const checkbox = document.createElement('div');
+          checkbox.className = 'scope-option-checkbox';
+          checkbox.dataset.value = scope.value;
+
+          const label = document.createElement('span');
+          label.textContent = scope.label;
+          label.style.fontSize = '14px';
+          label.style.color = '#000';
+
+          option.appendChild(checkbox);
+          option.appendChild(label);
+
+          // Toggle on click
+          option.addEventListener('click', () => {
+            checkbox.classList.toggle('checked');
+          });
+
+          container.appendChild(option);
+        });
+      });
     }
 
-    document.getElementById('apply-scopes-btn').addEventListener('click', () => {
-      const selectedScopes = Array.from(document.querySelectorAll('#scope-options input[type="checkbox"]:checked'))
-        .map(cb => cb.value);
+    /**
+     * Reset scope selection and return to default state
+     * Single responsibility: Clear selection state
+     */
+    function resetScopeSelection() {
+      selectedTokensForScopes.clear();
+
+      // Show file selection view
+      document.getElementById('scope-file-selection').style.display = 'block';
+      document.getElementById('scope-assignment-view').style.display = 'none';
+
+      // Uncheck all checkboxes and re-enable
+      document.querySelectorAll('.scope-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.disabled = false;
+        const item = cb.closest('.scope-item');
+        if (item) item.classList.remove('disabled');
+      });
+    }
+
+    /**
+     * Apply selected scopes to selected tokens
+     * Single responsibility: Persist scope assignments
+     */
+    function applyScopes() {
+      const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
+      const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
+
+      if (selectedScopes.length === 0) {
+        showNotification('Please select at least one scope', 'error');
+        return;
+      }
 
       // Store scope assignments
       selectedTokensForScopes.forEach(fullPath => {
@@ -1954,23 +2376,25 @@
 
       showNotification(`Scopes assigned to ${selectedTokensForScopes.size} token(s)`, 'success');
 
-      // Clear selection
-      selectedTokensForScopes.clear();
-      updateScopePanel();
+      // Reset and refresh
+      resetScopeSelection();
 
-      // Refresh the scope view to update checkboxes
       const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
       if (activeFile) {
         showScopeFileContent(activeFile.dataset.file);
       }
-    });
+    }
 
-    document.getElementById('cancel-scopes-btn').addEventListener('click', () => {
-      selectedTokensForScopes.clear();
-      updateScopePanel();
+    // Wire up event listeners
+    document.getElementById('apply-scopes-btn').addEventListener('click', applyScopes);
 
-      // Uncheck all checkboxes
-      document.querySelectorAll('.scope-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('reset-selection-btn').addEventListener('click', () => {
+      resetScopeSelection();
+
+      const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
+      if (activeFile) {
+        showScopeFileContent(activeFile.dataset.file);
+      }
     });
 
     // ==================== TOKEN PERSISTENCE ====================
