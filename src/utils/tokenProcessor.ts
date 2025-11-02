@@ -21,32 +21,32 @@ export function mapTokenTypeToFigma(tokenType: string): VariableResolvedDataType
 export function getScopesForTokenType(tokenType: string, isAlias: boolean): VariableScope[] {
   // Primitives/raw values should not be accessible in Figma properties (no scopes)
   if (!isAlias) {
-    return [];
+    return [] as VariableScope[];
   }
 
   // Semantic variables (that consume other variables) get appropriate scopes
   switch (tokenType) {
     case 'color':
-      return ['ALL_FILLS', 'STROKE_COLOR', 'EFFECT_COLOR'];
+      return ['ALL_FILLS', 'STROKE_COLOR'] as VariableScope[];
 
     case 'dimension':
     case 'spacing':
-      return ['GAP', 'WIDTH_HEIGHT', 'CORNER_RADIUS'];
+      return ['WIDTH_HEIGHT', 'GAP', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'] as VariableScope[];
 
     case 'fontSize':
-      return ['FONT_SIZE'];
+      return ['FONT_SIZE'] as VariableScope[];
 
     case 'fontFamily':
-      return ['FONT_FAMILY'];
+      return ['FONT_FAMILY'] as VariableScope[];
 
     case 'fontWeight':
-      return ['FONT_WEIGHT'];
+      return ['FONT_WEIGHT'] as VariableScope[];
 
     case 'lineHeight':
-      return ['LINE_HEIGHT'];
+      return ['LINE_HEIGHT'] as VariableScope[];
 
     default:
-      return ['ALL_SCOPES'];
+      return [] as VariableScope[];
   }
 }
 

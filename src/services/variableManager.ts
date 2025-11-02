@@ -381,8 +381,19 @@ export class VariableManager {
 
       // Set scopes: primitives get no scopes, semantics get type-appropriate scopes
       const scopes = getScopesForTokenType(tokenType, processedValue.isAlias);
-      variable.scopes = scopes;
-      console.log(`✓ Scopes set for ${variableName}: ${scopes.length === 0 ? 'none (primitive)' : scopes.join(', ')}`);
+
+      // Explicitly set scopes - empty array for primitives
+      try {
+        variable.scopes = scopes;
+        console.log(`✓ Scopes set for ${variableName}:`, {
+          isAlias: processedValue.isAlias,
+          tokenType: tokenType,
+          scopesCount: scopes.length,
+          scopes: scopes.length === 0 ? 'NONE (primitive)' : scopes.join(', ')
+        });
+      } catch (error) {
+        console.error(`Failed to set scopes for ${variableName}:`, error);
+      }
 
       // Set CSS variable code syntax for developers
       this.setCodeSyntax(variable, path, collectionName);

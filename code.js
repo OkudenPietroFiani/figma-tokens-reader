@@ -196,10 +196,10 @@
     }
     switch (tokenType) {
       case "color":
-        return ["ALL_FILLS", "STROKE_COLOR", "EFFECT_COLOR"];
+        return ["ALL_FILLS", "STROKE_COLOR"];
       case "dimension":
       case "spacing":
-        return ["GAP", "WIDTH_HEIGHT", "CORNER_RADIUS"];
+        return ["WIDTH_HEIGHT", "GAP", "MIN_WIDTH", "MAX_WIDTH", "MIN_HEIGHT", "MAX_HEIGHT"];
       case "fontSize":
         return ["FONT_SIZE"];
       case "fontFamily":
@@ -209,7 +209,7 @@
       case "lineHeight":
         return ["LINE_HEIGHT"];
       default:
-        return ["ALL_SCOPES"];
+        return [];
     }
   }
   async function processTokenValue(value, tokenType, variableMap) {
@@ -524,8 +524,17 @@
           variable.setValueForMode(modeId, processedValue.value);
         }
         const scopes = getScopesForTokenType(tokenType, processedValue.isAlias);
-        variable.scopes = scopes;
-        console.log(`\u2713 Scopes set for ${variableName}: ${scopes.length === 0 ? "none (primitive)" : scopes.join(", ")}`);
+        try {
+          variable.scopes = scopes;
+          console.log(`\u2713 Scopes set for ${variableName}:`, {
+            isAlias: processedValue.isAlias,
+            tokenType,
+            scopesCount: scopes.length,
+            scopes: scopes.length === 0 ? "NONE (primitive)" : scopes.join(", ")
+          });
+        } catch (error) {
+          console.error(`Failed to set scopes for ${variableName}:`, error);
+        }
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {

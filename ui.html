@@ -1551,7 +1551,29 @@
             tokenSource = msg.data.source || null;
             githubConfig = msg.data.githubConfig || null;
 
+            // Reconstruct the token data for syncing
             if (Object.keys(tokenFiles).length > 0) {
+              const reconstructedData = { primitives: {}, semantics: {} };
+
+              for (const [key, file] of Object.entries(tokenFiles)) {
+                const fileName = file.name.toLowerCase();
+                if (fileName.includes('primitive')) {
+                  reconstructedData.primitives[file.name] = file.content;
+                } else if (fileName.includes('semantic')) {
+                  reconstructedData.semantics[file.name] = file.content;
+                } else {
+                  // Default to primitives if unclear
+                  reconstructedData.primitives[file.name] = file.content;
+                }
+              }
+
+              // Set the appropriate token data based on source
+              if (tokenSource === 'github') {
+                window.githubTokenData = reconstructedData;
+              } else {
+                window.localTokenData = reconstructedData;
+              }
+
               showTokenScreen();
             }
           }
