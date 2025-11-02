@@ -253,23 +253,17 @@
         this.importStats = { added: 0, updated: 0, skipped: 0 };
         this.tokenMetadata = [];
         const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
-        let primitiveCollection = existingCollections.find((c) => c.name === COLLECTION_NAMES.primitive);
-        let semanticCollection = existingCollections.find((c) => c.name === COLLECTION_NAMES.semantic);
-        if (!primitiveCollection) {
-          primitiveCollection = figma.variables.createVariableCollection(COLLECTION_NAMES.primitive);
-        }
-        if (!semanticCollection) {
-          semanticCollection = figma.variables.createVariableCollection(COLLECTION_NAMES.semantic);
-        }
+        const primitiveCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.primitive);
+        const semanticCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.semantic);
         this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
         this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
         if (primitives) {
-          const flattenedPrimitives = this.flattenTokenFiles(primitives, "primitive");
-          await this.processTokenGroup(flattenedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
+          const cleanedPrimitives = this.prepareTokensForImport(primitives, "primitive");
+          await this.processTokenGroup(cleanedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
         }
         if (semantics) {
-          const flattenedSemantics = this.flattenTokenFiles(semantics, "semantic");
-          await this.processTokenGroup(flattenedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
+          const cleanedSemantics = this.prepareTokensForImport(semantics, "semantic");
+          await this.processTokenGroup(cleanedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
         }
         figma.notify(
           `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
@@ -281,45 +275,95 @@
       }
     }
     /**
-     * Flatten token files structure to merge multiple files into a single token tree
-     * Handles both direct token structure and file-keyed structure (e.g., { "file.json": {...} })
-     * Also removes redundant top-level keys that match the collection name
+     * Get existing collection or create a new one
      */
-    flattenTokenFiles(data, collectionType) {
+    getOrCreateCollection(existingCollections, name) {
+      let collection = existingCollections.find((c) => c.name === name);
+      if (!collection) {
+        collection = figma.variables.createVariableCollection(name);
+      }
+      return collection;
+    }
+    /**
+     * Prepare tokens for import by:
+     * 1. Unwrapping file-keyed structure (multiple files)
+     * 2. Removing redundant collection-name wrapper from EACH file
+     * 3. Deep merging all token trees
+     */
+    prepareTokensForImport(data, collectionType) {
       if (!data || typeof data !== "object") {
         return {};
       }
-      let result = data;
+      console.log(`[${collectionType}] Input keys:`, Object.keys(data));
+      const isFileKeyed = this.isFileKeyedStructure(data);
+      if (isFileKeyed) {
+        console.log(`[${collectionType}] Processing file-keyed structure`);
+        return this.mergeTokenFiles(data, collectionType);
+      }
+      console.log(`[${collectionType}] Processing single structure`);
+      return this.unwrapCollectionKey(data, collectionType);
+    }
+    /**
+     * Check if data structure has file names as keys
+     */
+    isFileKeyedStructure(data) {
       const keys = Object.keys(data);
-      const isFileKeyed = keys.some(
+      return keys.some(
         (key) => key.endsWith(".json") || key.includes("-json") || key.includes("_json")
       );
-      if (isFileKeyed) {
-        const merged = {};
-        for (const [fileName, fileContent] of Object.entries(data)) {
-          if (fileContent && typeof fileContent === "object") {
-            Object.assign(merged, fileContent);
-          }
-        }
-        result = merged;
+    }
+    /**
+     * Merge multiple token files:
+     * 1. Unwrap collection name from each file individually
+     * 2. Deep merge the unwrapped contents
+     */
+    mergeTokenFiles(filesData, collectionType) {
+      const merged = {};
+      for (const [fileName, fileContent] of Object.entries(filesData)) {
+        if (!fileContent || typeof fileContent !== "object") continue;
+        console.log(`[${collectionType}] Processing file: ${fileName}, keys:`, Object.keys(fileContent));
+        const unwrapped = this.unwrapCollectionKey(fileContent, collectionType);
+        console.log(`[${collectionType}] After unwrap:`, Object.keys(unwrapped));
+        this.deepMerge(merged, unwrapped);
       }
-      const resultKeys = Object.keys(result);
-      if (resultKeys.length === 1) {
-        const topKey = resultKeys[0].toLowerCase();
-        const collectionKeyVariants = [
-          collectionType,
-          collectionType + "s",
-          collectionType.slice(0, -1)
-          // Remove 's' if plural
-        ];
-        if (collectionKeyVariants.some((variant) => topKey === variant || topKey === variant + "s")) {
-          const unwrapped = result[resultKeys[0]];
-          if (unwrapped && typeof unwrapped === "object") {
-            return unwrapped;
-          }
+      console.log(`[${collectionType}] Final merged keys:`, Object.keys(merged));
+      return merged;
+    }
+    /**
+     * Remove redundant top-level key that matches collection name
+     * Handles: "primitive", "primitives", "semantic", "semantics"
+     */
+    unwrapCollectionKey(data, collectionType) {
+      const keys = Object.keys(data);
+      if (keys.length !== 1) {
+        return data;
+      }
+      const topKey = keys[0];
+      const normalizedKey = topKey.toLowerCase();
+      const matchesCollection = normalizedKey === collectionType || normalizedKey === collectionType + "s" || normalizedKey === collectionType.replace(/s$/, "");
+      if (matchesCollection) {
+        const unwrapped = data[topKey];
+        if (unwrapped && typeof unwrapped === "object") {
+          console.log(`Unwrapped redundant '${topKey}' key`);
+          return unwrapped;
         }
       }
-      return result;
+      return data;
+    }
+    /**
+     * Deep merge source into target (handles nested objects correctly)
+     */
+    deepMerge(target, source) {
+      for (const [key, value] of Object.entries(source)) {
+        if (value && typeof value === "object" && !Array.isArray(value) && !("$value" in value)) {
+          if (!target[key] || typeof target[key] !== "object") {
+            target[key] = {};
+          }
+          this.deepMerge(target[key], value);
+        } else {
+          target[key] = value;
+        }
+      }
     }
     async processTokenGroup(tokens, collectionName, collection, pathPrefix) {
       for (const [key, value] of Object.entries(tokens)) {
@@ -362,6 +406,7 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
+        this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
           variable.description = token.$description;
@@ -381,6 +426,24 @@
       } catch (error) {
         console.error(`Error creating variable ${path.join("/")}: ${error}`);
         this.importStats.skipped++;
+      }
+    }
+    /**
+     * Set CSS variable code syntax for easy developer access
+     * Format: --collection-name-path-to-token
+     */
+    setCodeSyntax(variable, path, collectionName) {
+      try {
+        const collection = collectionName.toLowerCase();
+        const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
+        const cssVarName = `--${collection}-${tokenPath}`;
+        variable.codeSyntax = {
+          WEB: cssVarName,
+          ANDROID: `${collection}.${path.join(".")}`,
+          iOS: `${collection}.${path.join(".")}`
+        };
+      } catch (error) {
+        console.error(`Error setting code syntax for ${path.join("/")}: ${error}`);
       }
     }
     async findVariableByName(name, collection) {
