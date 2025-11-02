@@ -1113,6 +1113,8 @@
     // Scope selection state
     let selectedTokensForScopes = new Set(); // Tokens selected for scope assignment
     let tokenScopesMap = new Map(); // Maps token paths to assigned scopes
+    let figmaVariables = {}; // Stores all Figma variables with their current scopes
+    let figmaVariablesLoaded = false; // Track if variables have been loaded
 
     // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
@@ -1677,17 +1679,12 @@
         return;
       }
 
-      // Convert tokenScopesMap to plain object for serialization
-      const scopeAssignments = {};
-      tokenScopesMap.forEach((scopes, path) => {
-        scopeAssignments[path] = scopes;
-      });
-
+      // Scopes are now managed independently in the Scopes tab
+      // Import only creates/updates variables without modifying scopes
       parent.postMessage({
         pluginMessage: {
           type: 'import-tokens',
-          data: data,
-          scopeAssignments: scopeAssignments
+          data: data
         }
       }, '*');
     });
@@ -1760,7 +1757,22 @@
       document.getElementById('tokens-tab').classList.remove('active');
       document.getElementById('scopes-view').classList.add('active');
       document.getElementById('tokens-view').classList.remove('active');
-      initializeScopeView();
+
+      // Load Figma variables when entering scope tab
+      loadFigmaVariables();
+    }
+
+    /**
+     * Load all existing Figma variables with their current scopes
+     * Single responsibility: Fetch variables from Figma
+     */
+    function loadFigmaVariables() {
+      console.log('Loading Figma variables...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'get-figma-variables'
+        }
+      }, '*');
     }
 
     // ==================== SCOPE SELECTION ====================
@@ -1771,6 +1783,14 @@
      * Single responsibility: Setup initial view state
      */
     function initializeScopeView() {
+      // Wait for Figma variables to be loaded
+      if (!figmaVariablesLoaded) {
+        console.log('Waiting for Figma variables to load...');
+        return;
+      }
+
+      console.log('Initializing scope view with', Object.keys(figmaVariables).length, 'variables');
+
       renderFileTabsForScopes();
       resetScopeSelection();
 
@@ -2302,6 +2322,7 @@
     /**
      * Populate scope options in left column
      * Single responsibility: Render available scopes for selection
+     * Pre-checks scopes based on current Figma variable state
      */
     function populateScopeOptions(availableScopes) {
       const container = document.getElementById('scope-options-container');
@@ -2326,6 +2347,9 @@
 
       // Group by category
       const categories = [...new Set(relevantScopes.map(s => s.category))];
+
+      // Get common scopes from all selected tokens
+      const commonScopes = getCommonScopesFromSelection();
 
       container.innerHTML = '';
 
@@ -2358,6 +2382,11 @@
           checkbox.className = 'scope-option-checkbox';
           checkbox.dataset.value = scope.value;
 
+          // Pre-check if this scope is common to all selected tokens
+          if (commonScopes.includes(scope.value)) {
+            checkbox.classList.add('checked');
+          }
+
           const label = document.createElement('span');
           label.textContent = scope.label;
           label.style.fontSize = '14px';
@@ -2374,6 +2403,55 @@
           container.appendChild(option);
         });
       });
+    }
+
+    /**
+     * Get scopes that are common to all selected tokens
+     * Single responsibility: Determine pre-checked state for scopes
+     */
+    function getCommonScopesFromSelection() {
+      if (selectedTokensForScopes.size === 0) return [];
+
+      const allTokenScopes = [];
+
+      // Get scopes for each selected token from Figma variables
+      selectedTokensForScopes.forEach(fullPath => {
+        const variableName = getVariableNameFromPath(fullPath);
+        const figmaVariable = figmaVariables[variableName];
+
+        if (figmaVariable && figmaVariable.scopes) {
+          allTokenScopes.push(figmaVariable.scopes);
+        } else {
+          // If variable doesn't exist or has no scopes, add empty array
+          allTokenScopes.push([]);
+        }
+      });
+
+      // If no tokens have scopes in Figma, return empty
+      if (allTokenScopes.length === 0) return [];
+
+      // Find intersection of all scope arrays
+      const intersection = allTokenScopes.reduce((acc, scopes) => {
+        if (acc === null) return scopes;
+        return acc.filter(scope => scopes.includes(scope));
+      }, null);
+
+      return intersection || [];
+    }
+
+    /**
+     * Convert token path to Figma variable name
+     * Single responsibility: Path to variable name mapping
+     */
+    function getVariableNameFromPath(fullPath) {
+      // fullPath format: "fileKey:path.to.token"
+      // Extract token path and convert to variable name
+      const parts = fullPath.split(':');
+      if (parts.length === 2) {
+        // Token path uses dots, Figma variable names use slashes
+        return parts[1].replace(/\./g, '/');
+      }
+      return fullPath;
     }
 
     /**
@@ -2397,26 +2475,32 @@
     }
 
     /**
-     * Apply selected scopes to selected tokens
-     * Single responsibility: Persist scope assignments
+     * Apply selected scopes directly to Figma variables
+     * Single responsibility: Send scope updates to Figma
      */
     function applyScopes() {
       const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
       const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
 
-      // Allow empty scopes (for primitives that should have no scopes)
-      // Store scope assignments
+      // Build variable scopes object for backend
+      const variableScopes = {};
+
       selectedTokensForScopes.forEach(fullPath => {
-        tokenScopesMap.set(fullPath, selectedScopes);
+        const variableName = getVariableNameFromPath(fullPath);
+        variableScopes[variableName] = selectedScopes;
       });
 
-      const scopeMessage = selectedScopes.length === 0
-        ? `Empty scopes assigned to ${selectedTokensForScopes.size} token(s)`
-        : `Scopes assigned to ${selectedTokensForScopes.size} token(s)`;
+      console.log('Applying scopes to variables:', variableScopes);
 
-      showNotification(scopeMessage, 'success');
+      // Send to backend to apply scopes directly to Figma variables
+      parent.postMessage({
+        pluginMessage: {
+          type: 'apply-variable-scopes',
+          data: { variableScopes }
+        }
+      }, '*');
 
-      // Reset and refresh
+      // Reset selection
       resetScopeSelection();
 
       const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
@@ -2568,6 +2652,19 @@
 
         case 'import-success':
           showNotification(msg.message, 'success');
+          break;
+
+        case 'figma-variables-loaded':
+          console.log('Figma variables loaded:', msg.data);
+          figmaVariables = msg.data.variables;
+          figmaVariablesLoaded = true;
+          initializeScopeView();
+          break;
+
+        case 'scopes-applied':
+          showNotification(msg.message, 'success');
+          // Reload variables to get updated scopes
+          loadFigmaVariables();
           break;
 
         case 'error':
