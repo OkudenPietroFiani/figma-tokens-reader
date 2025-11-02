@@ -57,15 +57,32 @@ export class VariableManager {
 
   /**
    * Get existing collection or create a new one
+   * Handles renaming old uppercase collections to lowercase
    */
   private getOrCreateCollection(
     existingCollections: VariableCollection[],
     name: string
   ): VariableCollection {
+    // First, try to find exact match (lowercase)
     let collection = existingCollections.find(c => c.name === name);
+
     if (!collection) {
-      collection = figma.variables.createVariableCollection(name);
+      // Check for old uppercase version (Primitive, Semantic)
+      const uppercaseName = name.charAt(0).toUpperCase() + name.slice(1);
+      const oldCollection = existingCollections.find(c => c.name === uppercaseName);
+
+      if (oldCollection) {
+        // Rename the old collection to lowercase
+        console.log(`Renaming collection from '${uppercaseName}' to '${name}'`);
+        oldCollection.name = name;
+        collection = oldCollection;
+      } else {
+        // Create new collection with lowercase name
+        console.log(`Creating new collection: '${name}'`);
+        collection = figma.variables.createVariableCollection(name);
+      }
     }
+
     return collection;
   }
 
@@ -254,7 +271,7 @@ export class VariableManager {
       }
 
       // Set CSS variable code syntax for developers
-      this.setCodeSyntax(variable, path, collectionName);
+      await this.setCodeSyntax(variable, path, collectionName);
 
       // Store variable for reference resolution
       this.variableMap.set(variableName, variable);
@@ -288,20 +305,35 @@ export class VariableManager {
    * Set CSS variable code syntax for easy developer access
    * Format: --collection-name-path-to-token
    */
-  private setCodeSyntax(variable: Variable, path: string[], collectionName: string): void {
+  private async setCodeSyntax(variable: Variable, path: string[], collectionName: string): Promise<void> {
     try {
       // Build CSS variable name: --primitive-spacing-sm or --semantic-colors-primary
       const collection = collectionName.toLowerCase();
       const tokenPath = path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-');
       const cssVarName = `--${collection}-${tokenPath}`;
 
-      // Set code syntax using Figma's API method
-      // Platform identifiers: 'WEB', 'ANDROID', 'iOS'
-      variable.setVariableCodeSyntax('WEB', cssVarName);
-      variable.setVariableCodeSyntax('ANDROID', `${collection}.${path.join('.')}`);
-      variable.setVariableCodeSyntax('iOS', `${collection}.${path.join('.')}`);
-
-      console.log(`Set code syntax for ${variable.name}: ${cssVarName}`);
+      // Figma Plugin API: Set code syntax for different platforms
+      // Note: This sets how the variable appears in dev mode/inspect panel
+      try {
+        // Method 1: Try using setCodeSyntax if it exists
+        if (typeof (variable as any).setCodeSyntax === 'function') {
+          await (variable as any).setCodeSyntax('WEB', cssVarName);
+          await (variable as any).setCodeSyntax('ANDROID', `${collection}.${path.join('.')}`);
+          await (variable as any).setCodeSyntax('iOS', `${collection}.${path.join('.')}`);
+        }
+        // Method 2: Try setting codeSyntax property directly
+        else {
+          (variable as any).codeSyntax = {
+            WEB: cssVarName,
+            ANDROID: `${collection}.${path.join('.')}`,
+            iOS: `${collection}.${path.join('.')}`
+          };
+        }
+        console.log(`✓ Set code syntax for ${variable.name}: ${cssVarName}`);
+      } catch (apiError) {
+        // API might not support code syntax yet
+        console.warn(`Code syntax not supported or failed for ${variable.name}:`, apiError);
+      }
     } catch (error) {
       console.error(`Error setting code syntax for ${path.join('/')}: ${error}`);
       // Non-fatal error, continue

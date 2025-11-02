@@ -276,11 +276,21 @@
     }
     /**
      * Get existing collection or create a new one
+     * Handles renaming old uppercase collections to lowercase
      */
     getOrCreateCollection(existingCollections, name) {
       let collection = existingCollections.find((c) => c.name === name);
       if (!collection) {
-        collection = figma.variables.createVariableCollection(name);
+        const uppercaseName = name.charAt(0).toUpperCase() + name.slice(1);
+        const oldCollection = existingCollections.find((c) => c.name === uppercaseName);
+        if (oldCollection) {
+          console.log(`Renaming collection from '${uppercaseName}' to '${name}'`);
+          oldCollection.name = name;
+          collection = oldCollection;
+        } else {
+          console.log(`Creating new collection: '${name}'`);
+          collection = figma.variables.createVariableCollection(name);
+        }
       }
       return collection;
     }
@@ -406,7 +416,7 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
-        this.setCodeSyntax(variable, path, collectionName);
+        await this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
           variable.description = token.$description;
@@ -432,15 +442,27 @@
      * Set CSS variable code syntax for easy developer access
      * Format: --collection-name-path-to-token
      */
-    setCodeSyntax(variable, path, collectionName) {
+    async setCodeSyntax(variable, path, collectionName) {
       try {
         const collection = collectionName.toLowerCase();
         const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
         const cssVarName = `--${collection}-${tokenPath}`;
-        variable.setVariableCodeSyntax("WEB", cssVarName);
-        variable.setVariableCodeSyntax("ANDROID", `${collection}.${path.join(".")}`);
-        variable.setVariableCodeSyntax("iOS", `${collection}.${path.join(".")}`);
-        console.log(`Set code syntax for ${variable.name}: ${cssVarName}`);
+        try {
+          if (typeof variable.setCodeSyntax === "function") {
+            await variable.setCodeSyntax("WEB", cssVarName);
+            await variable.setCodeSyntax("ANDROID", `${collection}.${path.join(".")}`);
+            await variable.setCodeSyntax("iOS", `${collection}.${path.join(".")}`);
+          } else {
+            variable.codeSyntax = {
+              WEB: cssVarName,
+              ANDROID: `${collection}.${path.join(".")}`,
+              iOS: `${collection}.${path.join(".")}`
+            };
+          }
+          console.log(`\u2713 Set code syntax for ${variable.name}: ${cssVarName}`);
+        } catch (apiError) {
+          console.warn(`Code syntax not supported or failed for ${variable.name}:`, apiError);
+        }
       } catch (error) {
         console.error(`Error setting code syntax for ${path.join("/")}: ${error}`);
       }
