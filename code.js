@@ -264,10 +264,12 @@
         this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
         this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
         if (primitives) {
-          await this.processTokenGroup(primitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
+          const flattenedPrimitives = this.flattenTokenFiles(primitives);
+          await this.processTokenGroup(flattenedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
         }
         if (semantics) {
-          await this.processTokenGroup(semantics, COLLECTION_NAMES.semantic, semanticCollection, []);
+          const flattenedSemantics = this.flattenTokenFiles(semantics);
+          await this.processTokenGroup(flattenedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
         }
         figma.notify(
           `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
@@ -277,6 +279,29 @@
       } catch (error) {
         throw new Error(`Failed to import tokens: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
+    }
+    /**
+     * Flatten token files structure to merge multiple files into a single token tree
+     * Handles both direct token structure and file-keyed structure (e.g., { "file.json": {...} })
+     */
+    flattenTokenFiles(data) {
+      if (!data || typeof data !== "object") {
+        return {};
+      }
+      const keys = Object.keys(data);
+      const isFileKeyed = keys.some(
+        (key) => key.endsWith(".json") || key.includes("-json") || key.includes("_json")
+      );
+      if (isFileKeyed) {
+        const merged = {};
+        for (const [fileName, fileContent] of Object.entries(data)) {
+          if (fileContent && typeof fileContent === "object") {
+            Object.assign(merged, fileContent);
+          }
+        }
+        return merged;
+      }
+      return data;
     }
     async processTokenGroup(tokens, collectionName, collection, pathPrefix) {
       for (const [key, value] of Object.entries(tokens)) {
@@ -410,16 +435,17 @@
       }
     }
     async fetchMultipleFiles(config, filePaths) {
-      let primitivesData = null;
-      let semanticsData = null;
+      const primitivesData = {};
+      const semanticsData = {};
       for (const filePath of filePaths) {
         const jsonData = await this.fetchFileContent(config, filePath);
+        const fileName = filePath.split("/").pop() || filePath;
         if (filePath.toLowerCase().includes("primitive")) {
-          primitivesData = jsonData;
+          primitivesData[fileName] = jsonData;
         } else if (filePath.toLowerCase().includes("semantic")) {
-          semanticsData = jsonData;
+          semanticsData[fileName] = jsonData;
         } else {
-          primitivesData = jsonData;
+          primitivesData[fileName] = jsonData;
         }
       }
       return { primitives: primitivesData, semantics: semanticsData };
