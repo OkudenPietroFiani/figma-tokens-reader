@@ -14,6 +14,42 @@ export function mapTokenTypeToFigma(tokenType: string): VariableResolvedDataType
   return TYPE_MAPPING[tokenType] || 'STRING';
 }
 
+/**
+ * Get appropriate scopes for a variable based on its token type
+ * Primitives (non-aliases) have no scopes, semantics have type-appropriate scopes
+ */
+export function getScopesForTokenType(tokenType: string, isAlias: boolean): VariableScope[] {
+  // Primitives/raw values should not be accessible in Figma properties (no scopes)
+  if (!isAlias) {
+    return [];
+  }
+
+  // Semantic variables (that consume other variables) get appropriate scopes
+  switch (tokenType) {
+    case 'color':
+      return ['ALL_FILLS', 'STROKE_COLOR', 'EFFECT_COLOR'];
+
+    case 'dimension':
+    case 'spacing':
+      return ['GAP', 'WIDTH_HEIGHT', 'CORNER_RADIUS'];
+
+    case 'fontSize':
+      return ['FONT_SIZE'];
+
+    case 'fontFamily':
+      return ['FONT_FAMILY'];
+
+    case 'fontWeight':
+      return ['FONT_WEIGHT'];
+
+    case 'lineHeight':
+      return ['LINE_HEIGHT'];
+
+    default:
+      return ['ALL_SCOPES'];
+  }
+}
+
 export async function processTokenValue(
   value: any,
   tokenType: string,
@@ -50,6 +86,8 @@ export async function processTokenValue(
       return { value: parseFontFamily(value), isAlias: false };
 
     case 'fontWeight':
+      return { value: parseNumber(value), isAlias: false };
+
     case 'lineHeight':
     case 'string':
     default:

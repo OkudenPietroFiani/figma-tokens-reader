@@ -15,7 +15,7 @@
     "spacing": "FLOAT",
     "number": "FLOAT",
     "fontFamily": "STRING",
-    "fontWeight": "STRING",
+    "fontWeight": "FLOAT",
     "fontSize": "FLOAT",
     "lineHeight": "STRING",
     "typography": "STRING",
@@ -190,6 +190,28 @@
   function mapTokenTypeToFigma(tokenType) {
     return TYPE_MAPPING[tokenType] || "STRING";
   }
+  function getScopesForTokenType(tokenType, isAlias) {
+    if (!isAlias) {
+      return [];
+    }
+    switch (tokenType) {
+      case "color":
+        return ["ALL_FILLS", "STROKE_COLOR", "EFFECT_COLOR"];
+      case "dimension":
+      case "spacing":
+        return ["GAP", "WIDTH_HEIGHT", "CORNER_RADIUS"];
+      case "fontSize":
+        return ["FONT_SIZE"];
+      case "fontFamily":
+        return ["FONT_FAMILY"];
+      case "fontWeight":
+        return ["FONT_WEIGHT"];
+      case "lineHeight":
+        return ["LINE_HEIGHT"];
+      default:
+        return ["ALL_SCOPES"];
+    }
+  }
   async function processTokenValue(value, tokenType, variableMap) {
     if (typeof value === "string" && value.includes("{") && value.includes("}")) {
       const reference = extractReference(value);
@@ -214,6 +236,7 @@
       case "fontFamily":
         return { value: parseFontFamily(value), isAlias: false };
       case "fontWeight":
+        return { value: parseNumber(value), isAlias: false };
       case "lineHeight":
       case "string":
       default:
@@ -500,6 +523,9 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
+        const scopes = getScopesForTokenType(tokenType, processedValue.isAlias);
+        variable.scopes = scopes;
+        console.log(`\u2713 Scopes set for ${variableName}: ${scopes.length === 0 ? "none (primitive)" : scopes.join(", ")}`);
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
