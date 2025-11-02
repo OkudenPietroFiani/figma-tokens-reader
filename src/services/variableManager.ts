@@ -91,7 +91,12 @@ export class VariableManager {
     collectionName: string
   ): Promise<void> {
     try {
-      const variableName = path.join('/');
+      // Sanitize variable name - Figma requires alphanumeric, hyphens, underscores, slashes
+      // Join path segments with '/' for Figma's grouping
+      const variableName = path.map(segment =>
+        segment.replace(/[^a-zA-Z0-9-_]/g, '-')
+      ).join('/');
+
       const tokenType = token.$type || inferTokenType(token.$value);
       const figmaType = mapTokenTypeToFigma(tokenType);
 

@@ -73,13 +73,17 @@ async function handleImportTokens(data: { primitives: TokenData; semantics: Toke
 async function handleGitHubFetchFiles(data: any): Promise<void> {
   try {
     const { token, owner, repo, branch } = data;
-    const files = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
+    const fileObjects = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
+
+    // Extract just the paths for the UI
+    const files = fileObjects.map(file => file.path);
 
     figma.ui.postMessage({
       type: 'github-files-fetched',
       data: { files }
     });
   } catch (error) {
+    console.error('Error fetching GitHub files:', error);
     figma.ui.postMessage({
       type: 'error',
       message: error instanceof Error ? error.message : 'Failed to fetch repository files'

@@ -390,6 +390,25 @@
       font-size: 14px;
       font-weight: 600;
       color: #000;
+      margin-bottom: 12px;
+    }
+
+    .btn-switch-source {
+      width: 100%;
+      padding: 8px 12px;
+      background: #fff;
+      color: #0d99ff;
+      border: 1px solid #0d99ff;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-switch-source:hover {
+      background: #f0f8ff;
     }
 
     .file-tab {
@@ -606,6 +625,7 @@
       <div class="file-tabs">
         <div class="file-tabs-header">
           <div class="file-tabs-title">Token Files</div>
+          <button class="btn-switch-source" id="switch-source-btn">Switch Source</button>
         </div>
         <div id="file-tabs-list">
           <!-- Tabs will be dynamically added here -->
@@ -1018,6 +1038,17 @@
           data: githubConfig
         }
       }, '*');
+    });
+
+    document.getElementById('switch-source-btn').addEventListener('click', () => {
+      // Clear current token state
+      tokenFiles = {};
+      tokenSource = null;
+      window.githubTokenData = null;
+      window.localTokenData = null;
+
+      // Navigate back to welcome screen
+      showScreen('welcome-screen');
     });
 
     // ==================== TOKEN PERSISTENCE ====================
