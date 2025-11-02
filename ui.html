@@ -74,6 +74,24 @@
       max-width: 400px;
     }
 
+    .welcome-back-btn {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: transparent;
+      color: #666;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .welcome-back-btn:hover {
+      color: #333;
+      text-decoration: underline;
+    }
+
     /* Pill Buttons */
     .btn-pill {
       flex: 1;
@@ -688,6 +706,8 @@
       <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
       <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
     </div>
+
+    <button class="welcome-back-btn hidden" id="back-to-tokens-btn">← Back to Tokens</button>
   </div>
 
   <!-- ==================== IMPORT SCREEN ==================== -->
@@ -810,6 +830,7 @@
     let tokenFiles = {}; // Stores all token file data
     let tokenSource = null; // 'github' or 'local'
     let githubConfig = null; // Stores GitHub configuration for pull changes
+    let savedTokenState = null; // Backup state when switching source
 
     // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
@@ -821,6 +842,10 @@
 
     // ==================== WELCOME SCREEN ====================
     document.getElementById('connect-github-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
       importMode = 'github';
       document.getElementById('import-title').textContent = 'Connect to GitHub';
       document.getElementById('import-subtitle').textContent = 'Import tokens from a GitHub repository';
@@ -831,6 +856,10 @@
     });
 
     document.getElementById('import-local-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
       importMode = 'local';
       document.getElementById('import-title').textContent = 'Import Local Files';
       document.getElementById('import-subtitle').textContent = 'Select token files from your computer';
@@ -840,6 +869,10 @@
     });
 
     document.getElementById('back-to-welcome').addEventListener('click', () => {
+      // If we have saved token state, show back button on welcome screen
+      if (savedTokenState) {
+        document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+      }
       showScreen('welcome-screen');
     });
 
@@ -1387,14 +1420,34 @@
     });
 
     document.getElementById('switch-source-btn').addEventListener('click', () => {
-      // Clear current token state
-      tokenFiles = {};
-      tokenSource = null;
-      window.githubTokenData = null;
-      window.localTokenData = null;
+      // Save current token state before switching
+      savedTokenState = {
+        tokenFiles: JSON.parse(JSON.stringify(tokenFiles)),
+        tokenSource: tokenSource,
+        githubTokenData: window.githubTokenData,
+        localTokenData: window.localTokenData,
+        githubConfig: githubConfig
+      };
 
-      // Navigate back to welcome screen
+      // Show back button on welcome screen
+      document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+
+      // Navigate to welcome screen (without clearing data)
       showScreen('welcome-screen');
+    });
+
+    document.getElementById('back-to-tokens-btn').addEventListener('click', () => {
+      if (savedTokenState) {
+        // Restore token state
+        tokenFiles = savedTokenState.tokenFiles;
+        tokenSource = savedTokenState.tokenSource;
+        window.githubTokenData = savedTokenState.githubTokenData;
+        window.localTokenData = savedTokenState.localTokenData;
+        githubConfig = savedTokenState.githubConfig;
+
+        // Return to token screen
+        showTokenScreen();
+      }
     });
 
     // ==================== TOKEN PERSISTENCE ====================
