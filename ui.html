@@ -412,28 +412,44 @@
     }
 
     .file-tab {
-      padding: 12px 16px;
-      border-left: 3px solid transparent;
+      padding: 10px 12px;
+      margin: 4px 8px;
+      border-radius: 6px;
+      border: none;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       background: transparent;
-      border-bottom: 1px solid #f0f0f0;
       text-align: left;
       word-break: break-word;
+      font-family: inherit;
+      width: calc(100% - 16px);
     }
 
     .file-tab:hover {
-      background: #fff;
+      background: #f0f0f0;
       color: #333;
     }
 
     .file-tab.active {
-      background: #fff;
+      background: #e3f2ff;
       color: #0d99ff;
-      border-left-color: #0d99ff;
       font-weight: 600;
+      box-shadow: 0 2px 4px rgba(13, 153, 255, 0.1);
+    }
+
+    .file-tab-count {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    .file-tab.active .file-tab-count {
+      color: #0d99ff;
+      opacity: 0.7;
     }
 
     /* Right Column - JSON Preview */
@@ -479,6 +495,83 @@
       border-radius: 6px;
       border: 1px solid #e0e0e0;
       overflow-x: auto;
+    }
+
+    /* Interactive JSON Viewer */
+    .json-tree {
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .json-node {
+      margin-left: 20px;
+    }
+
+    .json-line {
+      padding: 2px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .json-line:hover .json-key {
+      background: #f0f8ff;
+    }
+
+    .json-toggle {
+      display: inline-block;
+      width: 16px;
+      text-align: center;
+      color: #999;
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+    }
+
+    .json-toggle:hover {
+      color: #0d99ff;
+    }
+
+    .json-key {
+      color: #881391;
+      font-weight: 600;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .json-value {
+      color: #1a1aa6;
+    }
+
+    .json-value.string {
+      color: #c41a16;
+    }
+
+    .json-value.number {
+      color: #1c00cf;
+    }
+
+    .json-value.boolean {
+      color: #0d99ff;
+    }
+
+    .json-value.null {
+      color: #999;
+    }
+
+    .json-type {
+      color: #999;
+      font-style: italic;
+      margin-left: 8px;
+    }
+
+    .json-collapsed {
+      display: none;
     }
 
     .empty-state {
@@ -960,12 +1053,25 @@
       const tabsList = document.getElementById('file-tabs-list');
       tabsList.innerHTML = '';
 
-      const fileKeys = Object.keys(tokenFiles);
+      // Filter out metadata files
+      const fileKeys = Object.keys(tokenFiles).filter(key => {
+        const file = tokenFiles[key];
+        const fileName = file.name.toLowerCase();
+        return !fileName.includes('metadata') &&
+               !fileName.startsWith('$') &&
+               !fileName.includes('$metadata');
+      });
+
       fileKeys.forEach((key, index) => {
         const file = tokenFiles[key];
+        const tokenCount = countTokens(file.content);
+
         const tab = document.createElement('button');
         tab.className = 'file-tab' + (index === 0 ? ' active' : '');
-        tab.textContent = file.name;
+        tab.innerHTML = `
+          ${file.name}
+          <span class="file-tab-count">${tokenCount} tokens</span>
+        `;
         tab.dataset.file = key;
         tab.addEventListener('click', () => selectFile(key));
         tabsList.appendChild(tab);
@@ -990,6 +1096,24 @@
       saveTokens();
     }
 
+    function countTokens(obj, count = 0) {
+      if (!obj || typeof obj !== 'object') return count;
+
+      for (const key in obj) {
+        const value = obj[key];
+        if (value && typeof value === 'object') {
+          // Check if this is a token (has $value)
+          if ('$value' in value) {
+            count++;
+          } else {
+            // Recurse into nested objects
+            count = countTokens(value, count);
+          }
+        }
+      }
+      return count;
+    }
+
     function selectFile(fileKey) {
       const file = tokenFiles[fileKey];
       if (!file) return;
@@ -1002,8 +1126,144 @@
       // Update preview
       document.getElementById('json-filename').textContent = file.name;
       document.getElementById('json-source').textContent = `Source: ${file.source}`;
-      document.getElementById('json-content').innerHTML =
-        `<pre>${JSON.stringify(file.content, null, 2)}</pre>`;
+
+      // Render interactive JSON tree
+      const jsonContent = document.getElementById('json-content');
+      jsonContent.innerHTML = '';
+      const tree = document.createElement('div');
+      tree.className = 'json-tree';
+      renderJsonTree(file.content, tree, '');
+      jsonContent.appendChild(tree);
+    }
+
+    function renderJsonTree(obj, container, path, isExpanded = true) {
+      if (obj === null) {
+        container.innerHTML = '<span class="json-value null">null</span>';
+        return;
+      }
+
+      if (typeof obj !== 'object') {
+        const type = typeof obj;
+        container.innerHTML = `<span class="json-value ${type}">${JSON.stringify(obj)}</span>`;
+        return;
+      }
+
+      const isArray = Array.isArray(obj);
+      const entries = Object.entries(obj);
+
+      if (entries.length === 0) {
+        container.innerHTML = isArray ? '[]' : '{}';
+        return;
+      }
+
+      const openBracket = isArray ? '[' : '{';
+      const closeBracket = isArray ? ']' : '}';
+
+      const wrapper = document.createElement('div');
+
+      // Create the opening line with toggle
+      const openLine = document.createElement('div');
+      openLine.className = 'json-line';
+
+      const toggle = document.createElement('span');
+      toggle.className = 'json-toggle';
+      toggle.textContent = isExpanded ? '▼' : '▶';
+
+      const bracket = document.createElement('span');
+      bracket.textContent = openBracket + (isExpanded ? '' : '...' + closeBracket);
+
+      openLine.appendChild(toggle);
+      openLine.appendChild(bracket);
+      wrapper.appendChild(openLine);
+
+      // Create content container
+      const content = document.createElement('div');
+      content.className = 'json-node' + (isExpanded ? '' : ' json-collapsed');
+
+      entries.forEach(([key, value], index) => {
+        const line = document.createElement('div');
+        line.className = 'json-line';
+
+        const itemPath = path ? `${path}.${key}` : key;
+
+        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+          // Nested object/array
+          const itemToggle = document.createElement('span');
+          itemToggle.className = 'json-toggle';
+          itemToggle.textContent = '▼';
+
+          const keySpan = document.createElement('span');
+          keySpan.className = 'json-key';
+          keySpan.textContent = isArray ? `[${key}]` : `"${key}"`;
+
+          const colon = document.createTextNode(': ');
+
+          line.appendChild(itemToggle);
+          line.appendChild(keySpan);
+          if (!isArray) line.appendChild(colon);
+
+          const nested = document.createElement('span');
+          renderJsonTree(value, nested, itemPath, true);
+          line.appendChild(nested);
+
+          // Toggle functionality
+          itemToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nestedNode = nested.querySelector('.json-node');
+            if (nestedNode) {
+              nestedNode.classList.toggle('json-collapsed');
+              itemToggle.textContent = nestedNode.classList.contains('json-collapsed') ? '▶' : '▼';
+            }
+          });
+        } else {
+          // Leaf value
+          const spacer = document.createElement('span');
+          spacer.className = 'json-toggle';
+          spacer.textContent = ' ';
+
+          const keySpan = document.createElement('span');
+          keySpan.className = 'json-key';
+          keySpan.textContent = isArray ? `[${key}]` : `"${key}"`;
+
+          const colon = document.createTextNode(': ');
+
+          const valueType = typeof value;
+          const valueSpan = document.createElement('span');
+          valueSpan.className = `json-value ${valueType}`;
+          valueSpan.textContent = typeof value === 'string' ? `"${value}"` : JSON.stringify(value);
+
+          line.appendChild(spacer);
+          line.appendChild(keySpan);
+          if (!isArray) line.appendChild(colon);
+          line.appendChild(valueSpan);
+        }
+
+        const comma = index < entries.length - 1 ? ',' : '';
+        line.appendChild(document.createTextNode(comma));
+
+        content.appendChild(line);
+      });
+
+      wrapper.appendChild(content);
+
+      // Closing bracket
+      const closeLine = document.createElement('div');
+      closeLine.className = 'json-line';
+      closeLine.innerHTML = `<span class="json-toggle"> </span>${closeBracket}`;
+      closeLine.classList.add('json-collapsed');
+      content.appendChild(closeLine);
+
+      // Toggle functionality for main object
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        content.classList.toggle('json-collapsed');
+        toggle.textContent = content.classList.contains('json-collapsed') ? '▶' : '▼';
+        bracket.textContent = content.classList.contains('json-collapsed')
+          ? openBracket + '...' + closeBracket
+          : openBracket;
+      });
+
+      container.appendChild(wrapper);
     }
 
     // ==================== TOKEN ACTIONS ====================
