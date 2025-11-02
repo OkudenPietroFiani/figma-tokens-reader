@@ -1677,10 +1677,17 @@
         return;
       }
 
+      // Convert tokenScopesMap to plain object for serialization
+      const scopeAssignments = {};
+      tokenScopesMap.forEach((scopes, path) => {
+        scopeAssignments[path] = scopes;
+      });
+
       parent.postMessage({
         pluginMessage: {
           type: 'import-tokens',
-          data: data
+          data: data,
+          scopeAssignments: scopeAssignments
         }
       }, '*');
     });
@@ -2170,6 +2177,32 @@
     }
 
     /**
+     * Update all parent group checkboxes based on child selection state
+     * Single responsibility: Synchronize group checkbox states
+     */
+    function updateParentGroupCheckboxes() {
+      const groupCheckboxes = document.querySelectorAll('.scope-checkbox[data-is-group="true"]');
+
+      groupCheckboxes.forEach(groupCheckbox => {
+        const groupPath = groupCheckbox.dataset.path;
+        // Find all child token checkboxes under this group
+        const childCheckboxes = Array.from(document.querySelectorAll('.scope-checkbox'))
+          .filter(cb => {
+            const cbPath = cb.dataset.path;
+            return cbPath !== groupPath && // Not the group itself
+                   cbPath.startsWith(groupPath) && // Is a descendant
+                   !cb.dataset.isGroup; // Is a token (not another group)
+          });
+
+        // Check if all children are selected
+        if (childCheckboxes.length > 0) {
+          const allSelected = childCheckboxes.every(cb => cb.checked);
+          groupCheckbox.checked = allSelected;
+        }
+      });
+    }
+
+    /**
      * Handle individual token selection
      * Single responsibility: Manage token selection state
      */
@@ -2179,6 +2212,9 @@
       } else {
         selectedTokensForScopes.delete(fullPath);
       }
+
+      // Update parent group checkboxes
+      updateParentGroupCheckboxes();
 
       updateScopeUIState(availableScopes);
     }
@@ -2368,17 +2404,17 @@
       const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
       const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
 
-      if (selectedScopes.length === 0) {
-        showNotification('Please select at least one scope', 'error');
-        return;
-      }
-
+      // Allow empty scopes (for primitives that should have no scopes)
       // Store scope assignments
       selectedTokensForScopes.forEach(fullPath => {
         tokenScopesMap.set(fullPath, selectedScopes);
       });
 
-      showNotification(`Scopes assigned to ${selectedTokensForScopes.size} token(s)`, 'success');
+      const scopeMessage = selectedScopes.length === 0
+        ? `Empty scopes assigned to ${selectedTokensForScopes.size} token(s)`
+        : `Scopes assigned to ${selectedTokensForScopes.size} token(s)`;
+
+      showNotification(scopeMessage, 'success');
 
       // Reset and refresh
       resetScopeSelection();

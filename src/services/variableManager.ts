@@ -10,19 +10,24 @@ export class VariableManager {
   private collectionMap: Map<string, VariableCollection>;
   private tokenMetadata: TokenMetadata[];
   private importStats: ImportStats;
+  private scopeAssignments: { [key: string]: string[] };
 
   constructor() {
     this.variableMap = new Map();
     this.collectionMap = new Map();
     this.tokenMetadata = [];
     this.importStats = { added: 0, updated: 0, skipped: 0 };
+    this.scopeAssignments = {};
   }
 
-  async importTokens(primitives: TokenData, semantics: TokenData): Promise<ImportStats> {
+  async importTokens(primitives: TokenData, semantics: TokenData, scopeAssignments: { [key: string]: string[] } = {}): Promise<ImportStats> {
     try {
       // Reset stats and metadata
       this.importStats = { added: 0, updated: 0, skipped: 0 };
       this.tokenMetadata = [];
+
+      // Store scope assignments for use during variable creation
+      this.scopeAssignments = scopeAssignments;
 
       // Get or create collections
       const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -379,9 +384,10 @@ export class VariableManager {
         variable.setValueForMode(modeId, processedValue.value);
       }
 
-      // Scopes will be set manually by the user in the Scopes screen
-      // Default to empty scopes for now
-      variable.scopes = [];
+      // Apply scopes from scope assignments (if any)
+      const tokenPath = path.join('.');
+      const assignedScopes = this.findScopesForToken(tokenPath);
+      variable.scopes = assignedScopes;
 
       // Set CSS variable code syntax for developers
       this.setCodeSyntax(variable, path, collectionName);
@@ -412,6 +418,31 @@ export class VariableManager {
       this.importStats.skipped++;
       // Don't throw - continue with other tokens
     }
+  }
+
+  /**
+   * Find scopes assigned to a token
+   * Matches token path against scope assignments (ignoring file key prefix)
+   * Returns empty array if no scopes assigned
+   */
+  private findScopesForToken(tokenPath: string): VariableScope[] {
+    // Try to find scope assignment for this token
+    // Scope assignment keys are in format "fileKey:token.path"
+    // We need to match against token.path part
+    for (const [assignmentKey, scopes] of Object.entries(this.scopeAssignments)) {
+      // Extract token path from assignment key (after the colon)
+      const keyParts = assignmentKey.split(':');
+      if (keyParts.length === 2) {
+        const assignedTokenPath = keyParts[1];
+        if (assignedTokenPath === tokenPath) {
+          // Convert string scope names to Figma VariableScope enum values
+          return scopes as VariableScope[];
+        }
+      }
+    }
+
+    // No scopes assigned - return empty array (primitive tokens should have no scopes)
+    return [];
   }
 
   /**

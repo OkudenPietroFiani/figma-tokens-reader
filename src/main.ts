@@ -17,7 +17,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   try {
     switch (msg.type) {
       case 'import-tokens':
-        await handleImportTokens(msg.data);
+        await handleImportTokens(msg);
         break;
 
       case 'github-fetch-files':
@@ -60,9 +60,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   }
 };
 
-async function handleImportTokens(data: { primitives: TokenData; semantics: TokenData }): Promise<void> {
-  const { primitives, semantics } = data;
-  const stats = await variableManager.importTokens(primitives, semantics);
+async function handleImportTokens(msg: { data: { primitives: TokenData; semantics: TokenData }; scopeAssignments?: any }): Promise<void> {
+  const { primitives, semantics } = msg.data;
+  const scopeAssignments = msg.scopeAssignments || {};
+  const stats = await variableManager.importTokens(primitives, semantics, scopeAssignments);
 
   figma.ui.postMessage({
     type: 'import-success',

@@ -248,11 +248,13 @@
       this.collectionMap = /* @__PURE__ */ new Map();
       this.tokenMetadata = [];
       this.importStats = { added: 0, updated: 0, skipped: 0 };
+      this.scopeAssignments = {};
     }
-    async importTokens(primitives, semantics) {
+    async importTokens(primitives, semantics, scopeAssignments = {}) {
       try {
         this.importStats = { added: 0, updated: 0, skipped: 0 };
         this.tokenMetadata = [];
+        this.scopeAssignments = scopeAssignments;
         const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
         const primitiveCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.primitive);
         const semanticCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.semantic);
@@ -501,7 +503,9 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
-        variable.scopes = [];
+        const tokenPath = path.join(".");
+        const assignedScopes = this.findScopesForToken(tokenPath);
+        variable.scopes = assignedScopes;
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
@@ -523,6 +527,23 @@
         console.error(`Error creating variable ${path.join("/")}: ${error}`);
         this.importStats.skipped++;
       }
+    }
+    /**
+     * Find scopes assigned to a token
+     * Matches token path against scope assignments (ignoring file key prefix)
+     * Returns empty array if no scopes assigned
+     */
+    findScopesForToken(tokenPath) {
+      for (const [assignmentKey, scopes] of Object.entries(this.scopeAssignments)) {
+        const keyParts = assignmentKey.split(":");
+        if (keyParts.length === 2) {
+          const assignedTokenPath = keyParts[1];
+          if (assignedTokenPath === tokenPath) {
+            return scopes;
+          }
+        }
+      }
+      return [];
     }
     /**
      * Set code syntax using Figma's official API
@@ -691,7 +712,7 @@
     try {
       switch (msg.type) {
         case "import-tokens":
-          await handleImportTokens(msg.data);
+          await handleImportTokens(msg);
           break;
         case "github-fetch-files":
           await handleGitHubFetchFiles(msg.data);
@@ -725,9 +746,10 @@
       });
     }
   };
-  async function handleImportTokens(data) {
-    const { primitives, semantics } = data;
-    const stats = await variableManager.importTokens(primitives, semantics);
+  async function handleImportTokens(msg) {
+    const { primitives, semantics } = msg.data;
+    const scopeAssignments = msg.scopeAssignments || {};
+    const stats = await variableManager.importTokens(primitives, semantics, scopeAssignments);
     figma.ui.postMessage({
       type: "import-success",
       message: `\u2713 Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`

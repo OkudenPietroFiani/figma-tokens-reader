@@ -41,7 +41,12 @@ export interface ProcessedValue {
   aliasVariable?: Variable;
 }
 
+export interface ScopeAssignments {
+  [tokenPath: string]: string[]; // Maps token path to array of scope strings
+}
+
 export interface PluginMessage {
   type: string;
   data?: any;
+  scopeAssignments?: ScopeAssignments;
 }
