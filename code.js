@@ -326,6 +326,7 @@
      * Merge multiple token files:
      * 1. Unwrap collection name from each file individually
      * 2. Deep merge the unwrapped contents
+     * 3. Unwrap the merged result if still has collection wrapper
      */
     mergeTokenFiles(filesData, collectionType) {
       const merged = {};
@@ -336,8 +337,10 @@
         console.log(`[${collectionType}] After unwrap:`, Object.keys(unwrapped));
         this.deepMerge(merged, unwrapped);
       }
-      console.log(`[${collectionType}] Final merged keys:`, Object.keys(merged));
-      return merged;
+      console.log(`[${collectionType}] After merge, keys:`, Object.keys(merged));
+      const finalUnwrapped = this.unwrapCollectionKey(merged, collectionType);
+      console.log(`[${collectionType}] Final unwrapped keys:`, Object.keys(finalUnwrapped));
+      return finalUnwrapped;
     }
     /**
      * Remove redundant top-level key that matches collection name
@@ -440,28 +443,42 @@
     }
     /**
      * Set CSS variable code syntax for easy developer access
-     * Format: --collection-name-path-to-token
+     * Uses Figma's codeSyntax property for variables
      */
     async setCodeSyntax(variable, path, collectionName) {
       try {
         const collection = collectionName.toLowerCase();
         const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
         const cssVarName = `--${collection}-${tokenPath}`;
-        try {
-          if (typeof variable.setCodeSyntax === "function") {
-            await variable.setCodeSyntax("WEB", cssVarName);
-            await variable.setCodeSyntax("ANDROID", `${collection}.${path.join(".")}`);
-            await variable.setCodeSyntax("iOS", `${collection}.${path.join(".")}`);
-          } else {
-            variable.codeSyntax = {
-              WEB: cssVarName,
-              ANDROID: `${collection}.${path.join(".")}`,
-              iOS: `${collection}.${path.join(".")}`
-            };
+        if ("codeSyntax" in variable) {
+          try {
+            const platforms = ["WEB", "ANDROID", "iOS"];
+            for (const platform of platforms) {
+              const value = platform === "WEB" ? cssVarName : `${collection}.${path.join(".")}`;
+              if (typeof variable.setCodeSyntax === "function") {
+                variable.setCodeSyntax(platform, value);
+              }
+            }
+            console.log(`\u2713 Code syntax set for ${variable.name}: ${cssVarName}`);
+          } catch (err) {
+            const cssInfo = `
+CSS: ${cssVarName}`;
+            if (variable.description && !variable.description.includes("CSS:")) {
+              variable.description = variable.description + cssInfo;
+            } else if (!variable.description) {
+              variable.description = `CSS variable: ${cssVarName}`;
+            }
+            console.log(`\u2713 Added CSS variable to description for ${variable.name}`);
           }
-          console.log(`\u2713 Set code syntax for ${variable.name}: ${cssVarName}`);
-        } catch (apiError) {
-          console.warn(`Code syntax not supported or failed for ${variable.name}:`, apiError);
+        } else {
+          const cssInfo = `CSS: ${cssVarName}`;
+          if (variable.description && !variable.description.includes("CSS:")) {
+            variable.description = variable.description + `
+${cssInfo}`;
+          } else if (!variable.description) {
+            variable.description = cssInfo;
+          }
+          console.log(`\u2713 Added CSS variable to description for ${variable.name} (codeSyntax not available)`);
         }
       } catch (error) {
         console.error(`Error setting code syntax for ${path.join("/")}: ${error}`);

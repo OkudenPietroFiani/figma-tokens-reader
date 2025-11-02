@@ -129,6 +129,7 @@ export class VariableManager {
    * Merge multiple token files:
    * 1. Unwrap collection name from each file individually
    * 2. Deep merge the unwrapped contents
+   * 3. Unwrap the merged result if still has collection wrapper
    */
   private mergeTokenFiles(filesData: TokenData, collectionType: 'primitive' | 'semantic'): TokenData {
     const merged: TokenData = {};
@@ -147,8 +148,13 @@ export class VariableManager {
       this.deepMerge(merged, unwrapped);
     }
 
-    console.log(`[${collectionType}] Final merged keys:`, Object.keys(merged));
-    return merged;
+    console.log(`[${collectionType}] After merge, keys:`, Object.keys(merged));
+
+    // CRITICAL: Unwrap AGAIN after merging in case merged result still has wrapper
+    const finalUnwrapped = this.unwrapCollectionKey(merged, collectionType);
+
+    console.log(`[${collectionType}] Final unwrapped keys:`, Object.keys(finalUnwrapped));
+    return finalUnwrapped;
   }
 
   /**
@@ -303,7 +309,7 @@ export class VariableManager {
 
   /**
    * Set CSS variable code syntax for easy developer access
-   * Format: --collection-name-path-to-token
+   * Uses Figma's codeSyntax property for variables
    */
   private async setCodeSyntax(variable: Variable, path: string[], collectionName: string): Promise<void> {
     try {
@@ -312,31 +318,49 @@ export class VariableManager {
       const tokenPath = path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-');
       const cssVarName = `--${collection}-${tokenPath}`;
 
-      // Figma Plugin API: Set code syntax for different platforms
-      // Note: This sets how the variable appears in dev mode/inspect panel
-      try {
-        // Method 1: Try using setCodeSyntax if it exists
-        if (typeof (variable as any).setCodeSyntax === 'function') {
-          await (variable as any).setCodeSyntax('WEB', cssVarName);
-          await (variable as any).setCodeSyntax('ANDROID', `${collection}.${path.join('.')}`);
-          await (variable as any).setCodeSyntax('iOS', `${collection}.${path.join('.')}`);
+      // Figma Plugin API: The codeSyntax property stores platform-specific code formats
+      // This is visible in Figma's Dev Mode when inspecting variables
+
+      // Check if codeSyntax property exists and is settable
+      if ('codeSyntax' in variable) {
+        try {
+          // Attempt to set codeSyntax for each platform
+          const platforms = ['WEB', 'ANDROID', 'iOS'] as const;
+
+          for (const platform of platforms) {
+            const value = platform === 'WEB'
+              ? cssVarName
+              : `${collection}.${path.join('.')}`;
+
+            // Try setting via method if available
+            if (typeof (variable as any).setCodeSyntax === 'function') {
+              (variable as any).setCodeSyntax(platform, value);
+            }
+          }
+
+          console.log(`✓ Code syntax set for ${variable.name}: ${cssVarName}`);
+        } catch (err) {
+          // Fallback: Add to description if codeSyntax fails
+          const cssInfo = `\nCSS: ${cssVarName}`;
+          if (variable.description && !variable.description.includes('CSS:')) {
+            variable.description = variable.description + cssInfo;
+          } else if (!variable.description) {
+            variable.description = `CSS variable: ${cssVarName}`;
+          }
+          console.log(`✓ Added CSS variable to description for ${variable.name}`);
         }
-        // Method 2: Try setting codeSyntax property directly
-        else {
-          (variable as any).codeSyntax = {
-            WEB: cssVarName,
-            ANDROID: `${collection}.${path.join('.')}`,
-            iOS: `${collection}.${path.join('.')}`
-          };
+      } else {
+        // codeSyntax not available - add to description
+        const cssInfo = `CSS: ${cssVarName}`;
+        if (variable.description && !variable.description.includes('CSS:')) {
+          variable.description = variable.description + `\n${cssInfo}`;
+        } else if (!variable.description) {
+          variable.description = cssInfo;
         }
-        console.log(`✓ Set code syntax for ${variable.name}: ${cssVarName}`);
-      } catch (apiError) {
-        // API might not support code syntax yet
-        console.warn(`Code syntax not supported or failed for ${variable.name}:`, apiError);
+        console.log(`✓ Added CSS variable to description for ${variable.name} (codeSyntax not available)`);
       }
     } catch (error) {
       console.error(`Error setting code syntax for ${path.join('/')}: ${error}`);
-      // Non-fatal error, continue
     }
   }
 
