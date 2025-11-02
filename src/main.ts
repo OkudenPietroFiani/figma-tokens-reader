@@ -28,6 +28,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleGitHubImportFiles(msg.data);
         break;
 
+      case 'load-github-config':
+        await handleLoadGithubConfig();
+        break;
+
       case 'save-github-config':
         await handleSaveGithubConfig(msg.data);
         break;
@@ -86,13 +90,12 @@ async function handleGitHubImportFiles(data: any): Promise<void> {
       files
     );
 
-    console.log('Files fetched successfully, importing tokens...');
-    // Import the tokens
-    const stats = await variableManager.importTokens(primitives, semantics);
+    console.log('Files fetched successfully, sending to preview screen...');
 
+    // Send data to UI for preview screen
     figma.ui.postMessage({
-      type: 'import-success',
-      message: `✓ Tokens imported from GitHub: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
+      type: 'github-files-imported',
+      data: { primitives, semantics }
     });
   } catch (error) {
     console.error('Error in handleGitHubImportFiles:', error);
@@ -100,6 +103,21 @@ async function handleGitHubImportFiles(data: any): Promise<void> {
       type: 'error',
       message: error instanceof Error ? error.message : 'Failed to import files from GitHub'
     });
+  }
+}
+
+async function handleLoadGithubConfig(): Promise<void> {
+  try {
+    const configString = await figma.clientStorage.getAsync('githubConfig');
+    if (configString) {
+      const config = JSON.parse(configString as string);
+      figma.ui.postMessage({
+        type: 'github-config-loaded',
+        data: config
+      });
+    }
+  } catch (error) {
+    console.error('Error loading GitHub config:', error);
   }
 }
 
