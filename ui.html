@@ -1110,6 +1110,10 @@
     let githubConfig = null; // Stores GitHub configuration for pull changes
     let savedTokenState = null; // Backup state when switching source
 
+    // Scope selection state
+    let selectedTokensForScopes = new Set(); // Tokens selected for scope assignment
+    let tokenScopesMap = new Map(); // Maps token paths to assigned scopes
+
     // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
       document.querySelectorAll('.screen').forEach(screen => {
