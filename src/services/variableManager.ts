@@ -3,7 +3,7 @@
 import { COLLECTION_NAMES } from '../constants';
 import { DesignToken, TokenData, ImportStats, TokenMetadata } from '../types';
 import { inferTokenType } from '../utils/parser';
-import { mapTokenTypeToFigma, processTokenValue, getScopesForTokenType } from '../utils/tokenProcessor';
+import { mapTokenTypeToFigma, processTokenValue } from '../utils/tokenProcessor';
 
 export class VariableManager {
   private variableMap: Map<string, Variable>;
@@ -379,10 +379,9 @@ export class VariableManager {
         variable.setValueForMode(modeId, processedValue.value);
       }
 
-      // Set scopes: primitives get no scopes, semantics get type-appropriate scopes
-      const scopes = getScopesForTokenType(tokenType, processedValue.isAlias);
-      variable.scopes = scopes;
-      console.log(`✓ Scopes set for ${variableName}: ${scopes.length === 0 ? 'none (primitive)' : scopes.join(', ')}`);
+      // Scopes will be set manually by the user in the Scopes screen
+      // Default to empty scopes for now
+      variable.scopes = [];
 
       // Set CSS variable code syntax for developers
       this.setCodeSyntax(variable, path, collectionName);

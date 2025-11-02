@@ -74,6 +74,24 @@
       max-width: 400px;
     }
 
+    .welcome-back-btn {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: transparent;
+      color: #666;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .welcome-back-btn:hover {
+      color: #333;
+      text-decoration: underline;
+    }
+
     /* Pill Buttons */
     .btn-pill {
       flex: 1;
@@ -374,17 +392,46 @@
       background: #fff;
     }
 
-    .token-top-bar-title {
+    .token-top-bar-tabs {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .token-tab {
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 400;
       color: #161e3d;
-      margin: 0;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      transition: font-weight 0.2s;
+      font-family: inherit;
+    }
+
+    .token-tab:hover {
+      font-weight: 500;
+    }
+
+    .token-tab.active {
+      font-weight: 700;
     }
 
     .token-layout {
       display: flex;
       flex: 1;
       overflow: hidden;
+    }
+
+    .token-view {
+      display: none;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .token-view.active {
+      display: flex;
     }
 
     /* Left Column - File Tabs */
@@ -674,6 +721,162 @@
     .notification.error {
       border-left: 4px solid #ff3b30;
     }
+
+    /* Scope Selection Styles */
+    .scope-tree {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #000;
+    }
+
+    .scope-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .scope-item:hover {
+      background: #f5f5f5;
+    }
+
+    .scope-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .scope-item-content {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .scope-chevron {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scope-chevron svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .scope-label {
+      font-weight: 400;
+    }
+
+    .scope-label.primary {
+      font-weight: 600;
+    }
+
+    .scope-children {
+      margin-left: 24px;
+    }
+
+    .scope-children.collapsed {
+      display: none;
+    }
+
+    /* Scope Assignment Panel */
+    .scope-assignment-panel {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      background: white;
+      border: 1px solid #e5e5e0;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-width: 300px;
+      z-index: 100;
+      display: none;
+    }
+
+    .scope-assignment-panel.active {
+      display: block;
+    }
+
+    .scope-assignment-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #000;
+    }
+
+    .scope-assignment-count {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .scope-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .scope-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scope-option input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
+    .scope-option label {
+      font-size: 13px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .scope-assignment-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .scope-assignment-actions button {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      border: none;
+    }
+
+    .scope-assignment-actions .btn-apply {
+      background: #0d99ff;
+      color: white;
+    }
+
+    .scope-assignment-actions .btn-apply:hover {
+      background: #0b7fd4;
+    }
+
+    .scope-assignment-actions .btn-cancel {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .scope-assignment-actions .btn-cancel:hover {
+      background: #e0e0e0;
+    }
   </style>
 </head>
 <body>
@@ -688,6 +891,8 @@
       <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
       <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
     </div>
+
+    <button class="welcome-back-btn hidden" id="back-to-tokens-btn">← Back to Tokens</button>
   </div>
 
   <!-- ==================== IMPORT SCREEN ==================== -->
@@ -757,29 +962,57 @@
   <div class="screen token-screen" id="token-screen">
     <!-- Top Bar -->
     <div class="token-top-bar">
-      <h1 class="token-top-bar-title">Tokens</h1>
+      <div class="token-top-bar-tabs">
+        <button class="token-tab active" id="tokens-tab" data-tab="tokens">Tokens</button>
+        <button class="token-tab" id="scopes-tab" data-tab="scopes">Scopes</button>
+      </div>
       <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
     </div>
 
-    <div class="token-layout">
-      <!-- Left Column: File Tabs -->
-      <div class="file-tabs">
-        <div class="file-tabs-header">
-          <div class="file-tabs-title">Files</div>
+    <!-- Tokens View -->
+    <div class="token-view active" id="tokens-view">
+      <div class="token-layout">
+        <!-- Left Column: File Tabs -->
+        <div class="file-tabs">
+          <div class="file-tabs-header">
+            <div class="file-tabs-title">Files</div>
+          </div>
+          <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
+            <!-- Tabs will be dynamically added here -->
+          </div>
         </div>
-        <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
-          <!-- Tabs will be dynamically added here -->
+
+        <!-- Right Column: JSON Preview -->
+        <div class="json-preview">
+          <div class="json-header">
+            <div class="json-filename" id="json-filename">Select a file</div>
+            <div class="json-source" id="json-source">No file selected</div>
+          </div>
+          <div class="json-content" id="json-content">
+            <div class="empty-state">Select a token file from the left to preview its contents</div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Right Column: JSON Preview -->
-      <div class="json-preview">
-        <div class="json-header">
-          <div class="json-filename" id="json-filename">Select a file</div>
-          <div class="json-source" id="json-source">No file selected</div>
+    <!-- Scopes View -->
+    <div class="token-view" id="scopes-view">
+      <div class="token-layout">
+        <!-- Left Column: File Selection -->
+        <div class="file-tabs">
+          <div class="file-tabs-header">
+            <div class="file-tabs-title">Scope selection</div>
+          </div>
+          <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
+            <!-- File tabs for scope selection -->
+          </div>
         </div>
-        <div class="json-content" id="json-content">
-          <div class="empty-state">Select a token file from the left to preview its contents</div>
+
+        <!-- Right Column: Token Selection with Checkboxes -->
+        <div class="json-preview">
+          <div class="json-content" id="scope-token-content" style="padding: 16px;">
+            <div class="empty-state">Select tokens to assign scopes</div>
+          </div>
         </div>
       </div>
     </div>
@@ -798,6 +1031,19 @@
     </div>
   </div>
 
+  <!-- Scope Assignment Panel -->
+  <div class="scope-assignment-panel" id="scope-assignment-panel">
+    <div class="scope-assignment-header">Assign Scopes</div>
+    <div class="scope-assignment-count" id="scope-assignment-count">0 tokens selected</div>
+    <div class="scope-options" id="scope-options">
+      <!-- Scope checkboxes will be dynamically added here -->
+    </div>
+    <div class="scope-assignment-actions">
+      <button class="btn-apply" id="apply-scopes-btn">Apply</button>
+      <button class="btn-cancel" id="cancel-scopes-btn">Cancel</button>
+    </div>
+  </div>
+
   <!-- Notification -->
   <div class="notification" id="notification">
     <span id="notification-message"></span>
@@ -810,6 +1056,7 @@
     let tokenFiles = {}; // Stores all token file data
     let tokenSource = null; // 'github' or 'local'
     let githubConfig = null; // Stores GitHub configuration for pull changes
+    let savedTokenState = null; // Backup state when switching source
 
     // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
@@ -821,6 +1068,10 @@
 
     // ==================== WELCOME SCREEN ====================
     document.getElementById('connect-github-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
       importMode = 'github';
       document.getElementById('import-title').textContent = 'Connect to GitHub';
       document.getElementById('import-subtitle').textContent = 'Import tokens from a GitHub repository';
@@ -831,6 +1082,10 @@
     });
 
     document.getElementById('import-local-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
       importMode = 'local';
       document.getElementById('import-title').textContent = 'Import Local Files';
       document.getElementById('import-subtitle').textContent = 'Select token files from your computer';
@@ -840,6 +1095,10 @@
     });
 
     document.getElementById('back-to-welcome').addEventListener('click', () => {
+      // If we have saved token state, show back button on welcome screen
+      if (savedTokenState) {
+        document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+      }
       showScreen('welcome-screen');
     });
 
@@ -1387,14 +1646,331 @@
     });
 
     document.getElementById('switch-source-btn').addEventListener('click', () => {
-      // Clear current token state
-      tokenFiles = {};
-      tokenSource = null;
-      window.githubTokenData = null;
-      window.localTokenData = null;
+      // Save current token state before switching
+      savedTokenState = {
+        tokenFiles: JSON.parse(JSON.stringify(tokenFiles)),
+        tokenSource: tokenSource,
+        githubTokenData: window.githubTokenData,
+        localTokenData: window.localTokenData,
+        githubConfig: githubConfig
+      };
 
-      // Navigate back to welcome screen
+      // Show back button on welcome screen
+      document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+
+      // Navigate to welcome screen (without clearing data)
       showScreen('welcome-screen');
+    });
+
+    document.getElementById('back-to-tokens-btn').addEventListener('click', () => {
+      if (savedTokenState) {
+        // Restore token state
+        tokenFiles = savedTokenState.tokenFiles;
+        tokenSource = savedTokenState.tokenSource;
+        window.githubTokenData = savedTokenState.githubTokenData;
+        window.localTokenData = savedTokenState.localTokenData;
+        githubConfig = savedTokenState.githubConfig;
+
+        // Return to token screen
+        showTokenScreen();
+      }
+    });
+
+    // ==================== TAB SWITCHING ====================
+    let selectedTokensForScopes = new Set();
+    let tokenScopesMap = new Map(); // Store scope assignments: variablePath -> scopes[]
+
+    document.getElementById('tokens-tab').addEventListener('click', () => {
+      // Switch to tokens view
+      document.getElementById('tokens-tab').classList.add('active');
+      document.getElementById('scopes-tab').classList.remove('active');
+      document.getElementById('tokens-view').classList.add('active');
+      document.getElementById('scopes-view').classList.remove('active');
+      document.getElementById('scope-assignment-panel').classList.remove('active');
+    });
+
+    document.getElementById('scopes-tab').addEventListener('click', () => {
+      // Switch to scopes view
+      document.getElementById('scopes-tab').classList.add('active');
+      document.getElementById('tokens-tab').classList.remove('active');
+      document.getElementById('scopes-view').classList.add('active');
+      document.getElementById('tokens-view').classList.remove('active');
+
+      // Initialize scope view
+      initializeScopeView();
+    });
+
+    // ==================== SCOPE SELECTION ====================
+    function initializeScopeView() {
+      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
+      const scopeTokenContent = document.getElementById('scope-token-content');
+
+      // Populate file tabs (same as token view)
+      scopeFileTabsList.innerHTML = '';
+
+      const fileKeys = Object.keys(tokenFiles).filter(key => {
+        const file = tokenFiles[key];
+        const fileName = file.name.toLowerCase();
+        return !fileName.includes('metadata') &&
+               !fileName.startsWith('$') &&
+               !fileName.includes('$metadata');
+      });
+
+      fileKeys.forEach((key, index) => {
+        const file = tokenFiles[key];
+        const tab = document.createElement('button');
+        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
+        tab.textContent = file.name;
+        tab.dataset.file = key;
+        tab.addEventListener('click', () => showScopeFileContent(key));
+        scopeFileTabsList.appendChild(tab);
+      });
+
+      // Show first file
+      if (fileKeys.length > 0) {
+        showScopeFileContent(fileKeys[0]);
+      }
+    }
+
+    function showScopeFileContent(fileKey) {
+      const file = tokenFiles[fileKey];
+      if (!file) return;
+
+      // Update active tab
+      document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.file === fileKey);
+      });
+
+      // Render token tree with checkboxes
+      const scopeTokenContent = document.getElementById('scope-token-content');
+      scopeTokenContent.innerHTML = '';
+      const tree = document.createElement('div');
+      tree.className = 'scope-tree';
+      renderScopeTree(file.content, tree, '', fileKey);
+      scopeTokenContent.appendChild(tree);
+    }
+
+    function renderScopeTree(obj, container, path, fileKey, depth = 0) {
+      if (!obj || typeof obj !== 'object') return;
+
+      const entries = Object.entries(obj);
+      if (entries.length === 0) return;
+
+      entries.forEach(([key, value]) => {
+        const currentPath = path ? `${path}.${key}` : key;
+        const fullPath = `${fileKey}:${currentPath}`;
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const isToken = '$value' in value || '$type' in value;
+
+          if (isToken) {
+            // This is a token leaf - show with checkbox
+            const item = document.createElement('div');
+            item.className = 'scope-item';
+            item.style.paddingLeft = `${depth * 16}px`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'scope-checkbox';
+            checkbox.dataset.path = fullPath;
+            checkbox.checked = selectedTokensForScopes.has(fullPath);
+            checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath));
+
+            const content = document.createElement('div');
+            content.className = 'scope-item-content';
+
+            const spacer = document.createElement('span');
+            spacer.className = 'scope-chevron';
+            spacer.innerHTML = '&nbsp;';
+
+            const label = document.createElement('span');
+            label.className = 'scope-label';
+            label.textContent = key;
+
+            content.appendChild(spacer);
+            content.appendChild(label);
+
+            item.appendChild(checkbox);
+            item.appendChild(content);
+            container.appendChild(item);
+          } else {
+            // Nested object/group - show with chevron and checkbox for all children
+            const item = document.createElement('div');
+            item.className = 'scope-item';
+            item.style.paddingLeft = `${depth * 16}px`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'scope-checkbox';
+            checkbox.dataset.path = fullPath;
+            checkbox.dataset.isGroup = 'true';
+            checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, value, fileKey, currentPath));
+
+            // Check if all children are selected
+            const childrenSelected = areAllChildrenSelected(value, fileKey, currentPath);
+            checkbox.checked = childrenSelected;
+
+            const content = document.createElement('div');
+            content.className = 'scope-item-content';
+
+            const chevron = document.createElement('span');
+            chevron.className = 'scope-chevron';
+            chevron.innerHTML = createChevronIcon(true).outerHTML;
+
+            const label = document.createElement('span');
+            label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
+            label.textContent = key;
+
+            content.appendChild(chevron);
+            content.appendChild(label);
+
+            item.appendChild(checkbox);
+            item.appendChild(content);
+
+            const childrenContainer = document.createElement('div');
+            childrenContainer.className = 'scope-children';
+            renderScopeTree(value, childrenContainer, currentPath, fileKey, depth + 1);
+
+            // Toggle functionality
+            chevron.addEventListener('click', (e) => {
+              e.stopPropagation();
+              childrenContainer.classList.toggle('collapsed');
+              chevron.innerHTML = '';
+              chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
+            });
+
+            container.appendChild(item);
+            container.appendChild(childrenContainer);
+          }
+        }
+      });
+    }
+
+    function areAllChildrenSelected(obj, fileKey, basePath) {
+      const tokens = getAllTokenPaths(obj, basePath, fileKey);
+      return tokens.length > 0 && tokens.every(path => selectedTokensForScopes.has(path));
+    }
+
+    function getAllTokenPaths(obj, basePath, fileKey) {
+      const paths = [];
+
+      function traverse(o, path) {
+        if (!o || typeof o !== 'object') return;
+
+        for (const [key, value] of Object.entries(o)) {
+          const currentPath = path ? `${path}.${key}` : key;
+          const fullPath = `${fileKey}:${currentPath}`;
+
+          if (value && typeof value === 'object' && ('$value' in value || '$type' in value)) {
+            paths.push(fullPath);
+          } else if (value && typeof value === 'object') {
+            traverse(value, currentPath);
+          }
+        }
+      }
+
+      traverse(obj, basePath);
+      return paths;
+    }
+
+    function handleTokenSelection(e, fullPath) {
+      if (e.target.checked) {
+        selectedTokensForScopes.add(fullPath);
+      } else {
+        selectedTokensForScopes.delete(fullPath);
+      }
+      updateScopePanel();
+    }
+
+    function handleGroupSelection(e, fullPath, groupObj, fileKey, basePath) {
+      const tokenPaths = getAllTokenPaths(groupObj, basePath, fileKey);
+
+      if (e.target.checked) {
+        tokenPaths.forEach(path => selectedTokensForScopes.add(path));
+        // Update all child checkboxes
+        tokenPaths.forEach(path => {
+          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+      } else {
+        tokenPaths.forEach(path => selectedTokensForScopes.delete(path));
+        // Update all child checkboxes
+        tokenPaths.forEach(path => {
+          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
+          if (checkbox) checkbox.checked = false;
+        });
+      }
+      updateScopePanel();
+    }
+
+    function updateScopePanel() {
+      const panel = document.getElementById('scope-assignment-panel');
+      const countEl = document.getElementById('scope-assignment-count');
+
+      countEl.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
+
+      if (selectedTokensForScopes.size > 0) {
+        panel.classList.add('active');
+        populateScopeOptions();
+      } else {
+        panel.classList.remove('active');
+      }
+    }
+
+    function populateScopeOptions() {
+      const optionsContainer = document.getElementById('scope-options');
+
+      // Available Figma scopes
+      const availableScopes = [
+        { value: 'ALL_FILLS', label: 'Fill' },
+        { value: 'STROKE_COLOR', label: 'Stroke' },
+        { value: 'TEXT_FILL', label: 'Text' },
+        { value: 'EFFECT_COLOR', label: 'Effect' },
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height' },
+        { value: 'GAP', label: 'Gap' },
+        { value: 'CORNER_RADIUS', label: 'Corner Radius' },
+        { value: 'FONT_SIZE', label: 'Font Size' },
+        { value: 'FONT_FAMILY', label: 'Font Family' },
+        { value: 'FONT_WEIGHT', label: 'Font Weight' },
+        { value: 'LINE_HEIGHT', label: 'Line Height' }
+      ];
+
+      optionsContainer.innerHTML = availableScopes.map(scope => `
+        <div class="scope-option">
+          <input type="checkbox" id="scope-${scope.value}" value="${scope.value}">
+          <label for="scope-${scope.value}">${scope.label}</label>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('apply-scopes-btn').addEventListener('click', () => {
+      const selectedScopes = Array.from(document.querySelectorAll('#scope-options input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+
+      // Store scope assignments
+      selectedTokensForScopes.forEach(fullPath => {
+        tokenScopesMap.set(fullPath, selectedScopes);
+      });
+
+      showNotification(`Scopes assigned to ${selectedTokensForScopes.size} token(s)`, 'success');
+
+      // Clear selection
+      selectedTokensForScopes.clear();
+      updateScopePanel();
+
+      // Refresh the scope view to update checkboxes
+      const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
+      if (activeFile) {
+        showScopeFileContent(activeFile.dataset.file);
+      }
+    });
+
+    document.getElementById('cancel-scopes-btn').addEventListener('click', () => {
+      selectedTokensForScopes.clear();
+      updateScopePanel();
+
+      // Uncheck all checkboxes
+      document.querySelectorAll('.scope-checkbox').forEach(cb => cb.checked = false);
     });
 
     // ==================== TOKEN PERSISTENCE ====================
@@ -1498,7 +2074,29 @@
             tokenSource = msg.data.source || null;
             githubConfig = msg.data.githubConfig || null;
 
+            // Reconstruct the token data for syncing
             if (Object.keys(tokenFiles).length > 0) {
+              const reconstructedData = { primitives: {}, semantics: {} };
+
+              for (const [key, file] of Object.entries(tokenFiles)) {
+                const fileName = file.name.toLowerCase();
+                if (fileName.includes('primitive')) {
+                  reconstructedData.primitives[file.name] = file.content;
+                } else if (fileName.includes('semantic')) {
+                  reconstructedData.semantics[file.name] = file.content;
+                } else {
+                  // Default to primitives if unclear
+                  reconstructedData.primitives[file.name] = file.content;
+                }
+              }
+
+              // Set the appropriate token data based on source
+              if (tokenSource === 'github') {
+                window.githubTokenData = reconstructedData;
+              } else {
+                window.localTokenData = reconstructedData;
+              }
+
               showTokenScreen();
             }
           }
