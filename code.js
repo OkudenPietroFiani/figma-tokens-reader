@@ -264,11 +264,11 @@
         this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
         this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
         if (primitives) {
-          const flattenedPrimitives = this.flattenTokenFiles(primitives);
+          const flattenedPrimitives = this.flattenTokenFiles(primitives, "primitive");
           await this.processTokenGroup(flattenedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
         }
         if (semantics) {
-          const flattenedSemantics = this.flattenTokenFiles(semantics);
+          const flattenedSemantics = this.flattenTokenFiles(semantics, "semantic");
           await this.processTokenGroup(flattenedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
         }
         figma.notify(
@@ -283,11 +283,13 @@
     /**
      * Flatten token files structure to merge multiple files into a single token tree
      * Handles both direct token structure and file-keyed structure (e.g., { "file.json": {...} })
+     * Also removes redundant top-level keys that match the collection name
      */
-    flattenTokenFiles(data) {
+    flattenTokenFiles(data, collectionType) {
       if (!data || typeof data !== "object") {
         return {};
       }
+      let result = data;
       const keys = Object.keys(data);
       const isFileKeyed = keys.some(
         (key) => key.endsWith(".json") || key.includes("-json") || key.includes("_json")
@@ -299,9 +301,25 @@
             Object.assign(merged, fileContent);
           }
         }
-        return merged;
+        result = merged;
       }
-      return data;
+      const resultKeys = Object.keys(result);
+      if (resultKeys.length === 1) {
+        const topKey = resultKeys[0].toLowerCase();
+        const collectionKeyVariants = [
+          collectionType,
+          collectionType + "s",
+          collectionType.slice(0, -1)
+          // Remove 's' if plural
+        ];
+        if (collectionKeyVariants.some((variant) => topKey === variant || topKey === variant + "s")) {
+          const unwrapped = result[resultKeys[0]];
+          if (unwrapped && typeof unwrapped === "object") {
+            return unwrapped;
+          }
+        }
+      }
+      return result;
     }
     async processTokenGroup(tokens, collectionName, collection, pathPrefix) {
       for (const [key, value] of Object.entries(tokens)) {
