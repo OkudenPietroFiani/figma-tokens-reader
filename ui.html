@@ -788,11 +788,12 @@
     <div class="token-actions">
       <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
       <button class="btn btn-secondary hidden" id="pull-changes-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4V20M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M4 12L20 12M20 12L16 8M20 12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+          <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Pull changes
+        <span>Pull changes</span>
       </button>
     </div>
   </div>
@@ -1236,37 +1237,115 @@
 
         const itemPath = path ? `${path}.${key}` : key;
 
-        if (value && typeof value === 'object' && Object.keys(value).length > 0) {
-          // Nested object/array
-          const itemToggle = document.createElement('span');
-          itemToggle.className = 'json-toggle';
-          const chevron = createChevronIcon(true);
-          itemToggle.appendChild(chevron);
+        if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0) {
+          // Check if this is a token (has $value, $type, etc.) or just a nested object
+          const isToken = '$value' in value || '$type' in value;
+
+          if (isToken) {
+            // This is a token leaf - display it with no toggle
+            const spacer = document.createElement('span');
+            spacer.style.width = '16px';
+            spacer.style.flexShrink = '0';
+
+            const keySpan = document.createElement('span');
+            keySpan.className = 'json-key';
+            keySpan.textContent = key;
+
+            const colon = document.createTextNode(': ');
+
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'json-value';
+            valueSpan.style.color = '#666';
+
+            // Display the $value if it exists
+            if ('$value' in value) {
+              const displayValue = typeof value.$value === 'string' ? value.$value : JSON.stringify(value.$value);
+              valueSpan.textContent = displayValue;
+            } else {
+              valueSpan.textContent = JSON.stringify(value);
+            }
+
+            line.appendChild(spacer);
+            line.appendChild(keySpan);
+            line.appendChild(colon);
+            line.appendChild(valueSpan);
+
+            wrapper.appendChild(line);
+          } else {
+            // Nested object/array with children
+            const itemToggle = document.createElement('span');
+            itemToggle.className = 'json-toggle';
+            const chevron = createChevronIcon(true);
+            itemToggle.appendChild(chevron);
+
+            const keySpan = document.createElement('span');
+            keySpan.className = depth === 0 ? 'json-key primary' : 'json-key';
+            keySpan.textContent = key;
+
+            line.appendChild(itemToggle);
+            line.appendChild(keySpan);
+
+            const nested = document.createElement('div');
+            nested.className = 'json-node';
+            renderJsonTree(value, nested, itemPath, true, depth + 1);
+
+            // Toggle functionality
+            itemToggle.addEventListener('click', (e) => {
+              e.stopPropagation();
+              nested.classList.toggle('json-collapsed');
+              itemToggle.innerHTML = '';
+              itemToggle.appendChild(createChevronIcon(!nested.classList.contains('json-collapsed')));
+            });
+
+            wrapper.appendChild(line);
+            wrapper.appendChild(nested);
+          }
+        } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+          // Primitive value
+          const spacer = document.createElement('span');
+          spacer.style.width = '16px';
+          spacer.style.flexShrink = '0';
 
           const keySpan = document.createElement('span');
-          keySpan.className = depth === 0 ? 'json-key primary' : 'json-key';
+          keySpan.className = 'json-key';
           keySpan.textContent = key;
 
-          line.appendChild(itemToggle);
+          const colon = document.createTextNode(': ');
+
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'json-value';
+          valueSpan.style.color = '#666';
+          valueSpan.textContent = typeof value === 'string' ? value : JSON.stringify(value);
+
+          line.appendChild(spacer);
           line.appendChild(keySpan);
-
-          const nested = document.createElement('div');
-          nested.className = 'json-node';
-          renderJsonTree(value, nested, itemPath, true, depth + 1);
-
-          // Toggle functionality
-          itemToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            nested.classList.toggle('json-collapsed');
-            itemToggle.innerHTML = '';
-            itemToggle.appendChild(createChevronIcon(!nested.classList.contains('json-collapsed')));
-          });
+          line.appendChild(colon);
+          line.appendChild(valueSpan);
 
           wrapper.appendChild(line);
-          wrapper.appendChild(nested);
-        } else {
-          // Leaf value - skip rendering for now to keep the view clean like the design
-          // We can show these on demand or in a different view
+        } else if (Array.isArray(value)) {
+          // Array value
+          const spacer = document.createElement('span');
+          spacer.style.width = '16px';
+          spacer.style.flexShrink = '0';
+
+          const keySpan = document.createElement('span');
+          keySpan.className = 'json-key';
+          keySpan.textContent = key;
+
+          const colon = document.createTextNode(': ');
+
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'json-value';
+          valueSpan.style.color = '#666';
+          valueSpan.textContent = JSON.stringify(value);
+
+          line.appendChild(spacer);
+          line.appendChild(keySpan);
+          line.appendChild(colon);
+          line.appendChild(valueSpan);
+
+          wrapper.appendChild(line);
         }
       });
 
