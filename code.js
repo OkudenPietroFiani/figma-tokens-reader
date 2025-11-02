@@ -348,33 +348,56 @@
     }
     /**
      * Remove ALL collection-name wrappers recursively
-     * This handles nested cases like: { "primitive": { "primitive": { ... } } }
+     * Handles cases where collection-name key exists alongside other keys
      *
-     * Clean code: Clear intent, handles edge cases
+     * Example:
+     * Input:  { "primitive": { "spacing": {...} }, "metadata": {...} }
+     * Output: { "spacing": {...}, "metadata": {...} }
      */
     removeAllCollectionWrappers(data, collectionType) {
       let current = data;
       let iterations = 0;
-      const maxIterations = 5;
+      const maxIterations = 10;
       while (iterations < maxIterations) {
         const keys = Object.keys(current);
-        if (keys.length === 1) {
-          const key = keys[0];
+        let didUnwrap = false;
+        for (const key of keys) {
           if (this.isCollectionNameKey(key, collectionType)) {
-            const unwrapped = current[key];
-            if (unwrapped && typeof unwrapped === "object" && !("$value" in unwrapped)) {
-              console.log(`[UNWRAP] Removed wrapper: '${key}'`);
-              current = unwrapped;
-              iterations++;
-              continue;
+            const value = current[key];
+            if (value && typeof value === "object" && !("$value" in value)) {
+              console.log(`[UNWRAP] Found collection wrapper '${key}' with ${Object.keys(value).length} children`);
+              if (keys.length === 1) {
+                console.log(`[UNWRAP] Single key - replacing entire structure`);
+                current = value;
+                didUnwrap = true;
+                break;
+              } else {
+                console.log(`[UNWRAP] Multiple keys - extracting wrapper contents`);
+                const newStructure = {};
+                for (const k of keys) {
+                  if (k !== key) {
+                    newStructure[k] = current[k];
+                  }
+                }
+                for (const [childKey, childValue] of Object.entries(value)) {
+                  newStructure[childKey] = childValue;
+                }
+                current = newStructure;
+                didUnwrap = true;
+                break;
+              }
             }
           }
         }
-        break;
+        if (!didUnwrap) {
+          break;
+        }
+        iterations++;
       }
       if (iterations >= maxIterations) {
         console.warn(`[UNWRAP] Warning: Max iterations reached. Possible circular structure.`);
       }
+      console.log(`[UNWRAP] Completed after ${iterations} iteration(s)`);
       return current;
     }
     /**
