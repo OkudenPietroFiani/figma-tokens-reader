@@ -297,81 +297,113 @@
       cursor: pointer;
     }
 
-    /* Tabs */
-    .tabs {
-      display: none;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      overflow: hidden;
-      background: #fff;
-      margin-bottom: 16px;
-    }
-
-    .tabs.visible {
-      display: block;
-    }
-
-    .tab-buttons {
+    /* Preview Screen with Lateral Tabs */
+    .preview-screen {
       display: flex;
+      flex-direction: row;
+      padding: 0;
+      height: 100vh;
+    }
+
+    .lateral-tabs {
+      width: 200px;
       background: #f8f8f8;
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lateral-tabs-header {
+      padding: 24px 16px 16px 16px;
       border-bottom: 1px solid #e0e0e0;
     }
 
-    .tab-button {
-      flex: 1;
-      padding: 12px;
-      background: transparent;
-      border: none;
-      border-right: 1px solid #e0e0e0;
-      font-size: 12px;
-      font-weight: 600;
-      color: #666;
+    .lateral-tabs-header h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .lateral-tab {
+      padding: 12px 16px;
+      border-left: 3px solid transparent;
       cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
+      transition: all 0.2s;
+      font-size: 13px;
+      color: #666;
+      background: transparent;
+      border-bottom: 1px solid #f0f0f0;
     }
 
-    .tab-button:last-child {
-      border-right: none;
+    .lateral-tab:hover {
+      background: #f0f0f0;
+      color: #333;
     }
 
-    .tab-button:hover {
-      background: #ececec;
-    }
-
-    .tab-button.active {
+    .lateral-tab.active {
       background: #fff;
       color: #0d99ff;
-      border-bottom: 2px solid #0d99ff;
-      margin-bottom: -1px;
+      border-left-color: #0d99ff;
+      font-weight: 600;
     }
 
-    .tab-content {
-      display: none;
-      padding: 16px;
-      max-height: 300px;
+    .preview-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .preview-header {
+      padding: 24px 24px 16px 24px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #fff;
+    }
+
+    .preview-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .preview-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .preview-subtitle {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .preview-json {
+      flex: 1;
       overflow-y: auto;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 11px;
-      line-height: 1.6;
+      padding: 24px;
       background: #fafafa;
     }
 
-    .tab-content.active {
-      display: block;
-    }
-
-    pre {
+    .preview-json pre {
       margin: 0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
 
+    .preview-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e0e0e0;
+      background: #fff;
+    }
+
     .empty-state {
       text-align: center;
-      padding: 40px 20px;
+      padding: 60px 20px;
       color: #999;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     /* Loading */
@@ -478,28 +510,6 @@
       <div class="spinner"></div>
       <span>Processing tokens...</span>
     </div>
-
-    <div class="tabs" id="tabs-section">
-      <div class="tab-buttons">
-        <button class="tab-button active" data-tab="primitives">primitives.json</button>
-        <button class="tab-button" data-tab="semantics">semantics.json</button>
-      </div>
-      <div class="tab-content active" id="primitives-tab">
-        <div class="empty-state">No data imported</div>
-      </div>
-      <div class="tab-content" id="semantics-tab">
-        <div class="empty-state">No data imported</div>
-      </div>
-    </div>
-
-    <div class="action-buttons">
-      <button class="btn btn-primary" id="import-to-figma-btn" disabled>
-        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-        </svg>
-        Import to Figma Variables
-      </button>
-    </div>
   </div>
 
   <!-- GitHub Screen -->
@@ -561,7 +571,45 @@
           <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
           </svg>
-          Sync from GitHub
+          Save Sync Configuration
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Screen with Lateral Tabs -->
+  <div class="screen preview-screen" id="preview-screen">
+    <div class="lateral-tabs">
+      <div class="lateral-tabs-header">
+        <h2>Token Files</h2>
+        <a class="back-link" id="back-to-welcome-from-preview">← Back</a>
+      </div>
+      <div id="lateral-tabs-list">
+        <!-- Tabs will be dynamically added here -->
+      </div>
+    </div>
+
+    <div class="preview-content">
+      <div class="preview-header">
+        <div class="preview-header-top">
+          <div>
+            <div class="preview-title" id="preview-filename">Select a file</div>
+            <div class="preview-subtitle" id="preview-source">No file selected</div>
+          </div>
+        </div>
+        <div class="message" id="preview-message"></div>
+      </div>
+
+      <div class="preview-json" id="preview-json-content">
+        <div class="empty-state">Select a file from the left sidebar to view its contents</div>
+      </div>
+
+      <div class="preview-footer">
+        <button class="btn btn-primary" id="sync-to-figma-btn" style="width: 100%;" disabled>
+          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          Import to Figma Variables
         </button>
       </div>
     </div>
@@ -577,6 +625,7 @@
     let semanticsData = null;
     let githubConfig = null;
     let selectedFiles = new Set();
+    let tokenFiles = {}; // Store all loaded token files
 
     // ========================================
     // Screen Navigation
@@ -595,8 +644,9 @@
     }
 
     // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       console.log('DOM loaded, initializing buttons...');
+      await loadGitHubConfig();
     });
 
     document.getElementById('import-from-computer-btn').addEventListener('click', (e) => {
@@ -625,14 +675,45 @@
       showScreen('welcome-screen');
     });
 
+    document.getElementById('back-to-welcome-from-preview').addEventListener('click', (e) => {
+      console.log('Back to welcome (from preview) clicked');
+      e.preventDefault();
+      showScreen('welcome-screen');
+    });
+
+    // ========================================
+    // GitHub Config Persistence
+    // ========================================
+
+    async function loadGitHubConfig() {
+      try {
+        parent.postMessage({ pluginMessage: { type: 'load-github-config' } }, '*');
+      } catch (error) {
+        console.error('Error loading GitHub config:', error);
+      }
+    }
+
+    async function saveGitHubConfig() {
+      if (!githubConfig) return;
+
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'save-github-config',
+            data: githubConfig
+          }
+        }, '*');
+      } catch (error) {
+        console.error('Error saving GitHub config:', error);
+      }
+    }
+
     // ========================================
     // File Import Logic
     // ========================================
 
     const fileInput = document.getElementById('file-input');
     const selectFilesBtn = document.getElementById('select-files-btn');
-    const importToFigmaBtn = document.getElementById('import-to-figma-btn');
-    const tabsSection = document.getElementById('tabs-section');
     const importLoading = document.getElementById('import-loading');
 
     selectFilesBtn.addEventListener('click', () => {
@@ -647,6 +728,10 @@
       hideMessage('import-message');
 
       try {
+        tokenFiles = {}; // Reset
+        primitivesData = null;
+        semanticsData = null;
+
         for (const file of files) {
           if (file.name.endsWith('.zip')) {
             await handleZipFile(file);
@@ -656,9 +741,7 @@
         }
 
         if (primitivesData || semanticsData) {
-          displayTabs();
-          importToFigmaBtn.disabled = false;
-          showMessage('import-message', 'success', 'Files loaded successfully! Review the tokens and click "Import to Figma Variables".');
+          showPreviewScreen();
         }
       } catch (error) {
         showMessage('import-message', 'error', `Error loading files: ${error.message}`);
@@ -676,11 +759,13 @@
       if (primitivesFile) {
         const content = await primitivesFile.async('string');
         primitivesData = JSON.parse(content);
+        tokenFiles['primitives.json'] = { name: 'primitives.json', content: primitivesData, source: 'Computer' };
       }
 
       if (semanticsFile) {
         const content = await semanticsFile.async('string');
         semanticsData = JSON.parse(content);
+        tokenFiles['semantics.json'] = { name: 'semantics.json', content: semanticsData, source: 'Computer' };
       }
     }
 
@@ -690,60 +775,15 @@
 
       if (file.name.includes('primitive')) {
         primitivesData = data;
+        tokenFiles['primitives.json'] = { name: file.name, content: data, source: 'Computer' };
       } else if (file.name.includes('semantic')) {
         semanticsData = data;
+        tokenFiles['semantics.json'] = { name: file.name, content: data, source: 'Computer' };
       } else {
         primitivesData = data;
+        tokenFiles['primitives.json'] = { name: file.name, content: data, source: 'Computer' };
       }
     }
-
-    function displayTabs() {
-      tabsSection.classList.add('visible');
-
-      if (primitivesData) {
-        document.getElementById('primitives-tab').innerHTML =
-          `<pre>${JSON.stringify(primitivesData, null, 2)}</pre>`;
-      }
-
-      if (semanticsData) {
-        document.getElementById('semantics-tab').innerHTML =
-          `<pre>${JSON.stringify(semanticsData, null, 2)}</pre>`;
-      }
-    }
-
-    // Tab switching
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.addEventListener('click', () => {
-        const tabName = button.dataset.tab;
-
-        document.querySelectorAll('.tab-button').forEach(btn =>
-          btn.classList.remove('active')
-        );
-        document.querySelectorAll('.tab-content').forEach(content =>
-          content.classList.remove('active')
-        );
-
-        button.classList.add('active');
-        document.getElementById(`${tabName}-tab`).classList.add('active');
-      });
-    });
-
-    // Import to Figma
-    importToFigmaBtn.addEventListener('click', () => {
-      importToFigmaBtn.disabled = true;
-      importLoading.classList.add('visible');
-      hideMessage('import-message');
-
-      parent.postMessage({
-        pluginMessage: {
-          type: 'import-tokens',
-          data: {
-            primitives: primitivesData,
-            semantics: semanticsData
-          }
-        }
-      }, '*');
-    });
 
     // ========================================
     // GitHub Integration
@@ -864,15 +904,12 @@
       await importSelectedGithubFiles();
 
       // Store sync config
-      parent.postMessage({
-        pluginMessage: {
-          type: 'save-github-config',
-          data: {
-            ...githubConfig,
-            files: Array.from(selectedFiles)
-          }
-        }
-      }, '*');
+      githubConfig.files = Array.from(selectedFiles);
+      await saveGitHubConfig();
+
+      showMessage('github-message', 'success', 'Sync configuration saved!');
+      syncGithubBtn.disabled = false;
+      githubLoading.classList.remove('visible');
     });
 
     async function importSelectedGithubFiles() {
@@ -894,6 +931,68 @@
 
       // Response will be handled by message listener
     }
+
+    // ========================================
+    // Preview Screen
+    // ========================================
+
+    function showPreviewScreen() {
+      // Clear and populate lateral tabs
+      const tabsList = document.getElementById('lateral-tabs-list');
+      tabsList.innerHTML = '';
+
+      Object.keys(tokenFiles).forEach((key, index) => {
+        const file = tokenFiles[key];
+        const tab = document.createElement('div');
+        tab.className = 'lateral-tab' + (index === 0 ? ' active' : '');
+        tab.textContent = file.name;
+        tab.dataset.file = key;
+        tab.addEventListener('click', () => selectFile(key));
+        tabsList.appendChild(tab);
+      });
+
+      // Show first file by default
+      const firstKey = Object.keys(tokenFiles)[0];
+      if (firstKey) {
+        selectFile(firstKey);
+      }
+
+      // Enable sync button
+      document.getElementById('sync-to-figma-btn').disabled = false;
+
+      showScreen('preview-screen');
+    }
+
+    function selectFile(fileKey) {
+      const file = tokenFiles[fileKey];
+      if (!file) return;
+
+      // Update active tab
+      document.querySelectorAll('.lateral-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.file === fileKey);
+      });
+
+      // Update preview
+      document.getElementById('preview-filename').textContent = file.name;
+      document.getElementById('preview-source').textContent = `Source: ${file.source}`;
+      document.getElementById('preview-json-content').innerHTML =
+        `<pre>${JSON.stringify(file.content, null, 2)}</pre>`;
+    }
+
+    // Sync to Figma button
+    document.getElementById('sync-to-figma-btn').addEventListener('click', () => {
+      document.getElementById('sync-to-figma-btn').disabled = true;
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'import-tokens',
+          data: {
+            primitives: primitivesData,
+            semantics: semanticsData
+          }
+        }
+      }, '*');
+    });
 
     // ========================================
     // Message Handling
@@ -923,15 +1022,21 @@
       githubLoading.classList.remove('visible');
 
       switch (msg.type) {
-        case 'import-success':
-          if (document.getElementById('import-screen').classList.contains('active')) {
-            showMessage('import-message', 'success', msg.message);
-            importToFigmaBtn.disabled = false;
-          } else if (document.getElementById('github-screen').classList.contains('active')) {
-            showMessage('github-message', 'success', msg.message);
-          } else {
-            showMessage('welcome-message', 'success', msg.message);
+        case 'github-config-loaded':
+          // Restore GitHub configuration
+          if (msg.data) {
+            const config = msg.data;
+            githubToken.value = config.token || '';
+            repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
+            branchName.value = config.branch || 'main';
+            githubConfig = config;
+            console.log('GitHub config restored:', config);
           }
+          break;
+
+        case 'import-success':
+          showMessage('preview-message', 'success', msg.message);
+          document.getElementById('sync-to-figma-btn').disabled = false;
           break;
 
         case 'github-files-fetched':
@@ -943,12 +1048,40 @@
           }
           break;
 
+        case 'github-files-imported':
+          // Files imported from GitHub - show preview
+          if (msg.data) {
+            tokenFiles = {};
+            primitivesData = msg.data.primitives;
+            semanticsData = msg.data.semantics;
+
+            if (primitivesData) {
+              tokenFiles['primitives.json'] = {
+                name: 'primitives.json',
+                content: primitivesData,
+                source: `GitHub (${githubConfig.owner}/${githubConfig.repo})`
+              };
+            }
+            if (semanticsData) {
+              tokenFiles['semantics.json'] = {
+                name: 'semantics.json',
+                content: semanticsData,
+                source: `GitHub (${githubConfig.owner}/${githubConfig.repo})`
+              };
+            }
+
+            showPreviewScreen();
+          }
+          break;
+
         case 'error':
-          if (document.getElementById('import-screen').classList.contains('active')) {
+          const activeScreen = document.querySelector('.screen.active');
+          if (activeScreen.id === 'import-screen') {
             showMessage('import-message', 'error', `Error: ${msg.message}`);
-            importToFigmaBtn.disabled = false;
-          } else if (document.getElementById('github-screen').classList.contains('active')) {
+          } else if (activeScreen.id === 'github-screen') {
             showMessage('github-message', 'error', `Error: ${msg.message}`);
+          } else if (activeScreen.id === 'preview-screen') {
+            showMessage('preview-message', 'error', `Error: ${msg.message}`);
           } else {
             showMessage('welcome-message', 'error', `Error: ${msg.message}`);
           }
