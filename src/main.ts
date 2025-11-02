@@ -36,6 +36,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleSaveGithubConfig(msg.data);
         break;
 
+      case 'save-tokens':
+        await handleSaveTokens(msg.data);
+        break;
+
+      case 'load-tokens':
+        await handleLoadTokens();
+        break;
+
       case 'cancel':
         figma.closePlugin();
         break;
@@ -129,6 +137,32 @@ async function handleSaveGithubConfig(data: any): Promise<void> {
   } catch (error) {
     console.error('Error saving GitHub config:', error);
     throw new Error('Failed to save GitHub configuration');
+  }
+}
+
+async function handleSaveTokens(data: any): Promise<void> {
+  try {
+    // Save token state to plugin data
+    await figma.clientStorage.setAsync('tokenState', JSON.stringify(data));
+    console.log('Token state saved successfully');
+  } catch (error) {
+    console.error('Error saving token state:', error);
+  }
+}
+
+async function handleLoadTokens(): Promise<void> {
+  try {
+    const tokenStateString = await figma.clientStorage.getAsync('tokenState');
+    if (tokenStateString) {
+      const tokenState = JSON.parse(tokenStateString as string);
+      figma.ui.postMessage({
+        type: 'tokens-loaded',
+        data: tokenState
+      });
+      console.log('Token state loaded successfully');
+    }
+  } catch (error) {
+    console.error('Error loading token state:', error);
   }
 }
 

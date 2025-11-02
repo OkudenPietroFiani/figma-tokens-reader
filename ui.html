@@ -24,24 +24,20 @@
     .screen {
       display: none;
       height: 100%;
-      padding: 24px;
       overflow-y: auto;
     }
 
     .screen.active {
-      display: block;
+      display: flex;
     }
 
-    /* Welcome Screen */
+    /* ==================== WELCOME SCREEN ==================== */
     .welcome-screen {
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-    }
-
-    .welcome-screen.active {
-      display: flex !important;
+      padding: 40px 24px;
     }
 
     .welcome-logo {
@@ -72,82 +68,62 @@
 
     .welcome-buttons {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 12px;
       width: 100%;
-      max-width: 350px;
+      max-width: 400px;
     }
 
-    .btn {
-      padding: 14px 24px;
+    /* Pill Buttons */
+    .btn-pill {
+      flex: 1;
+      padding: 12px 20px;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 24px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: inherit;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      position: relative;
-      z-index: 1;
-      pointer-events: auto;
     }
 
-    .btn-primary {
+    .btn-pill.primary {
       background: #0d99ff;
       color: white;
     }
 
-    .btn-primary:hover:not(:disabled) {
+    .btn-pill.primary:hover {
       background: #0b7fd4;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(13, 153, 255, 0.3);
     }
 
-    .btn-primary:active:not(:disabled) {
-      background: #0a6eb8;
-      transform: translateY(0);
-    }
-
-    .btn-secondary {
+    .btn-pill.secondary {
       background: #fff;
       color: #333;
       border: 2px solid #e0e0e0;
     }
 
-    .btn-secondary:hover:not(:disabled) {
+    .btn-pill.secondary:hover {
       background: #f5f5f5;
       border-color: #c0c0c0;
     }
 
-    .btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      opacity: 0.6;
+    /* ==================== IMPORT SCREEN ==================== */
+    .import-screen {
+      flex-direction: column;
+      padding: 24px;
     }
 
-    .btn-icon {
-      width: 18px;
-      height: 18px;
-    }
-
-    /* Import Screen */
-    .import-screen h1,
-    .github-screen h1 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #000;
+    .import-header {
+      margin-bottom: 24px;
     }
 
     .back-link {
       color: #0d99ff;
       text-decoration: none;
       font-size: 13px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       display: inline-block;
       cursor: pointer;
     }
@@ -156,22 +132,57 @@
       text-decoration: underline;
     }
 
-    .section {
-      margin-bottom: 24px;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
+    .import-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
       color: #000;
     }
 
-    #file-input {
+    .import-subtitle {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .import-mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 2px;
+    }
+
+    .import-mode-tab {
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .import-mode-tab:hover {
+      color: #333;
+    }
+
+    .import-mode-tab.active {
+      color: #0d99ff;
+      border-bottom-color: #0d99ff;
+    }
+
+    .import-content {
       display: none;
     }
 
-    /* Form Inputs */
+    .import-content.active {
+      display: block;
+    }
+
+    /* GitHub Import */
     .input-group {
       margin-bottom: 16px;
     }
@@ -200,131 +211,188 @@
     }
 
     .input-hint {
-      font-size: 11px;
-      color: #666;
+      font-size: 12px;
+      color: #999;
       margin-top: 4px;
     }
 
-    /* Messages */
-    .message {
-      display: none;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
       font-size: 13px;
-      line-height: 1.5;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
     }
 
-    .message.visible {
-      display: block;
+    .btn-primary {
+      background: #0d99ff;
+      color: white;
     }
 
-    .message.success {
-      background: #e6f7e6;
-      color: #006600;
-      border: 1px solid #99dd99;
+    .btn-primary:hover:not(:disabled) {
+      background: #0b7fd4;
     }
 
-    .message.error {
-      background: #ffe6e6;
-      color: #cc0000;
-      border: 1px solid #ffb3b3;
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
-    .message.info {
-      background: #f0f8ff;
-      color: #0066cc;
-      border: 1px solid #b3d9ff;
+    .btn-secondary {
+      background: #fff;
+      color: #333;
+      border: 2px solid #e0e0e0;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #f5f5f5;
+    }
+
+    .btn-full {
+      width: 100%;
+      margin-top: 8px;
     }
 
     /* File List */
     .file-list {
+      margin-top: 24px;
       border: 1px solid #e0e0e0;
       border-radius: 8px;
-      margin-bottom: 16px;
-      max-height: 300px;
-      overflow-y: auto;
+      overflow: hidden;
+    }
+
+    .file-list-header {
+      padding: 12px 16px;
+      background: #f8f8f8;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: 600;
+      font-size: 13px;
     }
 
     .file-item {
-      padding: 12px;
+      padding: 12px 16px;
       border-bottom: 1px solid #f0f0f0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      transition: background 0.2s;
+      gap: 12px;
     }
 
     .file-item:last-child {
       border-bottom: none;
     }
 
-    .file-item:hover {
-      background: #f8f8f8;
-    }
-
-    .file-item.selected {
-      background: #e6f4ff;
-      border-left: 3px solid #0d99ff;
-    }
-
-    .file-icon {
-      width: 20px;
-      height: 20px;
+    .file-checkbox {
       flex-shrink: 0;
     }
 
-    .file-info {
-      flex: 1;
-    }
-
     .file-name {
+      flex: 1;
       font-size: 13px;
-      font-weight: 500;
-      color: #000;
+      color: #333;
     }
 
     .file-path {
       font-size: 11px;
-      color: #666;
-      margin-top: 2px;
+      color: #999;
     }
 
-    .checkbox {
-      width: 18px;
-      height: 18px;
-      cursor: pointer;
-    }
-
-    /* Preview Screen with Lateral Tabs */
-    .preview-screen {
+    .action-buttons {
+      margin-top: 24px;
       display: flex;
-      flex-direction: row;
+      gap: 12px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      color: #666;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Local File Import */
+    #file-input {
+      display: none;
+    }
+
+    .drop-zone {
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .drop-zone:hover {
+      border-color: #0d99ff;
+      background: #f8fcff;
+    }
+
+    .drop-zone-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .drop-zone-text {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .drop-zone-hint {
+      font-size: 12px;
+      color: #999;
+    }
+
+    /* ==================== TOKEN SCREEN ==================== */
+    .token-screen {
+      flex-direction: column;
       padding: 0;
       height: 100vh;
     }
 
-    .lateral-tabs {
+    .token-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Left Column - File Tabs */
+    .file-tabs {
       width: 200px;
       background: #f8f8f8;
       border-right: 1px solid #e0e0e0;
       display: flex;
       flex-direction: column;
+      overflow-y: auto;
     }
 
-    .lateral-tabs-header {
-      padding: 24px 16px 16px 16px;
+    .file-tabs-header {
+      padding: 16px;
       border-bottom: 1px solid #e0e0e0;
+      background: #fff;
     }
 
-    .lateral-tabs-header h2 {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 8px;
+    .file-tabs-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
     }
 
-    .lateral-tab {
+    .file-tab {
       padding: 12px 16px;
       border-left: 3px solid transparent;
       cursor: pointer;
@@ -333,357 +401,287 @@
       color: #666;
       background: transparent;
       border-bottom: 1px solid #f0f0f0;
+      text-align: left;
+      word-break: break-word;
     }
 
-    .lateral-tab:hover {
-      background: #f0f0f0;
+    .file-tab:hover {
+      background: #fff;
       color: #333;
     }
 
-    .lateral-tab.active {
+    .file-tab.active {
       background: #fff;
       color: #0d99ff;
       border-left-color: #0d99ff;
       font-weight: 600;
     }
 
-    .preview-content {
+    /* Right Column - JSON Preview */
+    .json-preview {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
 
-    .preview-header {
-      padding: 24px 24px 16px 24px;
+    .json-header {
+      padding: 16px 24px;
       border-bottom: 1px solid #e0e0e0;
       background: #fff;
     }
 
-    .preview-header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+    .json-filename {
+      font-size: 16px;
+      font-weight: 600;
+      color: #000;
+      margin-bottom: 4px;
     }
 
-    .preview-title {
-      font-size: 18px;
-      font-weight: 700;
+    .json-source {
+      font-size: 12px;
+      color: #999;
     }
 
-    .preview-subtitle {
-      font-size: 13px;
-      color: #666;
-    }
-
-    .preview-json {
+    .json-content {
       flex: 1;
       overflow-y: auto;
       padding: 24px;
       background: #fafafa;
     }
 
-    .preview-json pre {
-      margin: 0;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 11px;
+    .json-content pre {
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 12px;
       line-height: 1.6;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .preview-footer {
-      padding: 16px 24px;
-      border-top: 1px solid #e0e0e0;
+      color: #333;
       background: #fff;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      overflow-x: auto;
     }
 
     .empty-state {
       text-align: center;
-      padding: 60px 20px;
+      padding: 60px 24px;
       color: #999;
-      font-size: 13px;
+      font-size: 14px;
     }
 
-    /* Loading */
-    .loading {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      margin-top: 12px;
-      color: #666;
-      font-size: 12px;
-    }
-
-    .loading.visible {
+    /* Action Footer */
+    .token-actions {
+      padding: 16px 24px;
+      border-top: 1px solid #e0e0e0;
+      background: #fff;
       display: flex;
-    }
-
-    .spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid #e0e0e0;
-      border-top-color: #0d99ff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Action buttons container */
-    .action-buttons {
-      display: flex;
-      flex-direction: column;
       gap: 12px;
     }
 
-    /* Scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
+    .token-actions .btn {
+      flex: 1;
     }
 
-    ::-webkit-scrollbar-track {
-      background: #f0f0f0;
+    /* Notifications */
+    .notification {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: #fff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: #c0c0c0;
-      border-radius: 4px;
+    .notification.active {
+      display: flex;
+      animation: slideIn 0.3s ease;
     }
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: #a0a0a0;
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .notification.success {
+      border-left: 4px solid #00c853;
+    }
+
+    .notification.error {
+      border-left: 4px solid #ff3b30;
     }
   </style>
 </head>
 <body>
-  <!-- Welcome Screen -->
+
+  <!-- ==================== WELCOME SCREEN ==================== -->
   <div class="screen active welcome-screen" id="welcome-screen">
     <div class="welcome-logo">🎨</div>
     <h1 class="welcome-title">W3C Design Tokens Importer</h1>
-    <p class="welcome-subtitle">
-      Import design tokens from your computer or connect to a GitHub repository to sync your tokens automatically.
-    </p>
-    <div class="message" id="welcome-message"></div>
+    <p class="welcome-subtitle">Import and sync design tokens from GitHub repositories or local files to Figma Variables</p>
+
     <div class="welcome-buttons">
-      <button class="btn btn-primary" id="import-from-computer-btn">
-        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-        </svg>
-        Import from Computer
-      </button>
-      <button class="btn btn-secondary" id="connect-github-btn">
-        <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-        </svg>
-        Connect to GitHub
-      </button>
+      <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
+      <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
     </div>
   </div>
 
-  <!-- Import Screen -->
+  <!-- ==================== IMPORT SCREEN ==================== -->
   <div class="screen import-screen" id="import-screen">
-    <a class="back-link" id="back-to-welcome-from-import">← Back</a>
-    <h1>Import Design Tokens</h1>
-    <p style="color: #666; margin-bottom: 24px; font-size: 13px;">
-      Upload a ZIP file containing <code>primitives.json</code> and <code>semantics.json</code>, or upload individual JSON files.
-    </p>
-
-    <div class="message" id="import-message"></div>
-
-    <div class="section">
-      <button class="btn btn-primary" id="select-files-btn">
-        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-        </svg>
-        Select Files
-      </button>
-      <input type="file" id="file-input" accept=".zip,.json" multiple>
+    <div class="import-header">
+      <a class="back-link" id="back-to-welcome">← Back to Welcome</a>
+      <h1 class="import-title" id="import-title">Import Tokens</h1>
+      <p class="import-subtitle" id="import-subtitle">Configure your token source</p>
     </div>
 
-    <div class="loading" id="import-loading">
-      <div class="spinner"></div>
-      <span>Processing tokens...</span>
-    </div>
-  </div>
-
-  <!-- GitHub Screen -->
-  <div class="screen github-screen" id="github-screen">
-    <a class="back-link" id="back-to-welcome-from-github">← Back</a>
-    <h1>Connect to GitHub</h1>
-    <p style="color: #666; margin-bottom: 24px; font-size: 13px;">
-      Connect to a GitHub repository to import and synchronize design tokens.
-    </p>
-
-    <div class="message" id="github-message"></div>
-
-    <div class="section">
+    <!-- GitHub Import Content -->
+    <div class="import-content active" id="github-import-content">
       <div class="input-group">
         <label for="github-token">GitHub Personal Access Token</label>
-        <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
-        <div class="input-hint">
-          Create a token at <a href="https://github.com/settings/tokens" target="_blank">GitHub Settings</a> with 'repo' scope
-        </div>
+        <input type="password" id="github-token" placeholder="ghp_...">
+        <div class="input-hint">Required for private repositories</div>
       </div>
 
       <div class="input-group">
         <label for="repo-url">Repository URL</label>
-        <input type="text" id="repo-url" placeholder="https://github.com/username/repo">
-        <div class="input-hint">Full URL to your GitHub repository</div>
+        <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
       </div>
 
       <div class="input-group">
-        <label for="branch-name">Branch (optional)</label>
+        <label for="branch-name">Branch</label>
         <input type="text" id="branch-name" placeholder="main" value="main">
-        <div class="input-hint">Leave as 'main' to use the default branch</div>
       </div>
 
-      <button class="btn btn-primary" id="connect-repo-btn">
-        <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-        </svg>
-        Connect Repository
-      </button>
+      <button class="btn btn-primary btn-full" id="fetch-files-btn">Connect to Repository</button>
+
+      <div class="loading" id="github-loading">
+        <span>Fetching files from GitHub...</span>
+      </div>
+
+      <!-- File list will be populated here -->
+      <div id="github-files-container"></div>
+
+      <div class="action-buttons hidden" id="github-action-buttons">
+        <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Sync Tokens</button>
+      </div>
     </div>
 
-    <div class="loading" id="github-loading">
-      <div class="spinner"></div>
-      <span>Loading repository...</span>
-    </div>
+    <!-- Local Import Content -->
+    <div class="import-content" id="local-import-content">
+      <input type="file" id="file-input" multiple accept=".json,.zip">
 
-    <div id="file-browser" style="display: none;">
-      <h2 class="section-title">Select Token Files</h2>
-      <div class="file-list" id="github-files"></div>
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">📁</div>
+        <div class="drop-zone-text">Click to select token files or drag & drop</div>
+        <div class="drop-zone-hint">Supports .json and .zip files</div>
+      </div>
 
-      <div class="action-buttons">
-        <button class="btn btn-primary" id="import-github-files-btn" disabled>
-          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-          </svg>
-          Import Selected Files
-        </button>
-        <button class="btn btn-secondary" id="sync-github-btn" disabled>
-          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-          </svg>
-          Save Sync Configuration
-        </button>
+      <div class="loading" id="local-loading">
+        <span>Processing token files...</span>
+      </div>
+
+      <!-- File list will be populated here -->
+      <div id="local-files-container"></div>
+
+      <div class="action-buttons hidden" id="local-action-buttons">
+        <button class="btn btn-primary btn-full" id="upload-tokens-btn" disabled>Upload Tokens</button>
       </div>
     </div>
   </div>
 
-  <!-- Preview Screen with Lateral Tabs -->
-  <div class="screen preview-screen" id="preview-screen">
-    <div class="lateral-tabs">
-      <div class="lateral-tabs-header">
-        <h2>Token Files</h2>
-        <a class="back-link" id="back-to-welcome-from-preview">← Back</a>
-      </div>
-      <div id="lateral-tabs-list">
-        <!-- Tabs will be dynamically added here -->
-      </div>
-    </div>
-
-    <div class="preview-content">
-      <div class="preview-header">
-        <div class="preview-header-top">
-          <div>
-            <div class="preview-title" id="preview-filename">Select a file</div>
-            <div class="preview-subtitle" id="preview-source">No file selected</div>
-          </div>
+  <!-- ==================== TOKEN SCREEN ==================== -->
+  <div class="screen token-screen" id="token-screen">
+    <div class="token-layout">
+      <!-- Left Column: File Tabs -->
+      <div class="file-tabs">
+        <div class="file-tabs-header">
+          <div class="file-tabs-title">Token Files</div>
         </div>
-        <div class="message" id="preview-message"></div>
+        <div id="file-tabs-list">
+          <!-- Tabs will be dynamically added here -->
+        </div>
       </div>
 
-      <div class="preview-json" id="preview-json-content">
-        <div class="empty-state">Select a file from the left sidebar to view its contents</div>
-      </div>
-
-      <div class="preview-footer">
-        <button class="btn btn-primary" id="sync-to-figma-btn" style="width: 100%;" disabled>
-          <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-          </svg>
-          Import to Figma Variables
-        </button>
+      <!-- Right Column: JSON Preview -->
+      <div class="json-preview">
+        <div class="json-header">
+          <div class="json-filename" id="json-filename">Select a file</div>
+          <div class="json-source" id="json-source">No file selected</div>
+        </div>
+        <div class="json-content" id="json-content">
+          <div class="empty-state">Select a token file from the left to preview its contents</div>
+        </div>
       </div>
     </div>
+
+    <!-- Action Footer -->
+    <div class="token-actions">
+      <button class="btn btn-primary" id="sync-to-figma-btn">Sync to Figma</button>
+      <button class="btn btn-secondary hidden" id="pull-changes-btn">Pull Changes</button>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <span id="notification-message"></span>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
-    // ========================================
-    // Global State
-    // ========================================
+    // ==================== STATE MANAGEMENT ====================
+    let importMode = 'github'; // 'github' or 'local'
+    let tokenFiles = {}; // Stores all token file data
+    let tokenSource = null; // 'github' or 'local'
+    let githubConfig = null; // Stores GitHub configuration for pull changes
 
-    let primitivesData = null;
-    let semanticsData = null;
-    let githubConfig = null;
-    let selectedFiles = new Set();
-    let tokenFiles = {}; // Store all loaded token files
-
-    // ========================================
-    // Screen Navigation
-    // ========================================
-
+    // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
-      console.log('Navigating to screen:', screenId);
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      const targetScreen = document.getElementById(screenId);
-      if (targetScreen) {
-        targetScreen.classList.add('active');
-        console.log('Screen activated:', screenId);
-      } else {
-        console.error('Screen not found:', screenId);
-      }
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+      });
+      document.getElementById(screenId).classList.add('active');
     }
 
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', async () => {
-      console.log('DOM loaded, initializing buttons...');
-      await loadGitHubConfig();
+    // ==================== WELCOME SCREEN ====================
+    document.getElementById('connect-github-btn').addEventListener('click', () => {
+      importMode = 'github';
+      document.getElementById('import-title').textContent = 'Connect to GitHub';
+      document.getElementById('import-subtitle').textContent = 'Import tokens from a GitHub repository';
+      document.getElementById('github-import-content').classList.add('active');
+      document.getElementById('local-import-content').classList.remove('active');
+      showScreen('import-screen');
+      loadGitHubConfig();
     });
 
-    document.getElementById('import-from-computer-btn').addEventListener('click', (e) => {
-      console.log('Import from computer button clicked');
-      e.preventDefault();
-      e.stopPropagation();
+    document.getElementById('import-local-btn').addEventListener('click', () => {
+      importMode = 'local';
+      document.getElementById('import-title').textContent = 'Import Local Files';
+      document.getElementById('import-subtitle').textContent = 'Select token files from your computer';
+      document.getElementById('local-import-content').classList.add('active');
+      document.getElementById('github-import-content').classList.remove('active');
       showScreen('import-screen');
     });
 
-    document.getElementById('connect-github-btn').addEventListener('click', (e) => {
-      console.log('Connect to GitHub button clicked');
-      e.preventDefault();
-      e.stopPropagation();
-      showScreen('github-screen');
-    });
-
-    document.getElementById('back-to-welcome-from-import').addEventListener('click', (e) => {
-      console.log('Back to welcome (from import) clicked');
-      e.preventDefault();
+    document.getElementById('back-to-welcome').addEventListener('click', () => {
       showScreen('welcome-screen');
     });
 
-    document.getElementById('back-to-welcome-from-github').addEventListener('click', (e) => {
-      console.log('Back to welcome (from github) clicked');
-      e.preventDefault();
-      showScreen('welcome-screen');
-    });
-
-    document.getElementById('back-to-welcome-from-preview').addEventListener('click', (e) => {
-      console.log('Back to welcome (from preview) clicked');
-      e.preventDefault();
-      showScreen('welcome-screen');
-    });
-
-    // ========================================
-    // GitHub Config Persistence
-    // ========================================
+    // ==================== GITHUB IMPORT ====================
+    const githubToken = document.getElementById('github-token');
+    const repoUrl = document.getElementById('repo-url');
+    const branchName = document.getElementById('branch-name');
+    const fetchFilesBtn = document.getElementById('fetch-files-btn');
+    const syncTokensBtn = document.getElementById('sync-tokens-btn');
 
     async function loadGitHubConfig() {
       try {
@@ -693,14 +691,12 @@
       }
     }
 
-    async function saveGitHubConfig() {
-      if (!githubConfig) return;
-
+    async function saveGitHubConfig(config) {
       try {
         parent.postMessage({
           pluginMessage: {
             type: 'save-github-config',
-            data: githubConfig
+            data: config
           }
         }, '*');
       } catch (error) {
@@ -708,259 +704,270 @@
       }
     }
 
-    // ========================================
-    // File Import Logic
-    // ========================================
-
-    const fileInput = document.getElementById('file-input');
-    const selectFilesBtn = document.getElementById('select-files-btn');
-    const importLoading = document.getElementById('import-loading');
-
-    selectFilesBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
-
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (files.length === 0) return;
-
-      importLoading.classList.add('visible');
-      hideMessage('import-message');
-
-      try {
-        tokenFiles = {}; // Reset
-        primitivesData = null;
-        semanticsData = null;
-
-        for (const file of files) {
-          if (file.name.endsWith('.zip')) {
-            await handleZipFile(file);
-          } else if (file.name.endsWith('.json')) {
-            await handleJsonFile(file);
-          }
-        }
-
-        if (primitivesData || semanticsData) {
-          showPreviewScreen();
-        }
-      } catch (error) {
-        showMessage('import-message', 'error', `Error loading files: ${error.message}`);
-      } finally {
-        importLoading.classList.remove('visible');
-      }
-    });
-
-    async function handleZipFile(file) {
-      const zip = await JSZip.loadAsync(file);
-
-      const primitivesFile = zip.file('primitives.json');
-      const semanticsFile = zip.file('semantics.json');
-
-      if (primitivesFile) {
-        const content = await primitivesFile.async('string');
-        primitivesData = JSON.parse(content);
-        tokenFiles['primitives.json'] = { name: 'primitives.json', content: primitivesData, source: 'Computer' };
-      }
-
-      if (semanticsFile) {
-        const content = await semanticsFile.async('string');
-        semanticsData = JSON.parse(content);
-        tokenFiles['semantics.json'] = { name: 'semantics.json', content: semanticsData, source: 'Computer' };
-      }
-    }
-
-    async function handleJsonFile(file) {
-      const content = await file.text();
-      const data = JSON.parse(content);
-
-      if (file.name.includes('primitive')) {
-        primitivesData = data;
-        tokenFiles['primitives.json'] = { name: file.name, content: data, source: 'Computer' };
-      } else if (file.name.includes('semantic')) {
-        semanticsData = data;
-        tokenFiles['semantics.json'] = { name: file.name, content: data, source: 'Computer' };
-      } else {
-        primitivesData = data;
-        tokenFiles['primitives.json'] = { name: file.name, content: data, source: 'Computer' };
-      }
-    }
-
-    // ========================================
-    // GitHub Integration
-    // ========================================
-
-    const githubToken = document.getElementById('github-token');
-    const repoUrl = document.getElementById('repo-url');
-    const branchName = document.getElementById('branch-name');
-    const connectRepoBtn = document.getElementById('connect-repo-btn');
-    const githubLoading = document.getElementById('github-loading');
-    const fileBrowser = document.getElementById('file-browser');
-    const githubFilesList = document.getElementById('github-files');
-    const importGithubFilesBtn = document.getElementById('import-github-files-btn');
-    const syncGithubBtn = document.getElementById('sync-github-btn');
-
-    connectRepoBtn.addEventListener('click', async () => {
+    fetchFilesBtn.addEventListener('click', async () => {
       const token = githubToken.value.trim();
       const url = repoUrl.value.trim();
       const branch = branchName.value.trim() || 'main';
 
-      if (!token || !url) {
-        showMessage('github-message', 'error', 'Please enter both GitHub token and repository URL');
+      if (!url) {
+        showNotification('Please enter a repository URL', 'error');
         return;
       }
 
-      // Parse repo URL
+      // Parse owner and repo from URL
       const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
       if (!match) {
-        showMessage('github-message', 'error', 'Invalid GitHub repository URL');
+        showNotification('Invalid GitHub URL format', 'error');
         return;
       }
 
-      const owner = match[1];
-      const repo = match[2].replace('.git', '');
+      const [, owner, repo] = match;
 
-      githubConfig = { token, owner, repo, branch };
+      // Save config for later use
+      githubConfig = { token, owner, repo: repo.replace('.git', ''), branch };
 
-      githubLoading.classList.add('visible');
-      hideMessage('github-message');
+      document.getElementById('github-loading').classList.add('active');
+      fetchFilesBtn.disabled = true;
 
-      await loadGithubFiles();
-    });
-
-    async function loadGithubFiles() {
-      const { token, owner, repo, branch } = githubConfig;
-
-      // Send request to backend to fetch files
       parent.postMessage({
         pluginMessage: {
           type: 'github-fetch-files',
-          data: { token, owner, repo, branch }
+          data: githubConfig
         }
       }, '*');
-
-      // Response will be handled by message listener
-    }
-
-    function displayGithubFiles(files) {
-      githubFilesList.innerHTML = '';
-      selectedFiles.clear();
-
-      files.forEach(file => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'file-item';
-        fileItem.innerHTML = `
-          <input type="checkbox" class="checkbox" data-path="${file.path}">
-          <svg class="file-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          <div class="file-info">
-            <div class="file-name">${file.path.split('/').pop()}</div>
-            <div class="file-path">${file.path}</div>
-          </div>
-        `;
-
-        const checkbox = fileItem.querySelector('.checkbox');
-        checkbox.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            selectedFiles.add(file.path);
-            fileItem.classList.add('selected');
-          } else {
-            selectedFiles.delete(file.path);
-            fileItem.classList.remove('selected');
-          }
-          updateGithubButtons();
-        });
-
-        fileItem.addEventListener('click', (e) => {
-          if (e.target !== checkbox) {
-            checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
-          }
-        });
-
-        githubFilesList.appendChild(fileItem);
-      });
-    }
-
-    function updateGithubButtons() {
-      const hasSelection = selectedFiles.size > 0;
-      importGithubFilesBtn.disabled = !hasSelection;
-      syncGithubBtn.disabled = !hasSelection;
-    }
-
-    importGithubFilesBtn.addEventListener('click', async () => {
-      importGithubFilesBtn.disabled = true;
-      githubLoading.classList.add('visible');
-      hideMessage('github-message');
-
-      await importSelectedGithubFiles();
     });
 
-    syncGithubBtn.addEventListener('click', async () => {
-      syncGithubBtn.disabled = true;
-      githubLoading.classList.add('visible');
-      hideMessage('github-message');
+    syncTokensBtn.addEventListener('click', async () => {
+      const selectedFiles = Array.from(document.querySelectorAll('#github-files-container input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
 
-      await importSelectedGithubFiles();
+      if (selectedFiles.length === 0) {
+        showNotification('Please select at least one file', 'error');
+        return;
+      }
 
-      // Store sync config
-      githubConfig.files = Array.from(selectedFiles);
-      await saveGitHubConfig();
+      // Update config with selected files
+      githubConfig.files = selectedFiles;
 
-      showMessage('github-message', 'success', 'Sync configuration saved!');
-      syncGithubBtn.disabled = false;
-      githubLoading.classList.remove('visible');
-    });
+      // Save GitHub config
+      await saveGitHubConfig(githubConfig);
 
-    async function importSelectedGithubFiles() {
-      const { token, owner, repo, branch } = githubConfig;
+      document.getElementById('github-loading').classList.add('active');
+      syncTokensBtn.disabled = true;
 
-      // Send request to backend to import files
       parent.postMessage({
         pluginMessage: {
           type: 'github-import-files',
-          data: {
-            token,
-            owner,
-            repo,
-            branch,
-            files: Array.from(selectedFiles)
-          }
+          data: githubConfig
         }
       }, '*');
+    });
 
-      // Response will be handled by message listener
+    function displayGitHubFiles(files) {
+      const container = document.getElementById('github-files-container');
+
+      if (files.length === 0) {
+        container.innerHTML = '<div class="empty-state">No JSON files found in repository</div>';
+        return;
+      }
+
+      const fileList = document.createElement('div');
+      fileList.className = 'file-list';
+      fileList.innerHTML = `
+        <div class="file-list-header">Select files to sync (${files.length} found)</div>
+        ${files.map(file => `
+          <div class="file-item">
+            <input type="checkbox" class="file-checkbox" value="${file}" id="file-${file}" checked>
+            <label for="file-${file}">
+              <div class="file-name">${file.split('/').pop()}</div>
+              <div class="file-path">${file}</div>
+            </label>
+          </div>
+        `).join('')}
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(fileList);
+
+      // Hide fetch button, show sync button
+      fetchFilesBtn.classList.add('hidden');
+      document.getElementById('github-action-buttons').classList.remove('hidden');
+      syncTokensBtn.disabled = false;
     }
 
-    // ========================================
-    // Preview Screen
-    // ========================================
+    // ==================== LOCAL IMPORT ====================
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const uploadTokensBtn = document.getElementById('upload-tokens-btn');
 
-    function showPreviewScreen() {
-      // Clear and populate lateral tabs
-      const tabsList = document.getElementById('lateral-tabs-list');
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#0d99ff';
+      dropZone.style.background = '#f8fcff';
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#e0e0e0';
+      dropZone.style.background = 'transparent';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#e0e0e0';
+      dropZone.style.background = 'transparent';
+
+      const files = Array.from(e.dataTransfer.files);
+      handleLocalFiles(files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      handleLocalFiles(files);
+    });
+
+    async function handleLocalFiles(files) {
+      if (files.length === 0) return;
+
+      document.getElementById('local-loading').classList.add('active');
+      dropZone.classList.add('hidden');
+
+      const tokenData = { primitives: {}, semantics: {} };
+
+      for (const file of files) {
+        try {
+          if (file.name.endsWith('.json')) {
+            const text = await file.text();
+            const json = JSON.parse(text);
+
+            // Store file data
+            const fileKey = `local_${file.name}`;
+            tokenFiles[fileKey] = {
+              name: file.name,
+              content: json,
+              source: 'Local File'
+            };
+
+            // Categorize as primitive or semantic
+            if (file.name.toLowerCase().includes('primitive')) {
+              tokenData.primitives[file.name] = json;
+            } else {
+              tokenData.semantics[file.name] = json;
+            }
+          } else if (file.name.endsWith('.zip')) {
+            const zip = await JSZip.loadAsync(file);
+            const jsonFiles = Object.keys(zip.files).filter(name => name.endsWith('.json'));
+
+            for (const fileName of jsonFiles) {
+              const text = await zip.files[fileName].async('text');
+              const json = JSON.parse(text);
+
+              const fileKey = `local_${fileName}`;
+              tokenFiles[fileKey] = {
+                name: fileName,
+                content: json,
+                source: 'Local File (ZIP)'
+              };
+
+              if (fileName.toLowerCase().includes('primitive')) {
+                tokenData.primitives[fileName] = json;
+              } else {
+                tokenData.semantics[fileName] = json;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
+          showNotification(`Error processing ${file.name}`, 'error');
+        }
+      }
+
+      document.getElementById('local-loading').classList.remove('active');
+
+      // Display file list
+      displayLocalFiles(Object.keys(tokenFiles));
+
+      // Store for upload
+      window.localTokenData = tokenData;
+    }
+
+    function displayLocalFiles(fileKeys) {
+      const container = document.getElementById('local-files-container');
+
+      if (fileKeys.length === 0) {
+        container.innerHTML = '<div class="empty-state">No valid token files found</div>';
+        return;
+      }
+
+      const fileList = document.createElement('div');
+      fileList.className = 'file-list';
+      fileList.innerHTML = `
+        <div class="file-list-header">Files ready to upload (${fileKeys.length})</div>
+        ${fileKeys.map(key => {
+          const file = tokenFiles[key];
+          return `
+            <div class="file-item">
+              <div class="file-name">${file.name}</div>
+              <div class="file-path">${file.source}</div>
+            </div>
+          `;
+        }).join('')}
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(fileList);
+
+      // Show upload button
+      document.getElementById('local-action-buttons').classList.remove('hidden');
+      uploadTokensBtn.disabled = false;
+    }
+
+    uploadTokensBtn.addEventListener('click', () => {
+      if (!window.localTokenData) return;
+
+      tokenSource = 'local';
+
+      // Show token screen with loaded files
+      showTokenScreen();
+    });
+
+    // ==================== TOKEN SCREEN ====================
+    function showTokenScreen() {
+      const tabsList = document.getElementById('file-tabs-list');
       tabsList.innerHTML = '';
 
-      Object.keys(tokenFiles).forEach((key, index) => {
+      const fileKeys = Object.keys(tokenFiles);
+      fileKeys.forEach((key, index) => {
         const file = tokenFiles[key];
-        const tab = document.createElement('div');
-        tab.className = 'lateral-tab' + (index === 0 ? ' active' : '');
+        const tab = document.createElement('button');
+        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
         tab.textContent = file.name;
         tab.dataset.file = key;
         tab.addEventListener('click', () => selectFile(key));
         tabsList.appendChild(tab);
       });
 
-      // Show first file by default
-      const firstKey = Object.keys(tokenFiles)[0];
-      if (firstKey) {
-        selectFile(firstKey);
+      // Show first file
+      if (fileKeys.length > 0) {
+        selectFile(fileKeys[0]);
       }
 
-      // Enable sync button
-      document.getElementById('sync-to-figma-btn').disabled = false;
+      // Show/hide pull changes button
+      const pullBtn = document.getElementById('pull-changes-btn');
+      if (tokenSource === 'github') {
+        pullBtn.classList.remove('hidden');
+      } else {
+        pullBtn.classList.add('hidden');
+      }
 
-      showScreen('preview-screen');
+      showScreen('token-screen');
+
+      // Save tokens to persistence
+      saveTokens();
     }
 
     function selectFile(fileKey) {
@@ -968,126 +975,174 @@
       if (!file) return;
 
       // Update active tab
-      document.querySelectorAll('.lateral-tab').forEach(tab => {
+      document.querySelectorAll('.file-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.file === fileKey);
       });
 
       // Update preview
-      document.getElementById('preview-filename').textContent = file.name;
-      document.getElementById('preview-source').textContent = `Source: ${file.source}`;
-      document.getElementById('preview-json-content').innerHTML =
+      document.getElementById('json-filename').textContent = file.name;
+      document.getElementById('json-source').textContent = `Source: ${file.source}`;
+      document.getElementById('json-content').innerHTML =
         `<pre>${JSON.stringify(file.content, null, 2)}</pre>`;
     }
 
-    // Sync to Figma button
+    // ==================== TOKEN ACTIONS ====================
     document.getElementById('sync-to-figma-btn').addEventListener('click', () => {
-      document.getElementById('sync-to-figma-btn').disabled = true;
+      const data = tokenSource === 'github' ?
+        window.githubTokenData : window.localTokenData;
+
+      if (!data) {
+        showNotification('No token data available', 'error');
+        return;
+      }
 
       parent.postMessage({
         pluginMessage: {
           type: 'import-tokens',
-          data: {
-            primitives: primitivesData,
-            semantics: semanticsData
-          }
+          data: data
         }
       }, '*');
     });
 
-    // ========================================
-    // Message Handling
-    // ========================================
+    document.getElementById('pull-changes-btn').addEventListener('click', async () => {
+      if (!githubConfig) {
+        showNotification('GitHub configuration not found', 'error');
+        return;
+      }
 
-    function showMessage(elementId, type, text) {
-      const messageEl = document.getElementById(elementId);
-      if (messageEl) {
-        messageEl.className = `message ${type} visible`;
-        messageEl.textContent = text;
+      showNotification('Pulling latest changes from GitHub...', 'success');
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-import-files',
+          data: githubConfig
+        }
+      }, '*');
+    });
+
+    // ==================== TOKEN PERSISTENCE ====================
+    async function saveTokens() {
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'save-tokens',
+            data: {
+              files: tokenFiles,
+              source: tokenSource,
+              githubConfig: tokenSource === 'github' ? githubConfig : null
+            }
+          }
+        }, '*');
+      } catch (error) {
+        console.error('Error saving tokens:', error);
       }
     }
 
-    function hideMessage(elementId) {
-      const messageEl = document.getElementById(elementId);
-      if (messageEl) {
-        messageEl.classList.remove('visible');
+    async function loadTokens() {
+      try {
+        parent.postMessage({ pluginMessage: { type: 'load-tokens' } }, '*');
+      } catch (error) {
+        console.error('Error loading tokens:', error);
       }
     }
 
-    // Listen for messages from plugin
+    // ==================== NOTIFICATIONS ====================
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      const messageEl = document.getElementById('notification-message');
+
+      messageEl.textContent = message;
+      notification.className = `notification active ${type}`;
+
+      setTimeout(() => {
+        notification.classList.remove('active');
+      }, 3000);
+    }
+
+    // ==================== MESSAGE HANDLER ====================
     window.addEventListener('message', (event) => {
       const msg = event.data.pluginMessage;
       if (!msg) return;
 
-      importLoading.classList.remove('visible');
-      githubLoading.classList.remove('visible');
+      console.log('Received message:', msg.type);
 
       switch (msg.type) {
+        case 'github-files-fetched':
+          document.getElementById('github-loading').classList.remove('active');
+          fetchFilesBtn.disabled = false;
+          displayGitHubFiles(msg.data.files);
+          break;
+
+        case 'github-files-imported':
+          document.getElementById('github-loading').classList.remove('active');
+          tokenSource = 'github';
+
+          // Store token data
+          window.githubTokenData = msg.data;
+
+          // Convert to tokenFiles format
+          tokenFiles = {};
+          if (msg.data.primitives) {
+            Object.entries(msg.data.primitives).forEach(([name, content]) => {
+              tokenFiles[`github_${name}`] = {
+                name: name,
+                content: content,
+                source: 'GitHub'
+              };
+            });
+          }
+          if (msg.data.semantics) {
+            Object.entries(msg.data.semantics).forEach(([name, content]) => {
+              tokenFiles[`github_${name}`] = {
+                name: name,
+                content: content,
+                source: 'GitHub'
+              };
+            });
+          }
+
+          showTokenScreen();
+          showNotification('Tokens imported from GitHub successfully', 'success');
+          break;
+
         case 'github-config-loaded':
-          // Restore GitHub configuration
           if (msg.data) {
             const config = msg.data;
             githubToken.value = config.token || '';
             repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
             branchName.value = config.branch || 'main';
             githubConfig = config;
-            console.log('GitHub config restored:', config);
+          }
+          break;
+
+        case 'tokens-loaded':
+          if (msg.data) {
+            tokenFiles = msg.data.files || {};
+            tokenSource = msg.data.source || null;
+            githubConfig = msg.data.githubConfig || null;
+
+            if (Object.keys(tokenFiles).length > 0) {
+              showTokenScreen();
+            }
           }
           break;
 
         case 'import-success':
-          showMessage('preview-message', 'success', msg.message);
-          document.getElementById('sync-to-figma-btn').disabled = false;
-          break;
-
-        case 'github-files-fetched':
-          // Display the fetched files
-          if (msg.data && msg.data.files) {
-            displayGithubFiles(msg.data.files);
-            showMessage('github-message', 'success', 'Connected to repository successfully!');
-            fileBrowser.style.display = 'block';
-          }
-          break;
-
-        case 'github-files-imported':
-          // Files imported from GitHub - show preview
-          if (msg.data) {
-            tokenFiles = {};
-            primitivesData = msg.data.primitives;
-            semanticsData = msg.data.semantics;
-
-            if (primitivesData) {
-              tokenFiles['primitives.json'] = {
-                name: 'primitives.json',
-                content: primitivesData,
-                source: `GitHub (${githubConfig.owner}/${githubConfig.repo})`
-              };
-            }
-            if (semanticsData) {
-              tokenFiles['semantics.json'] = {
-                name: 'semantics.json',
-                content: semanticsData,
-                source: `GitHub (${githubConfig.owner}/${githubConfig.repo})`
-              };
-            }
-
-            showPreviewScreen();
-          }
+          showNotification(msg.message, 'success');
           break;
 
         case 'error':
-          const activeScreen = document.querySelector('.screen.active');
-          if (activeScreen.id === 'import-screen') {
-            showMessage('import-message', 'error', `Error: ${msg.message}`);
-          } else if (activeScreen.id === 'github-screen') {
-            showMessage('github-message', 'error', `Error: ${msg.message}`);
-          } else if (activeScreen.id === 'preview-screen') {
-            showMessage('preview-message', 'error', `Error: ${msg.message}`);
-          } else {
-            showMessage('welcome-message', 'error', `Error: ${msg.message}`);
-          }
+          document.getElementById('github-loading').classList.remove('active');
+          document.getElementById('local-loading').classList.remove('active');
+          fetchFilesBtn.disabled = false;
+          syncTokensBtn.disabled = false;
+          showNotification(msg.message, 'error');
           break;
       }
     });
+
+    // Load persisted tokens on startup
+    loadTokens();
   </script>
 </body>
 </html>
