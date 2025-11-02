@@ -6,8 +6,8 @@ export const UI_CONFIG = {
 };
 
 export const COLLECTION_NAMES = {
-  primitive: 'Primitive',
-  semantic: 'Semantic',
+  primitive: 'primitive',
+  semantic: 'semantic',
 };
 
 export const TYPE_MAPPING: { [key: string]: VariableResolvedDataType } = {

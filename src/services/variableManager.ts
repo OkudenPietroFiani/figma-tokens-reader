@@ -295,12 +295,13 @@ export class VariableManager {
       const tokenPath = path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-');
       const cssVarName = `--${collection}-${tokenPath}`;
 
-      // Set code syntax for Web/CSS
-      variable.codeSyntax = {
-        WEB: cssVarName,
-        ANDROID: `${collection}.${path.join('.')}`,
-        iOS: `${collection}.${path.join('.')}`
-      };
+      // Set code syntax using Figma's API method
+      // Platform identifiers: 'WEB', 'ANDROID', 'iOS'
+      variable.setVariableCodeSyntax('WEB', cssVarName);
+      variable.setVariableCodeSyntax('ANDROID', `${collection}.${path.join('.')}`);
+      variable.setVariableCodeSyntax('iOS', `${collection}.${path.join('.')}`);
+
+      console.log(`Set code syntax for ${variable.name}: ${cssVarName}`);
     } catch (error) {
       console.error(`Error setting code syntax for ${path.join('/')}: ${error}`);
       // Non-fatal error, continue

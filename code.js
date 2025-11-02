@@ -6,8 +6,8 @@
     height: 600
   };
   var COLLECTION_NAMES = {
-    primitive: "Primitive",
-    semantic: "Semantic"
+    primitive: "primitive",
+    semantic: "semantic"
   };
   var TYPE_MAPPING = {
     "color": "COLOR",
@@ -437,11 +437,10 @@
         const collection = collectionName.toLowerCase();
         const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
         const cssVarName = `--${collection}-${tokenPath}`;
-        variable.codeSyntax = {
-          WEB: cssVarName,
-          ANDROID: `${collection}.${path.join(".")}`,
-          iOS: `${collection}.${path.join(".")}`
-        };
+        variable.setVariableCodeSyntax("WEB", cssVarName);
+        variable.setVariableCodeSyntax("ANDROID", `${collection}.${path.join(".")}`);
+        variable.setVariableCodeSyntax("iOS", `${collection}.${path.join(".")}`);
+        console.log(`Set code syntax for ${variable.name}: ${cssVarName}`);
       } catch (error) {
         console.error(`Error setting code syntax for ${path.join("/")}: ${error}`);
       }
