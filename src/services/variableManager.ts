@@ -41,14 +41,16 @@ export class VariableManager {
       this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
       this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
 
-      // Process primitives first (they have no dependencies)
+      // Flatten and process primitives first (they have no dependencies)
       if (primitives) {
-        await this.processTokenGroup(primitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
+        const flattenedPrimitives = this.flattenTokenFiles(primitives);
+        await this.processTokenGroup(flattenedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
       }
 
-      // Process semantics (they may reference primitives)
+      // Flatten and process semantics (they may reference primitives)
       if (semantics) {
-        await this.processTokenGroup(semantics, COLLECTION_NAMES.semantic, semanticCollection, []);
+        const flattenedSemantics = this.flattenTokenFiles(semantics);
+        await this.processTokenGroup(flattenedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
       }
 
       figma.notify(
@@ -60,6 +62,37 @@ export class VariableManager {
     } catch (error) {
       throw new Error(`Failed to import tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Flatten token files structure to merge multiple files into a single token tree
+   * Handles both direct token structure and file-keyed structure (e.g., { "file.json": {...} })
+   */
+  private flattenTokenFiles(data: TokenData): TokenData {
+    if (!data || typeof data !== 'object') {
+      return {};
+    }
+
+    // Check if this is a file-keyed structure (keys are filenames ending in .json)
+    const keys = Object.keys(data);
+    const isFileKeyed = keys.some(key =>
+      key.endsWith('.json') || key.includes('-json') || key.includes('_json')
+    );
+
+    if (isFileKeyed) {
+      // Merge all files into a single flat structure
+      const merged: TokenData = {};
+      for (const [fileName, fileContent] of Object.entries(data)) {
+        if (fileContent && typeof fileContent === 'object') {
+          // Merge file contents into the root level
+          Object.assign(merged, fileContent);
+        }
+      }
+      return merged;
+    }
+
+    // Already flat structure, return as is
+    return data;
   }
 
   private async processTokenGroup(

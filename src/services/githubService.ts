@@ -87,20 +87,22 @@ export class GitHubService {
   }
 
   async fetchMultipleFiles(config: GitHubConfig, filePaths: string[]): Promise<{ primitives: any; semantics: any }> {
-    let primitivesData = null;
-    let semanticsData = null;
+    const primitivesData: any = {};
+    const semanticsData: any = {};
 
     for (const filePath of filePaths) {
       const jsonData = await this.fetchFileContent(config, filePath);
+      const fileName = filePath.split('/').pop() || filePath;
 
       // Determine if it's primitives or semantics based on filename
       if (filePath.toLowerCase().includes('primitive')) {
-        primitivesData = jsonData;
+        // Store each file with its filename as key
+        primitivesData[fileName] = jsonData;
       } else if (filePath.toLowerCase().includes('semantic')) {
-        semanticsData = jsonData;
+        semanticsData[fileName] = jsonData;
       } else {
         // Default to primitives if unclear
-        primitivesData = jsonData;
+        primitivesData[fileName] = jsonData;
       }
     }
 
