@@ -163,41 +163,75 @@ export class VariableManager {
 
   /**
    * Remove ALL collection-name wrappers recursively
-   * This handles nested cases like: { "primitive": { "primitive": { ... } } }
+   * Handles cases where collection-name key exists alongside other keys
    *
-   * Clean code: Clear intent, handles edge cases
+   * Example:
+   * Input:  { "primitive": { "spacing": {...} }, "metadata": {...} }
+   * Output: { "spacing": {...}, "metadata": {...} }
    */
   private removeAllCollectionWrappers(data: TokenData, collectionType: 'primitive' | 'semantic'): TokenData {
     let current = data;
     let iterations = 0;
-    const maxIterations = 5; // Prevent infinite loops
+    const maxIterations = 10;
 
-    // Keep unwrapping until no more collection wrappers found
     while (iterations < maxIterations) {
       const keys = Object.keys(current);
+      let didUnwrap = false;
 
-      // Check if single key that matches collection name
-      if (keys.length === 1) {
-        const key = keys[0];
+      // Look for any key that matches collection name
+      for (const key of keys) {
         if (this.isCollectionNameKey(key, collectionType)) {
-          const unwrapped = current[key];
-          if (unwrapped && typeof unwrapped === 'object' && !('$value' in unwrapped)) {
-            console.log(`[UNWRAP] Removed wrapper: '${key}'`);
-            current = unwrapped as TokenData;
-            iterations++;
-            continue;
+          const value = current[key];
+
+          // Check if it's a wrapper (not a token)
+          if (value && typeof value === 'object' && !('$value' in value)) {
+            console.log(`[UNWRAP] Found collection wrapper '${key}' with ${Object.keys(value).length} children`);
+
+            // If this is the ONLY key, replace entire structure
+            if (keys.length === 1) {
+              console.log(`[UNWRAP] Single key - replacing entire structure`);
+              current = value as TokenData;
+              didUnwrap = true;
+              break;
+            }
+            // If there are other keys, extract wrapper contents to parent level
+            else {
+              console.log(`[UNWRAP] Multiple keys - extracting wrapper contents`);
+              const newStructure: TokenData = {};
+
+              // Copy all keys except the wrapper
+              for (const k of keys) {
+                if (k !== key) {
+                  newStructure[k] = current[k];
+                }
+              }
+
+              // Merge wrapper contents into parent level
+              for (const [childKey, childValue] of Object.entries(value)) {
+                newStructure[childKey] = childValue;
+              }
+
+              current = newStructure;
+              didUnwrap = true;
+              break;
+            }
           }
         }
       }
 
-      // No more wrappers found
-      break;
+      if (!didUnwrap) {
+        // No more wrappers found
+        break;
+      }
+
+      iterations++;
     }
 
     if (iterations >= maxIterations) {
       console.warn(`[UNWRAP] Warning: Max iterations reached. Possible circular structure.`);
     }
 
+    console.log(`[UNWRAP] Completed after ${iterations} iteration(s)`);
     return current;
   }
 
