@@ -2032,9 +2032,35 @@
      */
     function getAvailableScopesForFigmaType(figmaType) {
       const scopeMap = {
-        'COLOR': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
-        'FLOAT': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT', 'FONT_SIZE', 'FONT_WEIGHT', 'LINE_HEIGHT'],
-        'STRING': ['FONT_FAMILY']
+        'COLOR': [
+          'ALL_FILLS',
+          'FRAME_FILL',
+          'SHAPE_FILL',
+          'TEXT_FILL',
+          'STROKE_COLOR',
+          'EFFECT_COLOR'
+        ],
+        'FLOAT': [
+          'WIDTH_HEIGHT',
+          'MIN_WIDTH',
+          'MAX_WIDTH',
+          'MIN_HEIGHT',
+          'MAX_HEIGHT',
+          'GAP',
+          'CORNER_RADIUS',
+          'FONT_SIZE',
+          'FONT_WEIGHT',
+          'LINE_HEIGHT',
+          'LETTER_SPACING',
+          'PARAGRAPH_SPACING',
+          'PARAGRAPH_INDENT'
+        ],
+        'STRING': [
+          'FONT_FAMILY',
+          'FONT_STYLE',
+          'TEXT_CASE',
+          'TEXT_DECORATION'
+        ]
       };
 
       return scopeMap[figmaType] || [];
@@ -2379,19 +2405,44 @@
     function populateScopeOptions(availableScopes) {
       const container = document.getElementById('scope-options-container');
 
-      // Scope definitions with labels
+      // Scope definitions with labels and hierarchy
       const scopeDefinitions = [
-        { value: 'ALL_FILLS', label: 'Fill', category: 'color' },
-        { value: 'STROKE_COLOR', label: 'Stroke', category: 'color' },
-        { value: 'TEXT_FILL', label: 'Text', category: 'color' },
-        { value: 'EFFECT_COLOR', label: 'Effect', category: 'color' },
-        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'dimension' },
-        { value: 'GAP', label: 'Gap', category: 'dimension' },
-        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'dimension' },
-        { value: 'FONT_SIZE', label: 'Font Size', category: 'typography' },
-        { value: 'FONT_FAMILY', label: 'Font Family', category: 'typography' },
-        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'typography' },
-        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'typography' }
+        // Fill scopes
+        { value: 'ALL_FILLS', label: 'All', category: 'Fill', subcategory: true },
+        { value: 'FRAME_FILL', label: 'Frame', category: 'Fill', subcategory: true },
+        { value: 'SHAPE_FILL', label: 'Shape', category: 'Fill', subcategory: true },
+        { value: 'TEXT_FILL', label: 'Text', category: 'Fill', subcategory: true },
+
+        // Stroke scopes
+        { value: 'STROKE_COLOR', label: 'Stroke', category: 'Stroke' },
+
+        // Effect scopes
+        { value: 'EFFECT_COLOR', label: 'Effect', category: 'Effect' },
+
+        // Size scopes
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'Size', subcategory: true },
+        { value: 'MIN_WIDTH', label: 'Min Width', category: 'Size', subcategory: true },
+        { value: 'MAX_WIDTH', label: 'Max Width', category: 'Size', subcategory: true },
+        { value: 'MIN_HEIGHT', label: 'Min Height', category: 'Size', subcategory: true },
+        { value: 'MAX_HEIGHT', label: 'Max Height', category: 'Size', subcategory: true },
+
+        // Spacing scopes
+        { value: 'GAP', label: 'Gap', category: 'Spacing', subcategory: true },
+        { value: 'LETTER_SPACING', label: 'Letter Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_SPACING', label: 'Paragraph Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_INDENT', label: 'Paragraph Indent', category: 'Spacing', subcategory: true },
+
+        // Corner Radius
+        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'Corner Radius' },
+
+        // Typography scopes
+        { value: 'FONT_SIZE', label: 'Font Size', category: 'Typography', subcategory: true },
+        { value: 'FONT_FAMILY', label: 'Font Family', category: 'Typography', subcategory: true },
+        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'Typography', subcategory: true },
+        { value: 'FONT_STYLE', label: 'Font Style', category: 'Typography', subcategory: true },
+        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'Typography', subcategory: true },
+        { value: 'TEXT_CASE', label: 'Text Case', category: 'Typography', subcategory: true },
+        { value: 'TEXT_DECORATION', label: 'Text Decoration', category: 'Typography', subcategory: true }
       ];
 
       // Filter to only show available scopes
@@ -2407,11 +2458,12 @@
 
       categories.forEach(category => {
         const categoryScopes = relevantScopes.filter(s => s.category === category);
+        const hasSubcategories = categoryScopes.some(s => s.subcategory);
 
         // Category header
         const header = document.createElement('div');
         header.className = 'scope-category-header';
-        header.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+        header.textContent = category;
         header.style.fontSize = '11px';
         header.style.fontWeight = '600';
         header.style.color = '#8b94b1';
@@ -2429,6 +2481,11 @@
           option.style.gap = '8px';
           option.style.marginBottom = '8px';
           option.style.cursor = 'pointer';
+
+          // Add indent for subcategories
+          if (scope.subcategory && hasSubcategories) {
+            option.style.paddingLeft = '16px';
+          }
 
           const checkbox = document.createElement('div');
           checkbox.className = 'scope-option-checkbox';
