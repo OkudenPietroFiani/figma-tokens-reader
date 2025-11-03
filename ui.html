@@ -2460,19 +2460,55 @@
         const categoryScopes = relevantScopes.filter(s => s.category === category);
         const hasSubcategories = categoryScopes.some(s => s.subcategory);
 
-        // Category header
-        const header = document.createElement('div');
-        header.className = 'scope-category-header';
-        header.textContent = category;
-        header.style.fontSize = '11px';
-        header.style.fontWeight = '600';
-        header.style.color = '#8b94b1';
-        header.style.textTransform = 'uppercase';
-        header.style.marginTop = category === categories[0] ? '0' : '16px';
-        header.style.marginBottom = '8px';
-        container.appendChild(header);
+        // Category checkbox (acts as "select all" for this category)
+        const categoryOption = document.createElement('div');
+        categoryOption.className = 'scope-option scope-category-option';
+        categoryOption.style.display = 'flex';
+        categoryOption.style.alignItems = 'center';
+        categoryOption.style.gap = '8px';
+        categoryOption.style.marginTop = category === categories[0] ? '0' : '16px';
+        categoryOption.style.marginBottom = '8px';
+        categoryOption.style.cursor = 'pointer';
+        categoryOption.dataset.category = category;
 
-        // Scope options
+        const categoryCheckbox = document.createElement('div');
+        categoryCheckbox.className = 'scope-option-checkbox scope-category-checkbox';
+        categoryCheckbox.dataset.category = category;
+
+        // Check if all child scopes are in commonScopes
+        const allChildScopesChecked = categoryScopes.every(s => commonScopes.includes(s.value));
+        if (allChildScopesChecked && categoryScopes.length > 0) {
+          categoryCheckbox.classList.add('checked');
+        }
+
+        const categoryLabel = document.createElement('span');
+        categoryLabel.textContent = category;
+        categoryLabel.style.fontSize = '14px';
+        categoryLabel.style.fontWeight = '600';
+        categoryLabel.style.color = '#000';
+
+        categoryOption.appendChild(categoryCheckbox);
+        categoryOption.appendChild(categoryLabel);
+
+        // Toggle all child scopes when category is clicked
+        categoryOption.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isChecked = categoryCheckbox.classList.toggle('checked');
+
+          // Toggle all child checkboxes
+          const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+          childCheckboxes.forEach(cb => {
+            if (isChecked) {
+              cb.classList.add('checked');
+            } else {
+              cb.classList.remove('checked');
+            }
+          });
+        });
+
+        container.appendChild(categoryOption);
+
+        // Scope options (children)
         categoryScopes.forEach(scope => {
           const option = document.createElement('div');
           option.className = 'scope-option';
@@ -2490,6 +2526,7 @@
           const checkbox = document.createElement('div');
           checkbox.className = 'scope-option-checkbox';
           checkbox.dataset.value = scope.value;
+          checkbox.dataset.categoryParent = category; // Link to parent category
 
           // Pre-check if this scope is common to all selected tokens
           if (commonScopes.includes(scope.value)) {
@@ -2505,13 +2542,38 @@
           option.appendChild(label);
 
           // Toggle on click
-          option.addEventListener('click', () => {
+          option.addEventListener('click', (e) => {
+            e.stopPropagation();
             checkbox.classList.toggle('checked');
+
+            // Update parent category checkbox state
+            updateCategoryCheckboxState(category, container);
           });
 
           container.appendChild(option);
         });
       });
+    }
+
+    /**
+     * Update the category checkbox state based on its children
+     * Single responsibility: Sync parent checkbox with children states
+     */
+    function updateCategoryCheckboxState(category, container) {
+      const categoryCheckbox = container.querySelector(`.scope-category-checkbox[data-category="${category}"]`);
+      const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+
+      if (childCheckboxes.length === 0) return;
+
+      // Check if all children are checked
+      const allChecked = Array.from(childCheckboxes).every(cb => cb.classList.contains('checked'));
+      const noneChecked = Array.from(childCheckboxes).every(cb => !cb.classList.contains('checked'));
+
+      if (allChecked) {
+        categoryCheckbox.classList.add('checked');
+      } else {
+        categoryCheckbox.classList.remove('checked');
+      }
     }
 
     /**
@@ -2589,7 +2651,9 @@
      */
     function applyScopes() {
       const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
-      const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
+      const selectedScopes = Array.from(selectedScopeCheckboxes)
+        .filter(cb => cb.dataset.value) // Only include checkboxes with data-value (not category checkboxes)
+        .map(cb => cb.dataset.value);
 
       // Build variable scopes object for backend
       const variableScopes = {};
