@@ -1808,11 +1808,13 @@
      * Organizes variables by collection and hierarchical path
      */
     function buildVariableTreeFromFigma() {
+      console.log('Building variable tree from', Object.keys(figmaVariables).length, 'variables');
       const tree = {};
 
       // Organize variables by collection
       Object.entries(figmaVariables).forEach(([variableName, variable]) => {
         const collection = variable.collection || 'uncategorized';
+        console.log('Processing variable:', variableName, 'in collection:', collection);
 
         if (!tree[collection]) {
           tree[collection] = {};
@@ -1840,7 +1842,8 @@
         });
       });
 
-      console.log('Built variable tree:', tree);
+      console.log('Built variable tree with collections:', Object.keys(tree));
+      console.log('Tree structure:', tree);
       return tree;
     }
 
@@ -1849,10 +1852,18 @@
      * Single responsibility: Populate collection navigation
      */
     function renderCollectionTabsForScopes(variableTree) {
+      console.log('Rendering collection tabs for:', Object.keys(variableTree));
       const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
       scopeFileTabsList.innerHTML = '';
 
       const collections = Object.keys(variableTree);
+      console.log('Collections to render:', collections);
+
+      if (collections.length === 0) {
+        console.warn('No collections found in variable tree!');
+        scopeFileTabsList.innerHTML = '<div style="padding: 16px; color: #8b94b1;">No collections found</div>';
+        return;
+      }
 
       collections.forEach((collection, index) => {
         const tab = document.createElement('button');
@@ -1861,6 +1872,7 @@
         tab.dataset.collection = collection;
         tab.addEventListener('click', () => showScopeCollectionContent(collection, variableTree));
         scopeFileTabsList.appendChild(tab);
+        console.log('Created tab for collection:', collection);
       });
     }
 
@@ -1869,8 +1881,16 @@
      * Single responsibility: Display variables for scope assignment
      */
     function showScopeCollectionContent(collectionName, variableTree) {
+      console.log('Showing collection content for:', collectionName);
       const collectionData = variableTree[collectionName];
-      if (!collectionData) return;
+
+      if (!collectionData) {
+        console.error('No data found for collection:', collectionName);
+        return;
+      }
+
+      console.log('Collection data:', collectionData);
+      console.log('Collection has', Object.keys(collectionData).length, 'items');
 
       // Update active tab
       document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
@@ -1882,8 +1902,13 @@
       scopeTokenContent.innerHTML = '';
       const tree = document.createElement('div');
       tree.className = 'scope-tree';
+
+      console.log('Rendering scope tree for collection:', collectionName);
       renderScopeTree(collectionData, tree, '', collectionName);
+
+      console.log('Tree element children:', tree.children.length);
       scopeTokenContent.appendChild(tree);
+      console.log('Appended tree to scope-token-content');
     }
 
     /**
@@ -2656,8 +2681,16 @@
 
         case 'figma-variables-loaded':
           console.log('Figma variables loaded:', msg.data);
+          console.log('Number of variables:', Object.keys(msg.data.variables).length);
           figmaVariables = msg.data.variables;
           figmaVariablesLoaded = true;
+
+          // Debug: Log first few variables
+          const varNames = Object.keys(figmaVariables).slice(0, 3);
+          varNames.forEach(name => {
+            console.log('Variable example:', name, figmaVariables[name]);
+          });
+
           initializeScopeView();
           break;
 
