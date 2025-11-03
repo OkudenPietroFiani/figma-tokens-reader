@@ -1808,11 +1808,13 @@
      * Organizes variables by collection and hierarchical path
      */
     function buildVariableTreeFromFigma() {
+      console.log('Building variable tree from', Object.keys(figmaVariables).length, 'variables');
       const tree = {};
 
       // Organize variables by collection
       Object.entries(figmaVariables).forEach(([variableName, variable]) => {
         const collection = variable.collection || 'uncategorized';
+        console.log('Processing variable:', variableName, 'in collection:', collection);
 
         if (!tree[collection]) {
           tree[collection] = {};
@@ -1840,7 +1842,8 @@
         });
       });
 
-      console.log('Built variable tree:', tree);
+      console.log('Built variable tree with collections:', Object.keys(tree));
+      console.log('Tree structure:', tree);
       return tree;
     }
 
@@ -1849,10 +1852,18 @@
      * Single responsibility: Populate collection navigation
      */
     function renderCollectionTabsForScopes(variableTree) {
+      console.log('Rendering collection tabs for:', Object.keys(variableTree));
       const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
       scopeFileTabsList.innerHTML = '';
 
       const collections = Object.keys(variableTree);
+      console.log('Collections to render:', collections);
+
+      if (collections.length === 0) {
+        console.warn('No collections found in variable tree!');
+        scopeFileTabsList.innerHTML = '<div style="padding: 16px; color: #8b94b1;">No collections found</div>';
+        return;
+      }
 
       collections.forEach((collection, index) => {
         const tab = document.createElement('button');
@@ -1861,6 +1872,7 @@
         tab.dataset.collection = collection;
         tab.addEventListener('click', () => showScopeCollectionContent(collection, variableTree));
         scopeFileTabsList.appendChild(tab);
+        console.log('Created tab for collection:', collection);
       });
     }
 
@@ -1869,8 +1881,16 @@
      * Single responsibility: Display variables for scope assignment
      */
     function showScopeCollectionContent(collectionName, variableTree) {
+      console.log('Showing collection content for:', collectionName);
       const collectionData = variableTree[collectionName];
-      if (!collectionData) return;
+
+      if (!collectionData) {
+        console.error('No data found for collection:', collectionName);
+        return;
+      }
+
+      console.log('Collection data:', collectionData);
+      console.log('Collection has', Object.keys(collectionData).length, 'items');
 
       // Update active tab
       document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
@@ -1882,8 +1902,13 @@
       scopeTokenContent.innerHTML = '';
       const tree = document.createElement('div');
       tree.className = 'scope-tree';
+
+      console.log('Rendering scope tree for collection:', collectionName);
       renderScopeTree(collectionData, tree, '', collectionName);
+
+      console.log('Tree element children:', tree.children.length);
       scopeTokenContent.appendChild(tree);
+      console.log('Appended tree to scope-token-content');
     }
 
     /**
@@ -1891,23 +1916,40 @@
      * Single responsibility: Build interactive variable tree
      */
     function renderScopeTree(obj, container, path, collectionName, depth = 0) {
-      if (!obj || typeof obj !== 'object') return;
+      console.log(`[renderScopeTree] depth=${depth}, path="${path}", keys:`, Object.keys(obj));
+
+      if (!obj || typeof obj !== 'object') {
+        console.warn('[renderScopeTree] Invalid obj:', obj);
+        return;
+      }
 
       const entries = Object.entries(obj);
-      if (entries.length === 0) return;
+      console.log(`[renderScopeTree] Processing ${entries.length} entries`);
+
+      if (entries.length === 0) {
+        console.warn('[renderScopeTree] No entries to process');
+        return;
+      }
 
       entries.forEach(([key, value]) => {
         const currentPath = path ? `${path}/${key}` : key;
         const fullPath = `${collectionName}:${currentPath}`;
 
+        console.log(`[renderScopeTree] Processing entry: key="${key}", currentPath="${currentPath}"`);
+
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           const isVariable = '$variable' in value;
+          console.log(`[renderScopeTree] Entry "${key}" isVariable:`, isVariable);
 
           if (isVariable) {
+            console.log(`[renderScopeTree] Rendering variable: ${key}`);
             renderVariableItem(key, value, fullPath, depth, container);
           } else {
+            console.log(`[renderScopeTree] Rendering group: ${key}`);
             renderVariableGroupItem(key, value, currentPath, fullPath, collectionName, depth, container);
           }
+        } else {
+          console.warn(`[renderScopeTree] Skipping entry "${key}" - not a valid object`);
         }
       });
     }
@@ -1917,6 +1959,8 @@
      * Single responsibility: Create variable UI element
      */
     function renderVariableItem(name, variable, fullPath, depth, container) {
+      console.log(`[renderVariableItem] Rendering: name="${name}", fullPath="${fullPath}", type="${variable.type}"`);
+
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
@@ -1925,6 +1969,7 @@
       // Determine variable type and available scopes from Figma type
       const figmaType = variable.type; // 'COLOR', 'FLOAT', 'STRING'
       const availableScopes = getAvailableScopesForFigmaType(figmaType);
+      console.log(`[renderVariableItem] figmaType="${figmaType}", availableScopes:`, availableScopes);
 
       // Check if token is compatible with current selection
       const isCompatible = isTokenCompatibleWithSelection(availableScopes);
@@ -1934,7 +1979,7 @@
       checkbox.type = 'checkbox';
       checkbox.className = 'scope-checkbox';
       checkbox.dataset.path = fullPath;
-      checkbox.dataset.tokenType = tokenType;
+      checkbox.dataset.figmaType = figmaType; // Fixed: was tokenType
       checkbox.dataset.scopes = JSON.stringify(availableScopes);
       checkbox.checked = selectedTokensForScopes.has(fullPath);
       checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
@@ -1978,6 +2023,7 @@
       }
 
       container.appendChild(item);
+      console.log(`[renderVariableItem] Successfully appended item for "${name}" to container`);
     }
 
     /**
@@ -1986,9 +2032,35 @@
      */
     function getAvailableScopesForFigmaType(figmaType) {
       const scopeMap = {
-        'COLOR': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
-        'FLOAT': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT', 'FONT_SIZE', 'FONT_WEIGHT', 'LINE_HEIGHT'],
-        'STRING': ['FONT_FAMILY']
+        'COLOR': [
+          'ALL_FILLS',
+          'FRAME_FILL',
+          'SHAPE_FILL',
+          'TEXT_FILL',
+          'STROKE_COLOR',
+          'EFFECT_COLOR'
+        ],
+        'FLOAT': [
+          'WIDTH_HEIGHT',
+          'MIN_WIDTH',
+          'MAX_WIDTH',
+          'MIN_HEIGHT',
+          'MAX_HEIGHT',
+          'GAP',
+          'CORNER_RADIUS',
+          'FONT_SIZE',
+          'FONT_WEIGHT',
+          'LINE_HEIGHT',
+          'LETTER_SPACING',
+          'PARAGRAPH_SPACING',
+          'PARAGRAPH_INDENT'
+        ],
+        'STRING': [
+          'FONT_FAMILY',
+          'FONT_STYLE',
+          'TEXT_CASE',
+          'TEXT_DECORATION'
+        ]
       };
 
       return scopeMap[figmaType] || [];
@@ -1999,12 +2071,15 @@
      * Single responsibility: Create group UI element
      */
     function renderVariableGroupItem(name, groupObj, currentPath, fullPath, collectionName, depth, container) {
+      console.log(`[renderVariableGroupItem] Rendering group: name="${name}", currentPath="${currentPath}"`);
+
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
 
       // Get all child variables to determine compatibility
       const childVariables = getAllVariablesInGroup(groupObj, currentPath, collectionName);
+      console.log(`[renderVariableGroupItem] Group "${name}" has ${childVariables.length} child variables`);
       const groupScopes = getGroupAvailableScopes(childVariables);
       const isCompatible = isTokenCompatibleWithSelection(groupScopes);
 
@@ -2330,19 +2405,44 @@
     function populateScopeOptions(availableScopes) {
       const container = document.getElementById('scope-options-container');
 
-      // Scope definitions with labels
+      // Scope definitions with labels and hierarchy
       const scopeDefinitions = [
-        { value: 'ALL_FILLS', label: 'Fill', category: 'color' },
-        { value: 'STROKE_COLOR', label: 'Stroke', category: 'color' },
-        { value: 'TEXT_FILL', label: 'Text', category: 'color' },
-        { value: 'EFFECT_COLOR', label: 'Effect', category: 'color' },
-        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'dimension' },
-        { value: 'GAP', label: 'Gap', category: 'dimension' },
-        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'dimension' },
-        { value: 'FONT_SIZE', label: 'Font Size', category: 'typography' },
-        { value: 'FONT_FAMILY', label: 'Font Family', category: 'typography' },
-        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'typography' },
-        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'typography' }
+        // Fill scopes
+        { value: 'ALL_FILLS', label: 'All', category: 'Fill', subcategory: true },
+        { value: 'FRAME_FILL', label: 'Frame', category: 'Fill', subcategory: true },
+        { value: 'SHAPE_FILL', label: 'Shape', category: 'Fill', subcategory: true },
+        { value: 'TEXT_FILL', label: 'Text', category: 'Fill', subcategory: true },
+
+        // Stroke scopes
+        { value: 'STROKE_COLOR', label: 'Stroke', category: 'Stroke' },
+
+        // Effect scopes
+        { value: 'EFFECT_COLOR', label: 'Effect', category: 'Effect' },
+
+        // Size scopes
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'Size', subcategory: true },
+        { value: 'MIN_WIDTH', label: 'Min Width', category: 'Size', subcategory: true },
+        { value: 'MAX_WIDTH', label: 'Max Width', category: 'Size', subcategory: true },
+        { value: 'MIN_HEIGHT', label: 'Min Height', category: 'Size', subcategory: true },
+        { value: 'MAX_HEIGHT', label: 'Max Height', category: 'Size', subcategory: true },
+
+        // Spacing scopes
+        { value: 'GAP', label: 'Gap', category: 'Spacing', subcategory: true },
+        { value: 'LETTER_SPACING', label: 'Letter Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_SPACING', label: 'Paragraph Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_INDENT', label: 'Paragraph Indent', category: 'Spacing', subcategory: true },
+
+        // Corner Radius
+        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'Corner Radius' },
+
+        // Typography scopes
+        { value: 'FONT_SIZE', label: 'Font Size', category: 'Typography', subcategory: true },
+        { value: 'FONT_FAMILY', label: 'Font Family', category: 'Typography', subcategory: true },
+        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'Typography', subcategory: true },
+        { value: 'FONT_STYLE', label: 'Font Style', category: 'Typography', subcategory: true },
+        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'Typography', subcategory: true },
+        { value: 'TEXT_CASE', label: 'Text Case', category: 'Typography', subcategory: true },
+        { value: 'TEXT_DECORATION', label: 'Text Decoration', category: 'Typography', subcategory: true }
       ];
 
       // Filter to only show available scopes
@@ -2358,21 +2458,62 @@
 
       categories.forEach(category => {
         const categoryScopes = relevantScopes.filter(s => s.category === category);
+        const hasMultipleScopes = categoryScopes.length > 1;
+        const hasSubcategories = categoryScopes.some(s => s.subcategory);
 
-        // Category header
-        const header = document.createElement('div');
-        header.className = 'scope-category-header';
-        header.textContent = category.charAt(0).toUpperCase() + category.slice(1);
-        header.style.fontSize = '11px';
-        header.style.fontWeight = '600';
-        header.style.color = '#8b94b1';
-        header.style.textTransform = 'uppercase';
-        header.style.marginTop = category === categories[0] ? '0' : '16px';
-        header.style.marginBottom = '8px';
-        container.appendChild(header);
+        // Only show category checkbox if there are multiple scopes in this category
+        if (hasMultipleScopes) {
+          // Category checkbox (acts as "select all" for this category)
+          const categoryOption = document.createElement('div');
+          categoryOption.className = 'scope-option scope-category-option';
+          categoryOption.style.display = 'flex';
+          categoryOption.style.alignItems = 'center';
+          categoryOption.style.gap = '8px';
+          categoryOption.style.marginTop = category === categories[0] ? '0' : '16px';
+          categoryOption.style.marginBottom = '8px';
+          categoryOption.style.cursor = 'pointer';
+          categoryOption.dataset.category = category;
 
-        // Scope options
-        categoryScopes.forEach(scope => {
+          const categoryCheckbox = document.createElement('div');
+          categoryCheckbox.className = 'scope-option-checkbox scope-category-checkbox';
+          categoryCheckbox.dataset.category = category;
+
+          // Check if all child scopes are in commonScopes
+          const allChildScopesChecked = categoryScopes.every(s => commonScopes.includes(s.value));
+          if (allChildScopesChecked && categoryScopes.length > 0) {
+            categoryCheckbox.classList.add('checked');
+          }
+
+          const categoryLabel = document.createElement('span');
+          categoryLabel.textContent = category;
+          categoryLabel.style.fontSize = '14px';
+          categoryLabel.style.fontWeight = '600';
+          categoryLabel.style.color = '#000';
+
+          categoryOption.appendChild(categoryCheckbox);
+          categoryOption.appendChild(categoryLabel);
+
+          // Toggle all child scopes when category is clicked
+          categoryOption.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isChecked = categoryCheckbox.classList.toggle('checked');
+
+            // Toggle all child checkboxes
+            const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+            childCheckboxes.forEach(cb => {
+              if (isChecked) {
+                cb.classList.add('checked');
+              } else {
+                cb.classList.remove('checked');
+              }
+            });
+          });
+
+          container.appendChild(categoryOption);
+        }
+
+        // Scope options (children)
+        categoryScopes.forEach((scope, index) => {
           const option = document.createElement('div');
           option.className = 'scope-option';
           option.style.display = 'flex';
@@ -2381,9 +2522,24 @@
           option.style.marginBottom = '8px';
           option.style.cursor = 'pointer';
 
+          // Add top margin for first item if category has only one scope
+          if (!hasMultipleScopes && index === 0) {
+            option.style.marginTop = category === categories[0] ? '0' : '16px';
+          }
+
+          // Add indent for subcategories only if there's a parent category checkbox
+          if (hasMultipleScopes && scope.subcategory && hasSubcategories) {
+            option.style.paddingLeft = '16px';
+          }
+
           const checkbox = document.createElement('div');
           checkbox.className = 'scope-option-checkbox';
           checkbox.dataset.value = scope.value;
+
+          // Only set parent link if category has multiple scopes
+          if (hasMultipleScopes) {
+            checkbox.dataset.categoryParent = category;
+          }
 
           // Pre-check if this scope is common to all selected tokens
           if (commonScopes.includes(scope.value)) {
@@ -2399,13 +2555,40 @@
           option.appendChild(label);
 
           // Toggle on click
-          option.addEventListener('click', () => {
+          option.addEventListener('click', (e) => {
+            e.stopPropagation();
             checkbox.classList.toggle('checked');
+
+            // Update parent category checkbox state only if it exists
+            if (hasMultipleScopes) {
+              updateCategoryCheckboxState(category, container);
+            }
           });
 
           container.appendChild(option);
         });
       });
+    }
+
+    /**
+     * Update the category checkbox state based on its children
+     * Single responsibility: Sync parent checkbox with children states
+     */
+    function updateCategoryCheckboxState(category, container) {
+      const categoryCheckbox = container.querySelector(`.scope-category-checkbox[data-category="${category}"]`);
+      const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+
+      if (childCheckboxes.length === 0) return;
+
+      // Check if all children are checked
+      const allChecked = Array.from(childCheckboxes).every(cb => cb.classList.contains('checked'));
+      const noneChecked = Array.from(childCheckboxes).every(cb => !cb.classList.contains('checked'));
+
+      if (allChecked) {
+        categoryCheckbox.classList.add('checked');
+      } else {
+        categoryCheckbox.classList.remove('checked');
+      }
     }
 
     /**
@@ -2483,7 +2666,9 @@
      */
     function applyScopes() {
       const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
-      const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
+      const selectedScopes = Array.from(selectedScopeCheckboxes)
+        .filter(cb => cb.dataset.value) // Only include checkboxes with data-value (not category checkboxes)
+        .map(cb => cb.dataset.value);
 
       // Build variable scopes object for backend
       const variableScopes = {};
@@ -2656,8 +2841,16 @@
 
         case 'figma-variables-loaded':
           console.log('Figma variables loaded:', msg.data);
+          console.log('Number of variables:', Object.keys(msg.data.variables).length);
           figmaVariables = msg.data.variables;
           figmaVariablesLoaded = true;
+
+          // Debug: Log first few variables
+          const varNames = Object.keys(figmaVariables).slice(0, 3);
+          varNames.forEach(name => {
+            console.log('Variable example:', name, figmaVariables[name]);
+          });
+
           initializeScopeView();
           break;
 
