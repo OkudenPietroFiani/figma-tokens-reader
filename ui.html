@@ -787,95 +787,140 @@
       display: none;
     }
 
-    /* Scope Assignment Panel */
-    .scope-assignment-panel {
-      position: fixed;
-      bottom: 80px;
-      right: 16px;
-      background: white;
-      border: 1px solid #e5e5e0;
-      border-radius: 8px;
+    /* Scope Selection - Left Column */
+    .scope-left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       padding: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      max-width: 300px;
-      z-index: 100;
-      display: none;
     }
 
-    .scope-assignment-panel.active {
-      display: block;
+    .scope-selection-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .scope-assignment-header {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
+    .scope-selection-title {
+      font-size: 16px;
+      font-weight: 700;
       color: #000;
     }
 
-    .scope-assignment-count {
+    .scope-selection-count {
       font-size: 12px;
-      color: #666;
-      margin-bottom: 12px;
+      color: #8b94b1;
     }
 
-    .scope-options {
+    .scope-type-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 12px;
     }
 
-    .scope-option {
+    .scope-option-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      padding: 4px;
+      cursor: pointer;
+      user-select: none;
     }
 
-    .scope-option input[type="checkbox"] {
+    .scope-option-item:hover {
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .scope-option-label {
+      font-size: 16px;
+      font-weight: 400;
+      color: #000;
+    }
+
+    .scope-option-checkbox {
       width: 16px;
       height: 16px;
-    }
-
-    .scope-option label {
-      font-size: 13px;
+      border: 0.8px solid #161e3d;
+      border-radius: 3.2px;
+      background: white;
       cursor: pointer;
-      flex: 1;
-    }
-
-    .scope-assignment-actions {
+      flex-shrink: 0;
       display: flex;
-      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
-    .scope-assignment-actions button {
-      flex: 1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
+    .scope-option-checkbox.checked {
+      background: #000;
+    }
+
+    .scope-option-checkbox.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .scope-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .scope-btn {
+      width: 100%;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       font-family: inherit;
+      text-align: center;
+    }
+
+    .scope-btn-primary {
+      background: white;
+      color: #050914;
+      border: 1px solid #161e3d;
+    }
+
+    .scope-btn-primary:hover {
+      background: #f8f8f8;
+    }
+
+    .scope-btn-secondary {
+      background: transparent;
+      color: #050914;
       border: none;
+      text-decoration: underline;
+      padding: 8px 20px;
     }
 
-    .scope-assignment-actions .btn-apply {
-      background: #0d99ff;
-      color: white;
+    .scope-btn-secondary:hover {
+      color: #666;
     }
 
-    .scope-assignment-actions .btn-apply:hover {
-      background: #0b7fd4;
+    /* Scope indicators next to tokens */
+    .token-scope-indicator {
+      font-size: 12px;
+      color: #8b94b1;
+      margin-left: auto;
+      padding-right: 8px;
     }
 
-    .scope-assignment-actions .btn-cancel {
-      background: #f0f0f0;
-      color: #333;
+    .scope-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
-    .scope-assignment-actions .btn-cancel:hover {
-      background: #e0e0e0;
+    .scope-item.disabled .scope-checkbox {
+      cursor: not-allowed;
+      background: #e4e4e4;
+      border-color: #c5c8d1;
     }
   </style>
 </head>
@@ -998,13 +1043,33 @@
     <!-- Scopes View -->
     <div class="token-view" id="scopes-view">
       <div class="token-layout">
-        <!-- Left Column: File Selection -->
-        <div class="file-tabs">
-          <div class="file-tabs-header">
-            <div class="file-tabs-title">Scope selection</div>
+        <!-- Left Column: Dynamic (File Selection / Scope Assignment) -->
+        <div class="file-tabs" id="scope-left-column">
+          <!-- File Selection State (Default) -->
+          <div id="scope-file-selection">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title">Scope selection</div>
+            </div>
+            <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
+              <!-- File tabs for scope selection -->
+            </div>
           </div>
-          <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
-            <!-- File tabs for scope selection -->
+
+          <!-- Scope Assignment State (When tokens selected) -->
+          <div id="scope-assignment-view" class="scope-left-column" style="display: none;">
+            <div class="scope-selection-header">
+              <div class="scope-selection-title" id="scope-type-title">Scopes</div>
+              <div class="scope-selection-count" id="scope-selection-count">0 tokens selected</div>
+            </div>
+
+            <div class="scope-type-group" id="scope-options-container">
+              <!-- Scope options will be dynamically added here -->
+            </div>
+
+            <div class="scope-actions">
+              <button class="scope-btn scope-btn-primary" id="apply-scopes-btn">Apply scopes</button>
+              <button class="scope-btn scope-btn-secondary" id="reset-selection-btn">Reset selection</button>
+            </div>
           </div>
         </div>
 
@@ -1031,19 +1096,6 @@
     </div>
   </div>
 
-  <!-- Scope Assignment Panel -->
-  <div class="scope-assignment-panel" id="scope-assignment-panel">
-    <div class="scope-assignment-header">Assign Scopes</div>
-    <div class="scope-assignment-count" id="scope-assignment-count">0 tokens selected</div>
-    <div class="scope-options" id="scope-options">
-      <!-- Scope checkboxes will be dynamically added here -->
-    </div>
-    <div class="scope-assignment-actions">
-      <button class="btn-apply" id="apply-scopes-btn">Apply</button>
-      <button class="btn-cancel" id="cancel-scopes-btn">Cancel</button>
-    </div>
-  </div>
-
   <!-- Notification -->
   <div class="notification" id="notification">
     <span id="notification-message"></span>
@@ -1057,6 +1109,12 @@
     let tokenSource = null; // 'github' or 'local'
     let githubConfig = null; // Stores GitHub configuration for pull changes
     let savedTokenState = null; // Backup state when switching source
+
+    // Scope selection state
+    let selectedTokensForScopes = new Set(); // Tokens selected for scope assignment
+    let tokenScopesMap = new Map(); // Maps token paths to assigned scopes
+    let figmaVariables = {}; // Stores all Figma variables with their current scopes
+    let figmaVariablesLoaded = false; // Track if variables have been loaded
 
     // ==================== SCREEN NAVIGATION ====================
     function showScreen(screenId) {
@@ -1621,6 +1679,8 @@
         return;
       }
 
+      // Scopes are now managed independently in the Scopes tab
+      // Import only creates/updates variables without modifying scopes
       parent.postMessage({
         pluginMessage: {
           type: 'import-tokens',
@@ -1677,191 +1737,448 @@
     });
 
     // ==================== TAB SWITCHING ====================
-    let selectedTokensForScopes = new Set();
-    let tokenScopesMap = new Map(); // Store scope assignments: variablePath -> scopes[]
-
     document.getElementById('tokens-tab').addEventListener('click', () => {
-      // Switch to tokens view
+      switchToTokensView();
+    });
+
+    document.getElementById('scopes-tab').addEventListener('click', () => {
+      switchToScopesView();
+    });
+
+    function switchToTokensView() {
       document.getElementById('tokens-tab').classList.add('active');
       document.getElementById('scopes-tab').classList.remove('active');
       document.getElementById('tokens-view').classList.add('active');
       document.getElementById('scopes-view').classList.remove('active');
-      document.getElementById('scope-assignment-panel').classList.remove('active');
-    });
+    }
 
-    document.getElementById('scopes-tab').addEventListener('click', () => {
-      // Switch to scopes view
+    function switchToScopesView() {
       document.getElementById('scopes-tab').classList.add('active');
       document.getElementById('tokens-tab').classList.remove('active');
       document.getElementById('scopes-view').classList.add('active');
       document.getElementById('tokens-view').classList.remove('active');
 
-      // Initialize scope view
-      initializeScopeView();
-    });
+      // Load Figma variables when entering scope tab
+      loadFigmaVariables();
+    }
+
+    /**
+     * Load all existing Figma variables with their current scopes
+     * Single responsibility: Fetch variables from Figma
+     */
+    function loadFigmaVariables() {
+      console.log('Loading Figma variables...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'get-figma-variables'
+        }
+      }, '*');
+    }
 
     // ==================== SCOPE SELECTION ====================
+    // Clean code: Separated concerns with single-responsibility functions
+
+    /**
+     * Initialize scope view with collection tabs
+     * Single responsibility: Setup initial view state
+     */
     function initializeScopeView() {
-      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
-      const scopeTokenContent = document.getElementById('scope-token-content');
+      // Wait for Figma variables to be loaded
+      if (!figmaVariablesLoaded) {
+        console.log('Waiting for Figma variables to load...');
+        return;
+      }
 
-      // Populate file tabs (same as token view)
-      scopeFileTabsList.innerHTML = '';
+      console.log('Initializing scope view with', Object.keys(figmaVariables).length, 'variables');
 
-      const fileKeys = Object.keys(tokenFiles).filter(key => {
-        const file = tokenFiles[key];
-        const fileName = file.name.toLowerCase();
-        return !fileName.includes('metadata') &&
-               !fileName.startsWith('$') &&
-               !fileName.includes('$metadata');
-      });
+      // Build tree structure from Figma variables
+      const variableTree = buildVariableTreeFromFigma();
 
-      fileKeys.forEach((key, index) => {
-        const file = tokenFiles[key];
-        const tab = document.createElement('button');
-        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
-        tab.textContent = file.name;
-        tab.dataset.file = key;
-        tab.addEventListener('click', () => showScopeFileContent(key));
-        scopeFileTabsList.appendChild(tab);
-      });
+      renderCollectionTabsForScopes(variableTree);
+      resetScopeSelection();
 
-      // Show first file
-      if (fileKeys.length > 0) {
-        showScopeFileContent(fileKeys[0]);
+      const collections = Object.keys(variableTree);
+      if (collections.length > 0) {
+        showScopeCollectionContent(collections[0], variableTree);
       }
     }
 
-    function showScopeFileContent(fileKey) {
-      const file = tokenFiles[fileKey];
-      if (!file) return;
+    /**
+     * Build tree structure from Figma variables
+     * Organizes variables by collection and hierarchical path
+     */
+    function buildVariableTreeFromFigma() {
+      const tree = {};
+
+      // Organize variables by collection
+      Object.entries(figmaVariables).forEach(([variableName, variable]) => {
+        const collection = variable.collection || 'uncategorized';
+
+        if (!tree[collection]) {
+          tree[collection] = {};
+        }
+
+        // Parse variable name to build nested structure
+        // Example: "spacing/sm" -> { spacing: { sm: { ...variable } } }
+        const parts = variableName.split('/');
+        let current = tree[collection];
+
+        parts.forEach((part, index) => {
+          if (index === parts.length - 1) {
+            // Leaf node - store variable data
+            current[part] = {
+              $variable: true,
+              ...variable
+            };
+          } else {
+            // Group node
+            if (!current[part]) {
+              current[part] = {};
+            }
+            current = current[part];
+          }
+        });
+      });
+
+      console.log('Built variable tree:', tree);
+      return tree;
+    }
+
+    /**
+     * Render collection tabs in left column
+     * Single responsibility: Populate collection navigation
+     */
+    function renderCollectionTabsForScopes(variableTree) {
+      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
+      scopeFileTabsList.innerHTML = '';
+
+      const collections = Object.keys(variableTree);
+
+      collections.forEach((collection, index) => {
+        const tab = document.createElement('button');
+        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
+        tab.textContent = collection;
+        tab.dataset.collection = collection;
+        tab.addEventListener('click', () => showScopeCollectionContent(collection, variableTree));
+        scopeFileTabsList.appendChild(tab);
+      });
+    }
+
+    /**
+     * Show content for selected collection
+     * Single responsibility: Display variables for scope assignment
+     */
+    function showScopeCollectionContent(collectionName, variableTree) {
+      const collectionData = variableTree[collectionName];
+      if (!collectionData) return;
 
       // Update active tab
       document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.file === fileKey);
+        tab.classList.toggle('active', tab.dataset.collection === collectionName);
       });
 
-      // Render token tree with checkboxes
+      // Render variable tree with scope indicators
       const scopeTokenContent = document.getElementById('scope-token-content');
       scopeTokenContent.innerHTML = '';
       const tree = document.createElement('div');
       tree.className = 'scope-tree';
-      renderScopeTree(file.content, tree, '', fileKey);
+      renderScopeTree(collectionData, tree, '', collectionName);
       scopeTokenContent.appendChild(tree);
     }
 
-    function renderScopeTree(obj, container, path, fileKey, depth = 0) {
+    /**
+     * Render variable tree with checkboxes and scope indicators
+     * Single responsibility: Build interactive variable tree
+     */
+    function renderScopeTree(obj, container, path, collectionName, depth = 0) {
       if (!obj || typeof obj !== 'object') return;
 
       const entries = Object.entries(obj);
       if (entries.length === 0) return;
 
       entries.forEach(([key, value]) => {
-        const currentPath = path ? `${path}.${key}` : key;
-        const fullPath = `${fileKey}:${currentPath}`;
+        const currentPath = path ? `${path}/${key}` : key;
+        const fullPath = `${collectionName}:${currentPath}`;
 
         if (value && typeof value === 'object' && !Array.isArray(value)) {
-          const isToken = '$value' in value || '$type' in value;
+          const isVariable = '$variable' in value;
 
-          if (isToken) {
-            // This is a token leaf - show with checkbox
-            const item = document.createElement('div');
-            item.className = 'scope-item';
-            item.style.paddingLeft = `${depth * 16}px`;
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'scope-checkbox';
-            checkbox.dataset.path = fullPath;
-            checkbox.checked = selectedTokensForScopes.has(fullPath);
-            checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath));
-
-            const content = document.createElement('div');
-            content.className = 'scope-item-content';
-
-            const spacer = document.createElement('span');
-            spacer.className = 'scope-chevron';
-            spacer.innerHTML = '&nbsp;';
-
-            const label = document.createElement('span');
-            label.className = 'scope-label';
-            label.textContent = key;
-
-            content.appendChild(spacer);
-            content.appendChild(label);
-
-            item.appendChild(checkbox);
-            item.appendChild(content);
-            container.appendChild(item);
+          if (isVariable) {
+            renderVariableItem(key, value, fullPath, depth, container);
           } else {
-            // Nested object/group - show with chevron and checkbox for all children
-            const item = document.createElement('div');
-            item.className = 'scope-item';
-            item.style.paddingLeft = `${depth * 16}px`;
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'scope-checkbox';
-            checkbox.dataset.path = fullPath;
-            checkbox.dataset.isGroup = 'true';
-            checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, value, fileKey, currentPath));
-
-            // Check if all children are selected
-            const childrenSelected = areAllChildrenSelected(value, fileKey, currentPath);
-            checkbox.checked = childrenSelected;
-
-            const content = document.createElement('div');
-            content.className = 'scope-item-content';
-
-            const chevron = document.createElement('span');
-            chevron.className = 'scope-chevron';
-            chevron.innerHTML = createChevronIcon(true).outerHTML;
-
-            const label = document.createElement('span');
-            label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
-            label.textContent = key;
-
-            content.appendChild(chevron);
-            content.appendChild(label);
-
-            item.appendChild(checkbox);
-            item.appendChild(content);
-
-            const childrenContainer = document.createElement('div');
-            childrenContainer.className = 'scope-children';
-            renderScopeTree(value, childrenContainer, currentPath, fileKey, depth + 1);
-
-            // Toggle functionality
-            chevron.addEventListener('click', (e) => {
-              e.stopPropagation();
-              childrenContainer.classList.toggle('collapsed');
-              chevron.innerHTML = '';
-              chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
-            });
-
-            container.appendChild(item);
-            container.appendChild(childrenContainer);
+            renderVariableGroupItem(key, value, currentPath, fullPath, collectionName, depth, container);
           }
         }
       });
     }
 
-    function areAllChildrenSelected(obj, fileKey, basePath) {
-      const tokens = getAllTokenPaths(obj, basePath, fileKey);
-      return tokens.length > 0 && tokens.every(path => selectedTokensForScopes.has(path));
+    /**
+     * Render individual variable with checkbox and scope indicator
+     * Single responsibility: Create variable UI element
+     */
+    function renderVariableItem(name, variable, fullPath, depth, container) {
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+      item.dataset.path = fullPath;
+
+      // Determine variable type and available scopes from Figma type
+      const figmaType = variable.type; // 'COLOR', 'FLOAT', 'STRING'
+      const availableScopes = getAvailableScopesForFigmaType(figmaType);
+
+      // Check if token is compatible with current selection
+      const isCompatible = isTokenCompatibleWithSelection(availableScopes);
+
+      // Create checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.tokenType = tokenType;
+      checkbox.dataset.scopes = JSON.stringify(availableScopes);
+      checkbox.checked = selectedTokensForScopes.has(fullPath);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath, availableScopes));
+      }
+
+      // Create content wrapper
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      // Spacer for alignment
+      const spacer = document.createElement('span');
+      spacer.className = 'scope-chevron';
+      spacer.innerHTML = '&nbsp;';
+
+      // Token name
+      const label = document.createElement('span');
+      label.className = 'scope-label';
+      label.textContent = name;
+
+      // Scope indicator
+      const scopeIndicator = document.createElement('span');
+      scopeIndicator.className = 'scope-indicator';
+      scopeIndicator.textContent = getScopeIndicatorText(availableScopes);
+      scopeIndicator.style.color = '#8b94b1';
+      scopeIndicator.style.fontSize = '12px';
+      scopeIndicator.style.marginLeft = '8px';
+
+      content.appendChild(spacer);
+      content.appendChild(label);
+      content.appendChild(scopeIndicator);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      // Add disabled styling if incompatible
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
     }
 
-    function getAllTokenPaths(obj, basePath, fileKey) {
+    /**
+     * Get available scopes based on Figma variable type
+     * Single responsibility: Map Figma types to available scopes
+     */
+    function getAvailableScopesForFigmaType(figmaType) {
+      const scopeMap = {
+        'COLOR': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
+        'FLOAT': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT', 'FONT_SIZE', 'FONT_WEIGHT', 'LINE_HEIGHT'],
+        'STRING': ['FONT_FAMILY']
+      };
+
+      return scopeMap[figmaType] || [];
+    }
+
+    /**
+     * Render group item with checkbox for bulk selection
+     * Single responsibility: Create group UI element
+     */
+    function renderVariableGroupItem(name, groupObj, currentPath, fullPath, collectionName, depth, container) {
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+
+      // Get all child variables to determine compatibility
+      const childVariables = getAllVariablesInGroup(groupObj, currentPath, collectionName);
+      const groupScopes = getGroupAvailableScopes(childVariables);
+      const isCompatible = isTokenCompatibleWithSelection(groupScopes);
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.isGroup = 'true';
+      checkbox.dataset.scopes = JSON.stringify(groupScopes);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, groupObj, collectionName, currentPath, groupScopes));
+      }
+
+      // Check if all children are selected
+      const childrenSelected = areAllChildrenSelected(groupObj, collectionName, currentPath);
+      checkbox.checked = childrenSelected;
+
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      const chevron = document.createElement('span');
+      chevron.className = 'scope-chevron';
+      chevron.innerHTML = createChevronIcon(true).outerHTML;
+
+      const label = document.createElement('span');
+      label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
+      label.textContent = name;
+
+      content.appendChild(chevron);
+      content.appendChild(label);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      const childrenContainer = document.createElement('div');
+      childrenContainer.className = 'scope-children';
+      renderScopeTree(groupObj, childrenContainer, currentPath, collectionName, depth + 1);
+
+      // Toggle functionality
+      chevron.addEventListener('click', (e) => {
+        e.stopPropagation();
+        childrenContainer.classList.toggle('collapsed');
+        chevron.innerHTML = '';
+        chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
+      });
+
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
+      container.appendChild(childrenContainer);
+    }
+
+    /**
+     * Get combined available scopes for a group
+     * Single responsibility: Determine group scope compatibility
+     */
+    function getGroupAvailableScopes(variables) {
+      if (variables.length === 0) return [];
+
+      // Get intersection of all variable scopes (only scopes available to ALL variables in group)
+      const scopeSets = variables.map(v => new Set(v.availableScopes));
+      const intersection = scopeSets.reduce((acc, set) =>
+        new Set([...acc].filter(x => set.has(x)))
+      );
+
+      return Array.from(intersection);
+    }
+
+    /**
+     * Get all variables in a group with their metadata
+     * Single responsibility: Extract variable information from group
+     */
+    function getAllVariablesInGroup(obj, basePath, collectionName) {
+      const variables = [];
+
+      function traverse(o, path) {
+        if (!o || typeof o !== 'object') return;
+
+        for (const [key, value] of Object.entries(o)) {
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
+
+          if (value && typeof value === 'object' && '$variable' in value) {
+            const figmaType = value.type;
+            variables.push({
+              fullPath,
+              figmaType,
+              availableScopes: getAvailableScopesForFigmaType(figmaType)
+            });
+          } else if (value && typeof value === 'object') {
+            traverse(value, currentPath);
+          }
+        }
+      }
+
+      traverse(obj, basePath);
+      return variables;
+    }
+
+    /**
+     * Check if token is compatible with current selection
+     * Single responsibility: Compatibility validation
+     */
+    function isTokenCompatibleWithSelection(tokenScopes) {
+      if (selectedTokensForScopes.size === 0) return true;
+
+      // Get scopes from first selected token
+      const firstSelected = Array.from(selectedTokensForScopes)[0];
+      const firstCheckbox = document.querySelector(`.scope-checkbox[data-path="${firstSelected}"]`);
+
+      if (!firstCheckbox) return true;
+
+      const selectedScopes = JSON.parse(firstCheckbox.dataset.scopes || '[]');
+
+      // Tokens are compatible if they have the same available scopes
+      return JSON.stringify(tokenScopes.sort()) === JSON.stringify(selectedScopes.sort());
+    }
+
+    /**
+     * Get scope indicator text for UI
+     * Single responsibility: Format scope display text
+     */
+    function getScopeIndicatorText(scopes) {
+      if (scopes.length === 0) return 'no scopes';
+
+      const scopeLabels = {
+        'ALL_FILLS': 'fill',
+        'STROKE_COLOR': 'stroke',
+        'TEXT_FILL': 'text',
+        'EFFECT_COLOR': 'effect',
+        'WIDTH_HEIGHT': 'size',
+        'GAP': 'gap',
+        'CORNER_RADIUS': 'radius',
+        'FONT_SIZE': 'font size',
+        'FONT_FAMILY': 'font family',
+        'FONT_WEIGHT': 'font weight',
+        'LINE_HEIGHT': 'line height'
+      };
+
+      if (scopes.length === 1) {
+        return scopeLabels[scopes[0]] || scopes[0].toLowerCase();
+      }
+
+      // Group by category
+      const hasColor = scopes.some(s => ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'].includes(s));
+      const hasDimension = scopes.some(s => ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS'].includes(s));
+      const hasTypography = scopes.some(s => ['FONT_SIZE', 'FONT_FAMILY', 'FONT_WEIGHT', 'LINE_HEIGHT'].includes(s));
+
+      if (hasColor) return 'color scopes';
+      if (hasDimension) return 'dimension scopes';
+      if (hasTypography) return 'typography scopes';
+
+      return 'multiple scopes';
+    }
+
+    /**
+     * Get all variable paths in a group
+     * Single responsibility: Extract paths from group
+     */
+    function getAllVariablePaths(obj, basePath, collectionName) {
       const paths = [];
 
       function traverse(o, path) {
         if (!o || typeof o !== 'object') return;
 
         for (const [key, value] of Object.entries(o)) {
-          const currentPath = path ? `${path}.${key}` : key;
-          const fullPath = `${fileKey}:${currentPath}`;
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
 
-          if (value && typeof value === 'object' && ('$value' in value || '$type' in value)) {
+          if (value && typeof value === 'object' && '$variable' in value) {
             paths.push(fullPath);
           } else if (value && typeof value === 'object') {
             traverse(value, currentPath);
@@ -1873,104 +2190,335 @@
       return paths;
     }
 
-    function handleTokenSelection(e, fullPath) {
+    /**
+     * Check if all children in group are selected
+     * Single responsibility: Selection state check
+     */
+    function areAllChildrenSelected(obj, collectionName, basePath) {
+      const variables = getAllVariablePaths(obj, basePath, collectionName);
+      return variables.length > 0 && variables.every(path => selectedTokensForScopes.has(path));
+    }
+
+    /**
+     * Update all parent group checkboxes based on child selection state
+     * Single responsibility: Synchronize group checkbox states
+     */
+    function updateParentGroupCheckboxes() {
+      const groupCheckboxes = document.querySelectorAll('.scope-checkbox[data-is-group="true"]');
+
+      groupCheckboxes.forEach(groupCheckbox => {
+        const groupPath = groupCheckbox.dataset.path;
+        // Find all child token checkboxes under this group
+        const childCheckboxes = Array.from(document.querySelectorAll('.scope-checkbox'))
+          .filter(cb => {
+            const cbPath = cb.dataset.path;
+            return cbPath !== groupPath && // Not the group itself
+                   cbPath.startsWith(groupPath) && // Is a descendant
+                   !cb.dataset.isGroup; // Is a token (not another group)
+          });
+
+        // Check if all children are selected
+        if (childCheckboxes.length > 0) {
+          const allSelected = childCheckboxes.every(cb => cb.checked);
+          groupCheckbox.checked = allSelected;
+        }
+      });
+    }
+
+    /**
+     * Handle individual token selection
+     * Single responsibility: Manage token selection state
+     */
+    function handleTokenSelection(e, fullPath, availableScopes) {
       if (e.target.checked) {
         selectedTokensForScopes.add(fullPath);
       } else {
         selectedTokensForScopes.delete(fullPath);
       }
-      updateScopePanel();
+
+      // Update parent group checkboxes
+      updateParentGroupCheckboxes();
+
+      updateScopeUIState(availableScopes);
     }
 
-    function handleGroupSelection(e, fullPath, groupObj, fileKey, basePath) {
-      const tokenPaths = getAllTokenPaths(groupObj, basePath, fileKey);
+    /**
+     * Handle group selection (select/deselect all children)
+     * Single responsibility: Manage group selection state
+     */
+    function handleGroupSelection(e, fullPath, groupObj, collectionName, basePath, groupScopes) {
+      const variablePaths = getAllVariablePaths(groupObj, basePath, collectionName);
 
       if (e.target.checked) {
-        tokenPaths.forEach(path => selectedTokensForScopes.add(path));
-        // Update all child checkboxes
-        tokenPaths.forEach(path => {
-          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
-          if (checkbox) checkbox.checked = true;
-        });
+        variablePaths.forEach(path => selectedTokensForScopes.add(path));
       } else {
-        tokenPaths.forEach(path => selectedTokensForScopes.delete(path));
-        // Update all child checkboxes
-        tokenPaths.forEach(path => {
-          const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
-          if (checkbox) checkbox.checked = false;
-        });
+        variablePaths.forEach(path => selectedTokensForScopes.delete(path));
       }
-      updateScopePanel();
-    }
 
-    function updateScopePanel() {
-      const panel = document.getElementById('scope-assignment-panel');
-      const countEl = document.getElementById('scope-assignment-count');
-
-      countEl.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
-
-      if (selectedTokensForScopes.size > 0) {
-        panel.classList.add('active');
-        populateScopeOptions();
-      } else {
-        panel.classList.remove('active');
-      }
-    }
-
-    function populateScopeOptions() {
-      const optionsContainer = document.getElementById('scope-options');
-
-      // Available Figma scopes
-      const availableScopes = [
-        { value: 'ALL_FILLS', label: 'Fill' },
-        { value: 'STROKE_COLOR', label: 'Stroke' },
-        { value: 'TEXT_FILL', label: 'Text' },
-        { value: 'EFFECT_COLOR', label: 'Effect' },
-        { value: 'WIDTH_HEIGHT', label: 'Width & Height' },
-        { value: 'GAP', label: 'Gap' },
-        { value: 'CORNER_RADIUS', label: 'Corner Radius' },
-        { value: 'FONT_SIZE', label: 'Font Size' },
-        { value: 'FONT_FAMILY', label: 'Font Family' },
-        { value: 'FONT_WEIGHT', label: 'Font Weight' },
-        { value: 'LINE_HEIGHT', label: 'Line Height' }
-      ];
-
-      optionsContainer.innerHTML = availableScopes.map(scope => `
-        <div class="scope-option">
-          <input type="checkbox" id="scope-${scope.value}" value="${scope.value}">
-          <label for="scope-${scope.value}">${scope.label}</label>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('apply-scopes-btn').addEventListener('click', () => {
-      const selectedScopes = Array.from(document.querySelectorAll('#scope-options input[type="checkbox"]:checked'))
-        .map(cb => cb.value);
-
-      // Store scope assignments
-      selectedTokensForScopes.forEach(fullPath => {
-        tokenScopesMap.set(fullPath, selectedScopes);
+      // Update all child checkboxes
+      variablePaths.forEach(path => {
+        const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
+        if (checkbox && !checkbox.disabled) {
+          checkbox.checked = e.target.checked;
+        }
       });
 
-      showNotification(`Scopes assigned to ${selectedTokensForScopes.size} token(s)`, 'success');
+      updateScopeUIState(groupScopes);
+    }
 
-      // Clear selection
-      selectedTokensForScopes.clear();
-      updateScopePanel();
+    /**
+     * Update UI state based on selection
+     * Single responsibility: Synchronize UI with selection state
+     */
+    function updateScopeUIState(selectedScopes) {
+      // Update left column state (file selection vs scope assignment)
+      const fileSelectionView = document.getElementById('scope-file-selection');
+      const scopeAssignmentView = document.getElementById('scope-assignment-view');
+      const selectionCount = document.getElementById('scope-selection-count');
 
-      // Refresh the scope view to update checkboxes
-      const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
-      if (activeFile) {
-        showScopeFileContent(activeFile.dataset.file);
+      if (selectedTokensForScopes.size > 0) {
+        // Switch to scope assignment view
+        fileSelectionView.style.display = 'none';
+        scopeAssignmentView.style.display = 'flex';
+
+        // Update count
+        selectionCount.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
+
+        // Populate scope options
+        populateScopeOptions(selectedScopes);
+      } else {
+        // Switch to file selection view
+        fileSelectionView.style.display = 'block';
+        scopeAssignmentView.style.display = 'none';
       }
-    });
 
-    document.getElementById('cancel-scopes-btn').addEventListener('click', () => {
+      // Update compatibility state for all checkboxes
+      refreshTokenCompatibility();
+    }
+
+    /**
+     * Refresh token compatibility state (enable/disable checkboxes)
+     * Single responsibility: Update checkbox states
+     */
+    function refreshTokenCompatibility() {
+      const allCheckboxes = document.querySelectorAll('.scope-checkbox');
+
+      allCheckboxes.forEach(checkbox => {
+        const scopes = JSON.parse(checkbox.dataset.scopes || '[]');
+        const isCompatible = isTokenCompatibleWithSelection(scopes);
+        const wasDisabled = checkbox.disabled;
+
+        checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+        // Update parent item styling
+        const item = checkbox.closest('.scope-item');
+        if (item) {
+          if (checkbox.disabled) {
+            item.classList.add('disabled');
+          } else {
+            item.classList.remove('disabled');
+          }
+        }
+      });
+    }
+
+    /**
+     * Populate scope options in left column
+     * Single responsibility: Render available scopes for selection
+     * Pre-checks scopes based on current Figma variable state
+     */
+    function populateScopeOptions(availableScopes) {
+      const container = document.getElementById('scope-options-container');
+
+      // Scope definitions with labels
+      const scopeDefinitions = [
+        { value: 'ALL_FILLS', label: 'Fill', category: 'color' },
+        { value: 'STROKE_COLOR', label: 'Stroke', category: 'color' },
+        { value: 'TEXT_FILL', label: 'Text', category: 'color' },
+        { value: 'EFFECT_COLOR', label: 'Effect', category: 'color' },
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'dimension' },
+        { value: 'GAP', label: 'Gap', category: 'dimension' },
+        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'dimension' },
+        { value: 'FONT_SIZE', label: 'Font Size', category: 'typography' },
+        { value: 'FONT_FAMILY', label: 'Font Family', category: 'typography' },
+        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'typography' },
+        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'typography' }
+      ];
+
+      // Filter to only show available scopes
+      const relevantScopes = scopeDefinitions.filter(s => availableScopes.includes(s.value));
+
+      // Group by category
+      const categories = [...new Set(relevantScopes.map(s => s.category))];
+
+      // Get common scopes from all selected tokens
+      const commonScopes = getCommonScopesFromSelection();
+
+      container.innerHTML = '';
+
+      categories.forEach(category => {
+        const categoryScopes = relevantScopes.filter(s => s.category === category);
+
+        // Category header
+        const header = document.createElement('div');
+        header.className = 'scope-category-header';
+        header.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+        header.style.fontSize = '11px';
+        header.style.fontWeight = '600';
+        header.style.color = '#8b94b1';
+        header.style.textTransform = 'uppercase';
+        header.style.marginTop = category === categories[0] ? '0' : '16px';
+        header.style.marginBottom = '8px';
+        container.appendChild(header);
+
+        // Scope options
+        categoryScopes.forEach(scope => {
+          const option = document.createElement('div');
+          option.className = 'scope-option';
+          option.style.display = 'flex';
+          option.style.alignItems = 'center';
+          option.style.gap = '8px';
+          option.style.marginBottom = '8px';
+          option.style.cursor = 'pointer';
+
+          const checkbox = document.createElement('div');
+          checkbox.className = 'scope-option-checkbox';
+          checkbox.dataset.value = scope.value;
+
+          // Pre-check if this scope is common to all selected tokens
+          if (commonScopes.includes(scope.value)) {
+            checkbox.classList.add('checked');
+          }
+
+          const label = document.createElement('span');
+          label.textContent = scope.label;
+          label.style.fontSize = '14px';
+          label.style.color = '#000';
+
+          option.appendChild(checkbox);
+          option.appendChild(label);
+
+          // Toggle on click
+          option.addEventListener('click', () => {
+            checkbox.classList.toggle('checked');
+          });
+
+          container.appendChild(option);
+        });
+      });
+    }
+
+    /**
+     * Get scopes that are common to all selected tokens
+     * Single responsibility: Determine pre-checked state for scopes
+     */
+    function getCommonScopesFromSelection() {
+      if (selectedTokensForScopes.size === 0) return [];
+
+      const allTokenScopes = [];
+
+      // Get scopes for each selected token from Figma variables
+      selectedTokensForScopes.forEach(fullPath => {
+        const variableName = getVariableNameFromPath(fullPath);
+        const figmaVariable = figmaVariables[variableName];
+
+        if (figmaVariable && figmaVariable.scopes) {
+          allTokenScopes.push(figmaVariable.scopes);
+        } else {
+          // If variable doesn't exist or has no scopes, add empty array
+          allTokenScopes.push([]);
+        }
+      });
+
+      // If no tokens have scopes in Figma, return empty
+      if (allTokenScopes.length === 0) return [];
+
+      // Find intersection of all scope arrays
+      const intersection = allTokenScopes.reduce((acc, scopes) => {
+        if (acc === null) return scopes;
+        return acc.filter(scope => scopes.includes(scope));
+      }, null);
+
+      return intersection || [];
+    }
+
+    /**
+     * Convert full path to Figma variable name
+     * Single responsibility: Path to variable name mapping
+     */
+    function getVariableNameFromPath(fullPath) {
+      // fullPath format: "collectionName:variable/path"
+      // Extract variable path (after the colon)
+      const parts = fullPath.split(':');
+      if (parts.length === 2) {
+        // Return the variable path (already uses slashes)
+        return parts[1];
+      }
+      return fullPath;
+    }
+
+    /**
+     * Reset scope selection and return to default state
+     * Single responsibility: Clear selection state
+     */
+    function resetScopeSelection() {
       selectedTokensForScopes.clear();
-      updateScopePanel();
 
-      // Uncheck all checkboxes
-      document.querySelectorAll('.scope-checkbox').forEach(cb => cb.checked = false);
+      // Show file selection view
+      document.getElementById('scope-file-selection').style.display = 'block';
+      document.getElementById('scope-assignment-view').style.display = 'none';
+
+      // Uncheck all checkboxes and re-enable
+      document.querySelectorAll('.scope-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.disabled = false;
+        const item = cb.closest('.scope-item');
+        if (item) item.classList.remove('disabled');
+      });
+    }
+
+    /**
+     * Apply selected scopes directly to Figma variables
+     * Single responsibility: Send scope updates to Figma
+     */
+    function applyScopes() {
+      const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
+      const selectedScopes = Array.from(selectedScopeCheckboxes).map(cb => cb.dataset.value);
+
+      // Build variable scopes object for backend
+      const variableScopes = {};
+
+      selectedTokensForScopes.forEach(fullPath => {
+        const variableName = getVariableNameFromPath(fullPath);
+        variableScopes[variableName] = selectedScopes;
+      });
+
+      console.log('Applying scopes to variables:', variableScopes);
+
+      // Send to backend to apply scopes directly to Figma variables
+      parent.postMessage({
+        pluginMessage: {
+          type: 'apply-variable-scopes',
+          data: { variableScopes }
+        }
+      }, '*');
+
+      // Reset selection (view will refresh after 'scopes-applied' message)
+      resetScopeSelection();
+    }
+
+    // Wire up event listeners
+    document.getElementById('apply-scopes-btn').addEventListener('click', applyScopes);
+
+    document.getElementById('reset-selection-btn').addEventListener('click', () => {
+      resetScopeSelection();
+
+      // Refresh the current view
+      const variableTree = buildVariableTreeFromFigma();
+      const activeTab = document.querySelector('#scope-file-tabs-list .file-tab.active');
+      if (activeTab && activeTab.dataset.collection) {
+        showScopeCollectionContent(activeTab.dataset.collection, variableTree);
+      }
     });
 
     // ==================== TOKEN PERSISTENCE ====================
@@ -2104,6 +2652,19 @@
 
         case 'import-success':
           showNotification(msg.message, 'success');
+          break;
+
+        case 'figma-variables-loaded':
+          console.log('Figma variables loaded:', msg.data);
+          figmaVariables = msg.data.variables;
+          figmaVariablesLoaded = true;
+          initializeScopeView();
+          break;
+
+        case 'scopes-applied':
+          showNotification(msg.message, 'success');
+          // Reload variables to get updated scopes
+          loadFigmaVariables();
           break;
 
         case 'error':

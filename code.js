@@ -501,7 +501,6 @@
         } else {
           variable.setValueForMode(modeId, processedValue.value);
         }
-        variable.scopes = [];
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
         if (token.$description) {
@@ -691,7 +690,7 @@
     try {
       switch (msg.type) {
         case "import-tokens":
-          await handleImportTokens(msg.data);
+          await handleImportTokens(msg);
           break;
         case "github-fetch-files":
           await handleGitHubFetchFiles(msg.data);
@@ -711,6 +710,12 @@
         case "load-tokens":
           await handleLoadTokens();
           break;
+        case "get-figma-variables":
+          await handleGetFigmaVariables();
+          break;
+        case "apply-variable-scopes":
+          await handleApplyVariableScopes(msg.data);
+          break;
         case "cancel":
           figma.closePlugin();
           break;
@@ -725,8 +730,8 @@
       });
     }
   };
-  async function handleImportTokens(data) {
-    const { primitives, semantics } = data;
+  async function handleImportTokens(msg) {
+    const { primitives, semantics } = msg.data;
     const stats = await variableManager.importTokens(primitives, semantics);
     figma.ui.postMessage({
       type: "import-success",
@@ -816,6 +821,76 @@
       }
     } catch (error) {
       console.error("Error loading token state:", error);
+    }
+  }
+  async function handleGetFigmaVariables() {
+    try {
+      console.log("Fetching all Figma variables...");
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      const variables = {};
+      for (const collection of collections) {
+        console.log(`Processing collection: ${collection.name}`);
+        const variablePromises = collection.variableIds.map(
+          (id) => figma.variables.getVariableByIdAsync(id)
+        );
+        const collectionVariables = await Promise.all(variablePromises);
+        for (const variable of collectionVariables) {
+          if (variable) {
+            variables[variable.name] = {
+              id: variable.id,
+              name: variable.name,
+              scopes: variable.scopes,
+              type: variable.resolvedType,
+              collection: collection.name,
+              collectionId: collection.id
+            };
+          }
+        }
+      }
+      console.log(`Found ${Object.keys(variables).length} variables`);
+      figma.ui.postMessage({
+        type: "figma-variables-loaded",
+        data: { variables }
+      });
+    } catch (error) {
+      console.error("Error fetching Figma variables:", error);
+      figma.ui.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to fetch Figma variables"
+      });
+    }
+  }
+  async function handleApplyVariableScopes(data) {
+    try {
+      console.log("Applying scopes to variables:", data);
+      const { variableScopes } = data;
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      let updatedCount = 0;
+      for (const collection of collections) {
+        const variablePromises = collection.variableIds.map(
+          (id) => figma.variables.getVariableByIdAsync(id)
+        );
+        const collectionVariables = await Promise.all(variablePromises);
+        for (const variable of collectionVariables) {
+          if (variable && variableScopes[variable.name] !== void 0) {
+            const newScopes = variableScopes[variable.name];
+            variable.scopes = newScopes;
+            updatedCount++;
+            console.log(`Updated scopes for ${variable.name}:`, newScopes);
+          }
+        }
+      }
+      figma.notify(`\u2713 Scopes updated for ${updatedCount} variable(s)`, { timeout: 3e3 });
+      figma.ui.postMessage({
+        type: "scopes-applied",
+        message: `Scopes updated for ${updatedCount} variable(s)`
+      });
+    } catch (error) {
+      console.error("Error applying variable scopes:", error);
+      figma.ui.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to apply variable scopes"
+      });
     }
   }
 })();

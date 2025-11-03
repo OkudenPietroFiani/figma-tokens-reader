@@ -379,9 +379,9 @@ export class VariableManager {
         variable.setValueForMode(modeId, processedValue.value);
       }
 
-      // Scopes will be set manually by the user in the Scopes screen
-      // Default to empty scopes for now
-      variable.scopes = [];
+      // Scopes are managed independently via the Scopes tab
+      // Do not modify existing scopes during import
+      // New variables will have empty scopes by default
 
       // Set CSS variable code syntax for developers
       this.setCodeSyntax(variable, path, collectionName);
