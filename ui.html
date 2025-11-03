@@ -1779,7 +1779,7 @@
     // Clean code: Separated concerns with single-responsibility functions
 
     /**
-     * Initialize scope view with file tabs
+     * Initialize scope view with collection tabs
      * Single responsibility: Setup initial view state
      */
     function initializeScopeView() {
@@ -1791,111 +1791,140 @@
 
       console.log('Initializing scope view with', Object.keys(figmaVariables).length, 'variables');
 
-      renderFileTabsForScopes();
+      // Build tree structure from Figma variables
+      const variableTree = buildVariableTreeFromFigma();
+
+      renderCollectionTabsForScopes(variableTree);
       resetScopeSelection();
 
-      const fileKeys = getValidFileKeys();
-      if (fileKeys.length > 0) {
-        showScopeFileContent(fileKeys[0]);
+      const collections = Object.keys(variableTree);
+      if (collections.length > 0) {
+        showScopeCollectionContent(collections[0], variableTree);
       }
     }
 
     /**
-     * Render file tabs in left column
-     * Single responsibility: Populate file navigation
+     * Build tree structure from Figma variables
+     * Organizes variables by collection and hierarchical path
      */
-    function renderFileTabsForScopes() {
+    function buildVariableTreeFromFigma() {
+      const tree = {};
+
+      // Organize variables by collection
+      Object.entries(figmaVariables).forEach(([variableName, variable]) => {
+        const collection = variable.collection || 'uncategorized';
+
+        if (!tree[collection]) {
+          tree[collection] = {};
+        }
+
+        // Parse variable name to build nested structure
+        // Example: "spacing/sm" -> { spacing: { sm: { ...variable } } }
+        const parts = variableName.split('/');
+        let current = tree[collection];
+
+        parts.forEach((part, index) => {
+          if (index === parts.length - 1) {
+            // Leaf node - store variable data
+            current[part] = {
+              $variable: true,
+              ...variable
+            };
+          } else {
+            // Group node
+            if (!current[part]) {
+              current[part] = {};
+            }
+            current = current[part];
+          }
+        });
+      });
+
+      console.log('Built variable tree:', tree);
+      return tree;
+    }
+
+    /**
+     * Render collection tabs in left column
+     * Single responsibility: Populate collection navigation
+     */
+    function renderCollectionTabsForScopes(variableTree) {
       const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
       scopeFileTabsList.innerHTML = '';
 
-      const fileKeys = getValidFileKeys();
+      const collections = Object.keys(variableTree);
 
-      fileKeys.forEach((key, index) => {
-        const file = tokenFiles[key];
+      collections.forEach((collection, index) => {
         const tab = document.createElement('button');
         tab.className = 'file-tab' + (index === 0 ? ' active' : '');
-        tab.textContent = file.name;
-        tab.dataset.file = key;
-        tab.addEventListener('click', () => showScopeFileContent(key));
+        tab.textContent = collection;
+        tab.dataset.collection = collection;
+        tab.addEventListener('click', () => showScopeCollectionContent(collection, variableTree));
         scopeFileTabsList.appendChild(tab);
       });
     }
 
     /**
-     * Get valid file keys (exclude metadata files)
-     * Single responsibility: Filter valid token files
+     * Show content for selected collection
+     * Single responsibility: Display variables for scope assignment
      */
-    function getValidFileKeys() {
-      return Object.keys(tokenFiles).filter(key => {
-        const file = tokenFiles[key];
-        const fileName = file.name.toLowerCase();
-        return !fileName.includes('metadata') &&
-               !fileName.startsWith('$') &&
-               !fileName.includes('$metadata');
-      });
-    }
-
-    /**
-     * Show content for selected file
-     * Single responsibility: Display tokens for scope assignment
-     */
-    function showScopeFileContent(fileKey) {
-      const file = tokenFiles[fileKey];
-      if (!file) return;
+    function showScopeCollectionContent(collectionName, variableTree) {
+      const collectionData = variableTree[collectionName];
+      if (!collectionData) return;
 
       // Update active tab
       document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.file === fileKey);
+        tab.classList.toggle('active', tab.dataset.collection === collectionName);
       });
 
-      // Render token tree with scope indicators
+      // Render variable tree with scope indicators
       const scopeTokenContent = document.getElementById('scope-token-content');
       scopeTokenContent.innerHTML = '';
       const tree = document.createElement('div');
       tree.className = 'scope-tree';
-      renderScopeTree(file.content, tree, '', fileKey);
+      renderScopeTree(collectionData, tree, '', collectionName);
       scopeTokenContent.appendChild(tree);
     }
 
     /**
-     * Render token tree with checkboxes and scope indicators
-     * Single responsibility: Build interactive token tree
+     * Render variable tree with checkboxes and scope indicators
+     * Single responsibility: Build interactive variable tree
      */
-    function renderScopeTree(obj, container, path, fileKey, depth = 0) {
+    function renderScopeTree(obj, container, path, collectionName, depth = 0) {
       if (!obj || typeof obj !== 'object') return;
 
       const entries = Object.entries(obj);
       if (entries.length === 0) return;
 
       entries.forEach(([key, value]) => {
-        const currentPath = path ? `${path}.${key}` : key;
-        const fullPath = `${fileKey}:${currentPath}`;
+        const currentPath = path ? `${path}/${key}` : key;
+        const fullPath = `${collectionName}:${currentPath}`;
 
         if (value && typeof value === 'object' && !Array.isArray(value)) {
-          const isToken = '$value' in value || '$type' in value;
+          const isVariable = '$variable' in value;
 
-          if (isToken) {
-            renderTokenItem(key, value, fullPath, depth, container);
+          if (isVariable) {
+            renderVariableItem(key, value, fullPath, depth, container);
           } else {
-            renderGroupItem(key, value, currentPath, fullPath, fileKey, depth, container);
+            renderVariableGroupItem(key, value, currentPath, fullPath, collectionName, depth, container);
           }
         }
       });
     }
 
     /**
-     * Render individual token with checkbox and scope indicator
-     * Single responsibility: Create token UI element
+     * Render individual variable with checkbox and scope indicator
+     * Single responsibility: Create variable UI element
      */
-    function renderTokenItem(name, token, fullPath, depth, container) {
+    function renderVariableItem(name, variable, fullPath, depth, container) {
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
       item.dataset.path = fullPath;
 
-      // Determine token type and available scopes
-      const tokenType = token.$type || inferTokenTypeFromValue(token.$value);
-      const availableScopes = getAvailableScopesForTokenType(tokenType);
+      // Determine variable type and available scopes from Figma type
+      const figmaType = variable.type; // 'COLOR', 'FLOAT', 'STRING'
+      const availableScopes = getAvailableScopesForFigmaType(figmaType);
 
       // Check if token is compatible with current selection
       const isCompatible = isTokenCompatibleWithSelection(availableScopes);
@@ -1952,17 +1981,31 @@
     }
 
     /**
+     * Get available scopes based on Figma variable type
+     * Single responsibility: Map Figma types to available scopes
+     */
+    function getAvailableScopesForFigmaType(figmaType) {
+      const scopeMap = {
+        'COLOR': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
+        'FLOAT': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT', 'FONT_SIZE', 'FONT_WEIGHT', 'LINE_HEIGHT'],
+        'STRING': ['FONT_FAMILY']
+      };
+
+      return scopeMap[figmaType] || [];
+    }
+
+    /**
      * Render group item with checkbox for bulk selection
      * Single responsibility: Create group UI element
      */
-    function renderGroupItem(name, groupObj, currentPath, fullPath, fileKey, depth, container) {
+    function renderVariableGroupItem(name, groupObj, currentPath, fullPath, collectionName, depth, container) {
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
 
-      // Get all child tokens to determine compatibility
-      const childTokens = getAllTokensInGroup(groupObj, currentPath, fileKey);
-      const groupScopes = getGroupAvailableScopes(childTokens);
+      // Get all child variables to determine compatibility
+      const childVariables = getAllVariablesInGroup(groupObj, currentPath, collectionName);
+      const groupScopes = getGroupAvailableScopes(childVariables);
       const isCompatible = isTokenCompatibleWithSelection(groupScopes);
 
       const checkbox = document.createElement('input');
@@ -1974,11 +2017,11 @@
       checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
 
       if (!checkbox.disabled) {
-        checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, groupObj, fileKey, currentPath, groupScopes));
+        checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, groupObj, collectionName, currentPath, groupScopes));
       }
 
       // Check if all children are selected
-      const childrenSelected = areAllChildrenSelected(groupObj, fileKey, currentPath);
+      const childrenSelected = areAllChildrenSelected(groupObj, collectionName, currentPath);
       checkbox.checked = childrenSelected;
 
       const content = document.createElement('div');
@@ -2000,7 +2043,7 @@
 
       const childrenContainer = document.createElement('div');
       childrenContainer.className = 'scope-children';
-      renderScopeTree(groupObj, childrenContainer, currentPath, fileKey, depth + 1);
+      renderScopeTree(groupObj, childrenContainer, currentPath, collectionName, depth + 1);
 
       // Toggle functionality
       chevron.addEventListener('click', (e) => {
@@ -2019,35 +2062,14 @@
     }
 
     /**
-     * Determine available Figma scopes based on token type
-     * Single responsibility: Map token types to scopes
-     */
-    function getAvailableScopesForTokenType(tokenType) {
-      const scopeMap = {
-        'color': ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'],
-        'dimension': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
-        'spacing': ['WIDTH_HEIGHT', 'GAP', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
-        'number': ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS', 'MIN_WIDTH', 'MAX_WIDTH', 'MIN_HEIGHT', 'MAX_HEIGHT'],
-        'fontSize': ['FONT_SIZE'],
-        'fontFamily': ['FONT_FAMILY'],
-        'fontWeight': ['FONT_WEIGHT'],
-        'lineHeight': ['LINE_HEIGHT'],
-        'typography': ['FONT_SIZE', 'FONT_FAMILY', 'FONT_WEIGHT', 'LINE_HEIGHT'],
-        'string': []
-      };
-
-      return scopeMap[tokenType] || [];
-    }
-
-    /**
      * Get combined available scopes for a group
      * Single responsibility: Determine group scope compatibility
      */
-    function getGroupAvailableScopes(tokens) {
-      if (tokens.length === 0) return [];
+    function getGroupAvailableScopes(variables) {
+      if (variables.length === 0) return [];
 
-      // Get intersection of all token scopes (only scopes available to ALL tokens in group)
-      const scopeSets = tokens.map(t => new Set(t.availableScopes));
+      // Get intersection of all variable scopes (only scopes available to ALL variables in group)
+      const scopeSets = variables.map(v => new Set(v.availableScopes));
       const intersection = scopeSets.reduce((acc, set) =>
         new Set([...acc].filter(x => set.has(x)))
       );
@@ -2056,25 +2078,25 @@
     }
 
     /**
-     * Get all tokens in a group with their metadata
-     * Single responsibility: Extract token information from group
+     * Get all variables in a group with their metadata
+     * Single responsibility: Extract variable information from group
      */
-    function getAllTokensInGroup(obj, basePath, fileKey) {
-      const tokens = [];
+    function getAllVariablesInGroup(obj, basePath, collectionName) {
+      const variables = [];
 
       function traverse(o, path) {
         if (!o || typeof o !== 'object') return;
 
         for (const [key, value] of Object.entries(o)) {
-          const currentPath = path ? `${path}.${key}` : key;
-          const fullPath = `${fileKey}:${currentPath}`;
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
 
-          if (value && typeof value === 'object' && ('$value' in value || '$type' in value)) {
-            const tokenType = value.$type || inferTokenTypeFromValue(value.$value);
-            tokens.push({
+          if (value && typeof value === 'object' && '$variable' in value) {
+            const figmaType = value.type;
+            variables.push({
               fullPath,
-              tokenType,
-              availableScopes: getAvailableScopesForTokenType(tokenType)
+              figmaType,
+              availableScopes: getAvailableScopesForFigmaType(figmaType)
             });
           } else if (value && typeof value === 'object') {
             traverse(value, currentPath);
@@ -2083,26 +2105,7 @@
       }
 
       traverse(obj, basePath);
-      return tokens;
-    }
-
-    /**
-     * Infer token type from value (fallback when $type is missing)
-     * Single responsibility: Type detection
-     */
-    function inferTokenTypeFromValue(value) {
-      if (typeof value === 'string') {
-        if (value.startsWith('#') || value.startsWith('rgb') || value.startsWith('hsl')) {
-          return 'color';
-        }
-        if (value.endsWith('px') || value.endsWith('rem') || value.endsWith('em')) {
-          return 'dimension';
-        }
-      }
-      if (typeof value === 'number') {
-        return 'number';
-      }
-      return 'string';
+      return variables;
     }
 
     /**
@@ -2162,20 +2165,20 @@
     }
 
     /**
-     * Get all token paths in a group
+     * Get all variable paths in a group
      * Single responsibility: Extract paths from group
      */
-    function getAllTokenPaths(obj, basePath, fileKey) {
+    function getAllVariablePaths(obj, basePath, collectionName) {
       const paths = [];
 
       function traverse(o, path) {
         if (!o || typeof o !== 'object') return;
 
         for (const [key, value] of Object.entries(o)) {
-          const currentPath = path ? `${path}.${key}` : key;
-          const fullPath = `${fileKey}:${currentPath}`;
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
 
-          if (value && typeof value === 'object' && ('$value' in value || '$type' in value)) {
+          if (value && typeof value === 'object' && '$variable' in value) {
             paths.push(fullPath);
           } else if (value && typeof value === 'object') {
             traverse(value, currentPath);
@@ -2191,9 +2194,9 @@
      * Check if all children in group are selected
      * Single responsibility: Selection state check
      */
-    function areAllChildrenSelected(obj, fileKey, basePath) {
-      const tokens = getAllTokenPaths(obj, basePath, fileKey);
-      return tokens.length > 0 && tokens.every(path => selectedTokensForScopes.has(path));
+    function areAllChildrenSelected(obj, collectionName, basePath) {
+      const variables = getAllVariablePaths(obj, basePath, collectionName);
+      return variables.length > 0 && variables.every(path => selectedTokensForScopes.has(path));
     }
 
     /**
@@ -2243,17 +2246,17 @@
      * Handle group selection (select/deselect all children)
      * Single responsibility: Manage group selection state
      */
-    function handleGroupSelection(e, fullPath, groupObj, fileKey, basePath, groupScopes) {
-      const tokenPaths = getAllTokenPaths(groupObj, basePath, fileKey);
+    function handleGroupSelection(e, fullPath, groupObj, collectionName, basePath, groupScopes) {
+      const variablePaths = getAllVariablePaths(groupObj, basePath, collectionName);
 
       if (e.target.checked) {
-        tokenPaths.forEach(path => selectedTokensForScopes.add(path));
+        variablePaths.forEach(path => selectedTokensForScopes.add(path));
       } else {
-        tokenPaths.forEach(path => selectedTokensForScopes.delete(path));
+        variablePaths.forEach(path => selectedTokensForScopes.delete(path));
       }
 
       // Update all child checkboxes
-      tokenPaths.forEach(path => {
+      variablePaths.forEach(path => {
         const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
         if (checkbox && !checkbox.disabled) {
           checkbox.checked = e.target.checked;
@@ -2440,16 +2443,16 @@
     }
 
     /**
-     * Convert token path to Figma variable name
+     * Convert full path to Figma variable name
      * Single responsibility: Path to variable name mapping
      */
     function getVariableNameFromPath(fullPath) {
-      // fullPath format: "fileKey:path.to.token"
-      // Extract token path and convert to variable name
+      // fullPath format: "collectionName:variable/path"
+      // Extract variable path (after the colon)
       const parts = fullPath.split(':');
       if (parts.length === 2) {
-        // Token path uses dots, Figma variable names use slashes
-        return parts[1].replace(/\./g, '/');
+        // Return the variable path (already uses slashes)
+        return parts[1];
       }
       return fullPath;
     }
@@ -2500,13 +2503,8 @@
         }
       }, '*');
 
-      // Reset selection
+      // Reset selection (view will refresh after 'scopes-applied' message)
       resetScopeSelection();
-
-      const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
-      if (activeFile) {
-        showScopeFileContent(activeFile.dataset.file);
-      }
     }
 
     // Wire up event listeners
@@ -2515,9 +2513,11 @@
     document.getElementById('reset-selection-btn').addEventListener('click', () => {
       resetScopeSelection();
 
-      const activeFile = document.querySelector('#scope-file-tabs-list .file-tab.active');
-      if (activeFile) {
-        showScopeFileContent(activeFile.dataset.file);
+      // Refresh the current view
+      const variableTree = buildVariableTreeFromFigma();
+      const activeTab = document.querySelector('#scope-file-tabs-list .file-tab.active');
+      if (activeTab && activeTab.dataset.collection) {
+        showScopeCollectionContent(activeTab.dataset.collection, variableTree);
       }
     });
 
