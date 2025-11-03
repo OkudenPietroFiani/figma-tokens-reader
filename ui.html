@@ -1916,23 +1916,40 @@
      * Single responsibility: Build interactive variable tree
      */
     function renderScopeTree(obj, container, path, collectionName, depth = 0) {
-      if (!obj || typeof obj !== 'object') return;
+      console.log(`[renderScopeTree] depth=${depth}, path="${path}", keys:`, Object.keys(obj));
+
+      if (!obj || typeof obj !== 'object') {
+        console.warn('[renderScopeTree] Invalid obj:', obj);
+        return;
+      }
 
       const entries = Object.entries(obj);
-      if (entries.length === 0) return;
+      console.log(`[renderScopeTree] Processing ${entries.length} entries`);
+
+      if (entries.length === 0) {
+        console.warn('[renderScopeTree] No entries to process');
+        return;
+      }
 
       entries.forEach(([key, value]) => {
         const currentPath = path ? `${path}/${key}` : key;
         const fullPath = `${collectionName}:${currentPath}`;
 
+        console.log(`[renderScopeTree] Processing entry: key="${key}", currentPath="${currentPath}"`);
+
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           const isVariable = '$variable' in value;
+          console.log(`[renderScopeTree] Entry "${key}" isVariable:`, isVariable);
 
           if (isVariable) {
+            console.log(`[renderScopeTree] Rendering variable: ${key}`);
             renderVariableItem(key, value, fullPath, depth, container);
           } else {
+            console.log(`[renderScopeTree] Rendering group: ${key}`);
             renderVariableGroupItem(key, value, currentPath, fullPath, collectionName, depth, container);
           }
+        } else {
+          console.warn(`[renderScopeTree] Skipping entry "${key}" - not a valid object`);
         }
       });
     }
@@ -1942,6 +1959,8 @@
      * Single responsibility: Create variable UI element
      */
     function renderVariableItem(name, variable, fullPath, depth, container) {
+      console.log(`[renderVariableItem] Rendering: name="${name}", fullPath="${fullPath}", type="${variable.type}"`);
+
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
@@ -1950,6 +1969,7 @@
       // Determine variable type and available scopes from Figma type
       const figmaType = variable.type; // 'COLOR', 'FLOAT', 'STRING'
       const availableScopes = getAvailableScopesForFigmaType(figmaType);
+      console.log(`[renderVariableItem] figmaType="${figmaType}", availableScopes:`, availableScopes);
 
       // Check if token is compatible with current selection
       const isCompatible = isTokenCompatibleWithSelection(availableScopes);
@@ -1959,7 +1979,7 @@
       checkbox.type = 'checkbox';
       checkbox.className = 'scope-checkbox';
       checkbox.dataset.path = fullPath;
-      checkbox.dataset.tokenType = tokenType;
+      checkbox.dataset.figmaType = figmaType; // Fixed: was tokenType
       checkbox.dataset.scopes = JSON.stringify(availableScopes);
       checkbox.checked = selectedTokensForScopes.has(fullPath);
       checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
@@ -2003,6 +2023,7 @@
       }
 
       container.appendChild(item);
+      console.log(`[renderVariableItem] Successfully appended item for "${name}" to container`);
     }
 
     /**
@@ -2024,12 +2045,15 @@
      * Single responsibility: Create group UI element
      */
     function renderVariableGroupItem(name, groupObj, currentPath, fullPath, collectionName, depth, container) {
+      console.log(`[renderVariableGroupItem] Rendering group: name="${name}", currentPath="${currentPath}"`);
+
       const item = document.createElement('div');
       item.className = 'scope-item';
       item.style.paddingLeft = `${depth * 16}px`;
 
       // Get all child variables to determine compatibility
       const childVariables = getAllVariablesInGroup(groupObj, currentPath, collectionName);
+      console.log(`[renderVariableGroupItem] Group "${name}" has ${childVariables.length} child variables`);
       const groupScopes = getGroupAvailableScopes(childVariables);
       const isCompatible = isTokenCompatibleWithSelection(groupScopes);
 
