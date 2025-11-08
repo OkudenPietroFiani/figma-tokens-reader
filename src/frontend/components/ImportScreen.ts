@@ -8,6 +8,7 @@ import { AppState } from '../state/AppState';
 import { PluginBridge } from '../services/PluginBridge';
 import { CSS_CLASSES } from '../../shared/constants';
 import { TokenFile } from '../../shared/types';
+import { escapeHtml, sanitizeId } from '../../utils/htmlSanitizer';
 
 /**
  * Import screen component
@@ -246,18 +247,42 @@ export class ImportScreen extends BaseComponent {
     // Display file list with checkboxes
     const fileList = document.createElement('div');
     fileList.className = 'file-list';
-    fileList.innerHTML = `
-      <div class="file-list-header">Select files to sync (${files.length} found)</div>
-      ${files.map(file => `
-        <div class="file-item">
-          <input type="checkbox" class="file-checkbox" value="${file}" id="file-${file}" checked>
-          <label for="file-${file}">
-            <div class="file-name">${file.split('/').pop()}</div>
-            <div class="file-path">${file}</div>
-          </label>
-        </div>
-      `).join('')}
-    `;
+
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'file-list-header';
+    header.textContent = `Select files to sync (${files.length} found)`;
+    fileList.appendChild(header);
+
+    // Create file items securely
+    files.forEach(file => {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'file-checkbox';
+      checkbox.value = file;
+      checkbox.id = `file-${sanitizeId(file)}`;
+      checkbox.checked = true;
+
+      const label = document.createElement('label');
+      label.htmlFor = checkbox.id;
+
+      const fileName = document.createElement('div');
+      fileName.className = 'file-name';
+      fileName.textContent = file.split('/').pop() || file;
+
+      const filePath = document.createElement('div');
+      filePath.className = 'file-path';
+      filePath.textContent = file;
+
+      label.appendChild(fileName);
+      label.appendChild(filePath);
+      fileItem.appendChild(checkbox);
+      fileItem.appendChild(label);
+      fileList.appendChild(fileItem);
+    });
 
     this.githubFilesContainer.innerHTML = '';
     this.githubFilesContainer.appendChild(fileList);

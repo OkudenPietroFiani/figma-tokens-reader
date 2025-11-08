@@ -127,14 +127,17 @@ export class TokenScreen extends BaseComponent {
       return;
     }
 
-    this.fileTabsList.innerHTML = files.map(file => {
-      return `<button class="file-tab" data-file="${file.name}">${file.name}</button>`;
-    }).join('');
+    // Clear and create file tabs securely using DOM methods
+    this.fileTabsList.innerHTML = '';
 
-    // Add click handlers
-    const fileTabs = this.fileTabsList.querySelectorAll('.file-tab');
-    fileTabs.forEach(tab => {
-      this.addEventListener(tab as HTMLElement, 'click', () => {
+    const fileTabs: HTMLButtonElement[] = [];
+    files.forEach(file => {
+      const tab = document.createElement('button');
+      tab.className = 'file-tab';
+      tab.setAttribute('data-file', file.name);
+      tab.textContent = file.name; // Safe: uses textContent instead of innerHTML
+
+      this.addEventListener(tab, 'click', () => {
         const fileName = tab.getAttribute('data-file')!;
         this.state.setSelectedFile(fileName);
 
@@ -142,6 +145,9 @@ export class TokenScreen extends BaseComponent {
         fileTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
       });
+
+      fileTabs.push(tab);
+      this.fileTabsList.appendChild(tab);
     });
 
     // Auto-select first file

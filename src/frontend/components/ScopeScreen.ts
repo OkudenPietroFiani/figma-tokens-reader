@@ -211,20 +211,24 @@ export class ScopeScreen extends BaseComponent {
       this.selectedCollection = collectionNames[0];
     }
 
-    this.collectionsList.innerHTML = collectionNames.map(collectionName => `
-      <button class="file-tab ${collectionName === this.selectedCollection ? 'active' : ''}" data-collection="${collectionName}">${collectionName}</button>
-    `).join('');
+    // Clear and create collection buttons securely
+    this.collectionsList.innerHTML = '';
 
-    // Add click handlers for collection switching
-    const collectionButtons = this.collectionsList.querySelectorAll('.file-tab');
-    collectionButtons.forEach(btn => {
-      this.addEventListener(btn as HTMLElement, 'click', () => {
-        const collectionName = btn.getAttribute('data-collection')!;
-        console.log('[ScopeScreen] Switching to collection:', collectionName);
-        this.selectedCollection = collectionName;
+    collectionNames.forEach(collectionName => {
+      const button = document.createElement('button');
+      button.className = `file-tab ${collectionName === this.selectedCollection ? 'active' : ''}`;
+      button.setAttribute('data-collection', collectionName);
+      button.textContent = collectionName; // Safe: uses textContent
+
+      this.addEventListener(button, 'click', () => {
+        const name = button.getAttribute('data-collection')!;
+        console.log('[ScopeScreen] Switching to collection:', name);
+        this.selectedCollection = name;
         this.renderCollections(); // Re-render to update active state
         this.filterVariablesByCollection();
       });
+
+      this.collectionsList.appendChild(button);
     });
   }
 
@@ -556,12 +560,14 @@ export class ScopeScreen extends BaseComponent {
         // Render variable item
         const v = value._data;
         const typeText = this.formatTypeText(v.type);
+        const escapedKey = this.escapeHtml(key);
+        const escapedId = this.escapeHtml(v.id);
 
         html += `
           <div class="scope-item" style="padding-left: ${level * 12}px;">
             <div class="scope-item-content">
-              <input type="checkbox" class="scope-checkbox" data-var-id="${v.id}">
-              <span class="scope-var-name">${key}</span>
+              <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
+              <span class="scope-var-name">${escapedKey}</span>
               <span class="scope-type">${typeText}</span>
             </div>
           </div>
@@ -572,7 +578,9 @@ export class ScopeScreen extends BaseComponent {
         const hasCompatibleTypes = groupTypes.size === 1;
 
         // Render group with checkbox only if all children are compatible
-        const groupId = `group-${level}-${key}`;
+        const escapedKey = this.escapeHtml(key);
+        const groupId = `group-${level}-${escapedKey}`;
+
         html += `
           <div class="tree-group" style="padding-left: ${level * 12}px;">
             <div class="tree-header">
@@ -581,7 +589,7 @@ export class ScopeScreen extends BaseComponent {
                 : `<span class="group-checkbox-spacer"></span>`
               }
               <span class="tree-toggle"></span>
-              <span class="tree-label">${key}</span>
+              <span class="tree-label">${escapedKey}</span>
             </div>
             <div class="tree-children" data-group-id="${groupId}">
               ${this.renderVariableTree(value, level + 1)}
@@ -592,6 +600,15 @@ export class ScopeScreen extends BaseComponent {
     }
 
     return html;
+  }
+
+  /**
+   * Escape HTML special characters to prevent XSS
+   */
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**
