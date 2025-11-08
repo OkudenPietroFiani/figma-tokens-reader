@@ -88,7 +88,7 @@ export class TokenController {
       // Validate state has required fields
       ErrorHandler.validateRequired(
         state,
-        ['tokenFiles', 'tokenSource'],
+        ['tokenFiles'],
         'Save Tokens'
       );
 
