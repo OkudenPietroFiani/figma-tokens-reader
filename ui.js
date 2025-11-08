@@ -959,13 +959,7 @@
       await this.bridge.send("save-github-config", config);
       this.setLoading(this.githubLoading, true);
       this.setEnabled(this.syncTokensBtn, false);
-      try {
-        await this.bridge.send("github-import-files", config);
-      } catch (error) {
-        console.error("Error importing files:", error);
-        this.setLoading(this.githubLoading, false);
-        this.setEnabled(this.syncTokensBtn, true);
-      }
+      this.bridge.sendAsync("github-import-files", config);
     }
     /**
      * Handle files imported from GitHub
@@ -1255,24 +1249,14 @@
   };
 
   // src/frontend/index.ts
-  console.log("[Frontend] Script loading...");
-  console.log("[Frontend] All imports loaded");
   var FrontendApp = class {
     constructor() {
-      console.log("[FrontendApp] Constructor starting...");
-      console.log("[FrontendApp] Creating AppState...");
       this.state = new AppState();
-      console.log("[FrontendApp] Creating PluginBridge...");
       this.bridge = new PluginBridge();
-      console.log("[FrontendApp] Creating WelcomeScreen...");
       this.welcomeScreen = new WelcomeScreen(this.state);
-      console.log("[FrontendApp] Creating ImportScreen...");
       this.importScreen = new ImportScreen(this.state, this.bridge);
-      console.log("[FrontendApp] Creating TokenScreen...");
       this.tokenScreen = new TokenScreen(this.state, this.bridge);
-      console.log("[FrontendApp] Creating ScopeScreen...");
       this.scopeScreen = new ScopeScreen(this.state, this.bridge);
-      console.log("[FrontendApp] Initializing components...");
       this.welcomeScreen.init();
       this.importScreen.init();
       this.tokenScreen.init();
@@ -1282,7 +1266,6 @@
         ["import", this.importScreen],
         ["token", this.tokenScreen]
       ]);
-      console.log("[FrontendApp] Initialized");
     }
     /**
      * Initialize and start the application
@@ -1297,19 +1280,19 @@
         this.handleScreenChange(screen);
       });
       this.setupBackendHandlers();
-      console.log("[FrontendApp] Started");
+      console.log("[Frontend] Application started");
     }
     /**
      * Handle screen navigation
      */
     handleScreenChange(screen) {
-      console.log(`[FrontendApp] Navigating to: ${screen}`);
+      console.log(`[Frontend] Navigating to: ${screen}`);
       this.screens.forEach((s) => s.hide());
       const targetScreen = this.screens.get(screen);
       if (targetScreen) {
         targetScreen.show();
       } else {
-        console.warn(`[FrontendApp] Unknown screen: ${screen}`);
+        console.warn(`[Frontend] Unknown screen: ${screen}`);
       }
     }
     /**
@@ -1317,46 +1300,30 @@
      */
     setupBackendHandlers() {
       this.bridge.on("import-success", (message) => {
-        console.log("[FrontendApp] Import success:", message);
+        console.log("[Frontend] Import success:", message);
       });
       this.bridge.on("error", (message) => {
-        console.error("[FrontendApp] Backend error:", message);
+        console.error("[Frontend] Backend error:", message);
       });
       this.bridge.on("github-files-fetched", (data) => {
-        console.log("[FrontendApp] GitHub files fetched:", data);
+        console.log("[Frontend] GitHub files fetched:", data);
       });
       this.bridge.on("tokens-loaded", (data) => {
-        console.log("[FrontendApp] Tokens loaded:", data);
+        console.log("[Frontend] Tokens loaded:", data);
       });
-      console.log("[FrontendApp] Backend handlers setup complete");
     }
   };
-  console.log("[Frontend] Setting up initialization...");
-  console.log("[Frontend] document.readyState:", document.readyState);
   try {
     if (document.readyState === "loading") {
-      console.log("[Frontend] Waiting for DOMContentLoaded...");
       document.addEventListener("DOMContentLoaded", () => {
-        console.log("[Frontend] DOMContentLoaded fired!");
-        try {
-          const app = new FrontendApp();
-          app.init();
-        } catch (error) {
-          console.error("[Frontend] Error during initialization:", error);
-          console.error("[Frontend] Error stack:", error instanceof Error ? error.stack : "No stack");
-        }
-      });
-    } else {
-      console.log("[Frontend] DOM already loaded, initializing immediately...");
-      try {
         const app = new FrontendApp();
         app.init();
-      } catch (error) {
-        console.error("[Frontend] Error during initialization:", error);
-        console.error("[Frontend] Error stack:", error instanceof Error ? error.stack : "No stack");
-      }
+      });
+    } else {
+      const app = new FrontendApp();
+      app.init();
     }
   } catch (error) {
-    console.error("[Frontend] Error in setup:", error);
+    console.error("[Frontend] Initialization error:", error);
   }
 })();
