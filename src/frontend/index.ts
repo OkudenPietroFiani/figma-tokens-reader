@@ -135,12 +135,32 @@ class FrontendApp {
 }
 
 // Initialize app when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const app = new FrontendApp();
-    app.init();
-  });
-} else {
-  const app = new FrontendApp();
-  app.init();
+console.log('[Frontend] Setting up initialization...');
+console.log('[Frontend] document.readyState:', document.readyState);
+
+try {
+  if (document.readyState === 'loading') {
+    console.log('[Frontend] Waiting for DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Frontend] DOMContentLoaded fired!');
+      try {
+        const app = new FrontendApp();
+        app.init();
+      } catch (error) {
+        console.error('[Frontend] Error during initialization:', error);
+        console.error('[Frontend] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      }
+    });
+  } else {
+    console.log('[Frontend] DOM already loaded, initializing immediately...');
+    try {
+      const app = new FrontendApp();
+      app.init();
+    } catch (error) {
+      console.error('[Frontend] Error during initialization:', error);
+      console.error('[Frontend] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    }
+  }
+} catch (error) {
+  console.error('[Frontend] Error in setup:', error);
 }
