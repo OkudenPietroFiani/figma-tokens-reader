@@ -29,6 +29,14 @@ export abstract class BaseComponent {
   constructor(state: AppState) {
     this.state = state;
     this.element = this.createElement();
+    // Don't call bindEvents() here - let subclass finish initialization first
+  }
+
+  /**
+   * Initialize the component (call after construction)
+   * This ensures all properties are set before binding events
+   */
+  init(): void {
     this.bindEvents();
   }
 

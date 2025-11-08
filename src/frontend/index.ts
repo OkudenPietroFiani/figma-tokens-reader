@@ -51,6 +51,13 @@ class FrontendApp {
     console.log('[FrontendApp] Creating ScopeScreen...');
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
 
+    // Initialize components (bind events after all properties are set)
+    console.log('[FrontendApp] Initializing components...');
+    this.welcomeScreen.init();
+    this.importScreen.init();
+    this.tokenScreen.init();
+    this.scopeScreen.init();
+
     // Register screens
     this.screens = new Map([
       ['welcome', this.welcomeScreen],
