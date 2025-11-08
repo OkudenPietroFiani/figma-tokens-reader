@@ -930,10 +930,22 @@
     console.log('[HTML] Inline script executing - JavaScript is working!');
     console.log('[HTML] document.readyState:', document.readyState);
     console.log('[HTML] About to load ui.js...');
+
+    // Catch all errors
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('[HTML] Global error caught:', {message, source, lineno, colno, error});
+      return false;
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('[HTML] Unhandled promise rejection:', event.reason);
+    });
   </script>
   <script src="ui.js"></script>
   <script>
     console.log('[HTML] ui.js loaded successfully');
+    console.log('[HTML] document.body:', document.body);
+    console.log('[HTML] document.body.children:', document.body.children.length, 'children');
   </script>
 </body>
 </html>
