@@ -1,10 +1,263 @@
 "use strict";
 (() => {
-  // src/constants.ts
+  // src/shared/constants.ts
   var UI_CONFIG = {
     width: 800,
     height: 600
   };
+  var STORAGE_KEYS = {
+    TOKEN_STATE: "tokenState",
+    GITHUB_CONFIG: "githubConfig"
+  };
+  var SCOPE_CATEGORIES = {
+    // Fill scopes
+    fill: {
+      label: "Fill",
+      scopes: ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"]
+    },
+    // Stroke scopes
+    stroke: {
+      label: "Stroke",
+      scopes: ["STROKE_COLOR"]
+    },
+    // Effect scopes
+    effect: {
+      label: "Effect",
+      scopes: ["EFFECT_COLOR"]
+    },
+    // Size & spacing
+    sizeSpacing: {
+      label: "Size & Spacing",
+      scopes: ["CORNER_RADIUS", "WIDTH_HEIGHT", "GAP"]
+    },
+    // Text content
+    textContent: {
+      label: "Text Content",
+      scopes: ["TEXT_CONTENT"]
+    },
+    // Typography
+    typography: {
+      label: "Typography",
+      scopes: [
+        "FONT_FAMILY",
+        "FONT_STYLE",
+        "FONT_WEIGHT",
+        "FONT_SIZE",
+        "LINE_HEIGHT",
+        "LETTER_SPACING",
+        "PARAGRAPH_SPACING",
+        "PARAGRAPH_INDENT"
+      ]
+    }
+  };
+  var ALL_SCOPES = Object.values(SCOPE_CATEGORIES).flatMap((category) => category.scopes);
+  var ERROR_MESSAGES = {
+    // GitHub errors
+    GITHUB_INVALID_URL: "Invalid GitHub URL format",
+    GITHUB_FETCH_FAILED: "Failed to fetch repository files",
+    GITHUB_NO_TOKEN: "GitHub token is required for private repositories",
+    // Import errors
+    IMPORT_NO_FILES: "No valid token files found",
+    IMPORT_PARSE_FAILED: "Failed to parse token file",
+    IMPORT_NO_SELECTION: "Please select at least one file",
+    // Token errors
+    TOKEN_INVALID_FORMAT: "Invalid token format",
+    TOKEN_SYNC_FAILED: "Failed to sync tokens to Figma",
+    // Scope errors
+    SCOPE_APPLY_FAILED: "Failed to apply scopes to variables",
+    SCOPE_NO_VARIABLES: "No Figma variables found",
+    // Storage errors
+    STORAGE_SAVE_FAILED: "Failed to save data to storage",
+    STORAGE_LOAD_FAILED: "Failed to load data from storage",
+    // Generic
+    UNKNOWN_ERROR: "An unknown error occurred"
+  };
+  var SUCCESS_MESSAGES = {
+    IMPORT_SUCCESS: " Tokens imported successfully",
+    SYNC_SUCCESS: " Tokens synced to Figma",
+    SCOPE_APPLIED: " Scopes updated successfully",
+    CONFIG_SAVED: " Configuration saved"
+  };
+
+  // src/shared/types.ts
+  var Success = (data) => ({ success: true, data });
+  var Failure = (error) => ({ success: false, error });
+
+  // src/backend/utils/ErrorHandler.ts
+  var ErrorHandler = class {
+    /**
+     * Wrap an async operation with error handling
+     * Catches exceptions and converts to Result type
+     *
+     * @param operation - Async function to execute
+     * @param context - Context description for logging
+     * @returns Result<T> with success/failure
+     */
+    static async handle(operation, context) {
+      try {
+        console.log(`[${context}] Starting operation...`);
+        const data = await operation();
+        console.log(`[${context}]  Operation completed successfully`);
+        return Success(data);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[${context}]  Error:`, errorMessage);
+        console.error(`[${context}] Stack trace:`, error instanceof Error ? error.stack : "N/A");
+        return Failure(errorMessage);
+      }
+    }
+    /**
+     * Wrap a synchronous operation with error handling
+     */
+    static handleSync(operation, context) {
+      try {
+        console.log(`[${context}] Starting operation...`);
+        const data = operation();
+        console.log(`[${context}]  Operation completed successfully`);
+        return Success(data);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[${context}]  Error:`, errorMessage);
+        return Failure(errorMessage);
+      }
+    }
+    /**
+     * Send error notification to UI
+     * Does not throw - just notifies user
+     */
+    static notifyUser(message, type = "error") {
+      try {
+        if (type === "error") {
+          console.error("[User Notification]", message);
+          figma.notify(`L ${message}`, { error: true });
+        } else if (type === "success") {
+          console.log("[User Notification]", message);
+          figma.notify(message, { timeout: 3e3 });
+        } else {
+          console.info("[User Notification]", message);
+          figma.notify(message, { timeout: 3e3 });
+        }
+        figma.ui.postMessage({
+          type: type === "error" ? "error" : "info",
+          message
+        });
+      } catch (err) {
+        console.error("[ErrorHandler] Failed to send notification:", err);
+      }
+    }
+    /**
+     * Get user-friendly error message from error code
+     */
+    static getErrorMessage(errorCode) {
+      return ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.UNKNOWN_ERROR;
+    }
+    /**
+     * Validate required fields
+     * Throws error if validation fails (fail-fast principle)
+     */
+    static validateRequired(data, requiredFields, context) {
+      const missingFields = requiredFields.filter((field) => {
+        const value = data[field];
+        return value === void 0 || value === null || value === "";
+      });
+      if (missingFields.length > 0) {
+        const error = `Missing required fields: ${missingFields.join(", ")}`;
+        console.error(`[${context}] Validation failed:`, error);
+        throw new Error(error);
+      }
+    }
+    /**
+     * Assert condition is true
+     * Throws error if condition is false (fail-fast principle)
+     */
+    static assert(condition, message, context) {
+      if (!condition) {
+        console.error(`[${context}] Assertion failed:`, message);
+        throw new Error(message);
+      }
+    }
+    /**
+     * Log warning without throwing
+     */
+    static warn(message, context) {
+      console.warn(`[${context}] Warning:`, message);
+    }
+    /**
+     * Log info message
+     */
+    static info(message, context) {
+      console.log(`[${context}]`, message);
+    }
+    /**
+     * Format error for display
+     * Extracts meaningful message from various error types
+     */
+    static formatError(error) {
+      if (error instanceof Error) {
+        return error.message;
+      }
+      if (typeof error === "string") {
+        return error;
+      }
+      if (typeof error === "object" && error !== null) {
+        const errorObj = error;
+        if (errorObj.message) return String(errorObj.message);
+        if (errorObj.error) return String(errorObj.error);
+        try {
+          return JSON.stringify(error);
+        } catch (e) {
+          return String(error);
+        }
+      }
+      return ERROR_MESSAGES.UNKNOWN_ERROR;
+    }
+    /**
+     * Create a Result from a thrown error
+     * Useful in catch blocks
+     */
+    static fromError(error, context) {
+      const message = this.formatError(error);
+      if (context) {
+        console.error(`[${context}] Error:`, message);
+      }
+      return Failure(message);
+    }
+    /**
+     * Retry an operation with exponential backoff
+     * Useful for network operations
+     */
+    static async retry(operation, maxRetries = 3, context = "Retry Operation") {
+      let lastError;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[${context}] Attempt ${attempt}/${maxRetries}...`);
+          const result = await operation();
+          console.log(`[${context}]  Success on attempt ${attempt}`);
+          return Success(result);
+        } catch (error) {
+          lastError = error;
+          const message = this.formatError(error);
+          console.warn(`[${context}] Attempt ${attempt}/${maxRetries} failed:`, message);
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1e3;
+            console.log(`[${context}] Waiting ${delay}ms before retry...`);
+            await this.sleep(delay);
+          }
+        }
+      }
+      const errorMessage = this.formatError(lastError);
+      console.error(`[${context}] All ${maxRetries} attempts failed. Last error:`, errorMessage);
+      return Failure(`Operation failed after ${maxRetries} attempts: ${errorMessage}`);
+    }
+    /**
+     * Helper: Sleep for specified milliseconds
+     */
+    static sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  };
+
+  // src/constants.ts
   var COLLECTION_NAMES = {
     primitive: "primitive",
     semantic: "semantic"
@@ -901,215 +1154,755 @@
     }
   };
 
-  // src/main.ts
-  var variableManager = new VariableManager();
-  var githubService = new GitHubService();
-  figma.showUI(__html__, { width: UI_CONFIG.width, height: UI_CONFIG.height });
-  figma.ui.onmessage = async (msg) => {
-    try {
-      switch (msg.type) {
-        case "import-tokens":
-          await handleImportTokens(msg);
-          break;
-        case "github-fetch-files":
-          await handleGitHubFetchFiles(msg.data);
-          break;
-        case "github-import-files":
-          await handleGitHubImportFiles(msg.data);
-          break;
-        case "load-github-config":
-          await handleLoadGithubConfig();
-          break;
-        case "save-github-config":
-          await handleSaveGithubConfig(msg.data);
-          break;
-        case "save-tokens":
-          await handleSaveTokens(msg.data);
-          break;
-        case "load-tokens":
-          await handleLoadTokens();
-          break;
-        case "get-figma-variables":
-          await handleGetFigmaVariables();
-          break;
-        case "apply-variable-scopes":
-          await handleApplyVariableScopes(msg.data);
-          break;
-        case "cancel":
-          figma.closePlugin();
-          break;
-        default:
-          console.warn("Unknown message type:", msg.type);
-      }
-    } catch (error) {
-      console.error("Error in plugin:", error);
-      figma.ui.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Unknown error occurred"
-      });
+  // src/backend/services/StorageService.ts
+  var StorageService = class {
+    /**
+     * Save token state to storage
+     * Preserves user's current token files and source
+     */
+    async saveTokenState(state) {
+      return ErrorHandler.handle(async () => {
+        const serialized = JSON.stringify(state);
+        await figma.clientStorage.setAsync(STORAGE_KEYS.TOKEN_STATE, serialized);
+        ErrorHandler.info(`Token state saved (${Object.keys(state.tokenFiles).length} files)`, "StorageService");
+      }, "Save Token State");
+    }
+    /**
+     * Load token state from storage
+     * Returns null if no state exists
+     */
+    async getTokenState() {
+      return ErrorHandler.handle(async () => {
+        const serialized = await figma.clientStorage.getAsync(STORAGE_KEYS.TOKEN_STATE);
+        if (!serialized) {
+          ErrorHandler.info("No token state found in storage", "StorageService");
+          return null;
+        }
+        const state = JSON.parse(serialized);
+        ErrorHandler.info(`Token state loaded (${Object.keys(state.tokenFiles).length} files)`, "StorageService");
+        return state;
+      }, "Load Token State");
+    }
+    /**
+     * Clear token state from storage
+     */
+    async clearTokenState() {
+      return ErrorHandler.handle(async () => {
+        await figma.clientStorage.deleteAsync(STORAGE_KEYS.TOKEN_STATE);
+        ErrorHandler.info("Token state cleared", "StorageService");
+      }, "Clear Token State");
+    }
+    /**
+     * Save GitHub configuration to storage
+     * Allows resuming GitHub sync without re-entering credentials
+     */
+    async saveGitHubConfig(config) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          config,
+          ["owner", "repo", "branch"],
+          "Save GitHub Config"
+        );
+        const serialized = JSON.stringify(config);
+        await figma.clientStorage.setAsync(STORAGE_KEYS.GITHUB_CONFIG, serialized);
+        ErrorHandler.info(`GitHub config saved (${config.owner}/${config.repo}@${config.branch})`, "StorageService");
+      }, "Save GitHub Config");
+    }
+    /**
+     * Load GitHub configuration from storage
+     * Returns null if no config exists
+     */
+    async getGitHubConfig() {
+      return ErrorHandler.handle(async () => {
+        const serialized = await figma.clientStorage.getAsync(STORAGE_KEYS.GITHUB_CONFIG);
+        if (!serialized) {
+          ErrorHandler.info("No GitHub config found in storage", "StorageService");
+          return null;
+        }
+        const config = JSON.parse(serialized);
+        ErrorHandler.info(`GitHub config loaded (${config.owner}/${config.repo}@${config.branch})`, "StorageService");
+        return config;
+      }, "Load GitHub Config");
+    }
+    /**
+     * Clear GitHub configuration from storage
+     */
+    async clearGitHubConfig() {
+      return ErrorHandler.handle(async () => {
+        await figma.clientStorage.deleteAsync(STORAGE_KEYS.GITHUB_CONFIG);
+        ErrorHandler.info("GitHub config cleared", "StorageService");
+      }, "Clear GitHub Config");
+    }
+    /**
+     * Clear all storage data
+     * Useful for plugin reset or debugging
+     */
+    async clearAll() {
+      return ErrorHandler.handle(async () => {
+        await figma.clientStorage.deleteAsync(STORAGE_KEYS.TOKEN_STATE);
+        await figma.clientStorage.deleteAsync(STORAGE_KEYS.GITHUB_CONFIG);
+        ErrorHandler.info("All storage cleared", "StorageService");
+      }, "Clear All Storage");
+    }
+    /**
+     * Get storage usage statistics
+     * Useful for debugging
+     */
+    async getStorageStats() {
+      return ErrorHandler.handle(async () => {
+        const tokenState = await figma.clientStorage.getAsync(STORAGE_KEYS.TOKEN_STATE);
+        const githubConfig = await figma.clientStorage.getAsync(STORAGE_KEYS.GITHUB_CONFIG);
+        const stats = {
+          tokenStateSize: tokenState ? tokenState.length : 0,
+          githubConfigSize: githubConfig ? githubConfig.length : 0
+        };
+        ErrorHandler.info(`Storage stats: tokenState=${stats.tokenStateSize} bytes, githubConfig=${stats.githubConfigSize} bytes`, "StorageService");
+        return stats;
+      }, "Get Storage Stats");
     }
   };
-  async function handleImportTokens(msg) {
-    const { primitives, semantics } = msg.data;
-    const stats = await variableManager.importTokens(primitives, semantics);
-    figma.ui.postMessage({
-      type: "import-success",
-      message: `\u2713 Tokens imported: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`
-    });
-  }
-  async function handleGitHubFetchFiles(data) {
-    try {
-      const { token, owner, repo, branch } = data;
-      const fileObjects = await githubService.fetchRepositoryFiles({ token, owner, repo, branch });
-      const files = fileObjects.map((file) => file.path);
-      figma.ui.postMessage({
-        type: "github-files-fetched",
-        data: { files }
-      });
-    } catch (error) {
-      console.error("Error fetching GitHub files:", error);
-      figma.ui.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to fetch repository files"
-      });
+
+  // src/backend/controllers/TokenController.ts
+  var TokenController = class {
+    constructor(variableManager, storage) {
+      this.variableManager = variableManager;
+      this.storage = storage;
     }
-  }
-  async function handleGitHubImportFiles(data) {
-    try {
-      console.log("handleGitHubImportFiles called with data:", data);
-      const { token, owner, repo, branch, files } = data;
-      console.log("Fetching files from GitHub:", { owner, repo, branch, fileCount: files.length });
-      const { primitives, semantics } = await githubService.fetchMultipleFiles(
-        { token, owner, repo, branch },
-        files
+    /**
+     * Import tokens to Figma variables
+     * Creates/updates variables and text styles
+     *
+     * @param data - Token import data with primitives and semantics
+     * @returns Import statistics
+     */
+    async importTokens(data) {
+      return ErrorHandler.handle(async () => {
+        const { primitives, semantics } = data;
+        if (!primitives && !semantics) {
+          throw new Error("No token data provided. Expected primitives or semantics.");
+        }
+        ErrorHandler.info(
+          `Importing tokens (primitives: ${primitives ? "yes" : "no"}, semantics: ${semantics ? "yes" : "no"})`,
+          "TokenController"
+        );
+        const stats = await this.variableManager.importTokens(
+          primitives || {},
+          semantics || {}
+        );
+        ErrorHandler.info(
+          `Import completed: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`,
+          "TokenController"
+        );
+        ErrorHandler.notifyUser(
+          `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} added, ${stats.updated} updated`,
+          "success"
+        );
+        return stats;
+      }, "Import Tokens");
+    }
+    /**
+     * Save token state to persistent storage
+     * Allows resuming work without re-importing
+     *
+     * @param state - Token state to save
+     */
+    async saveTokens(state) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          state,
+          ["tokenFiles", "tokenSource"],
+          "Save Tokens"
+        );
+        const result = await this.storage.saveTokenState(state);
+        if (!result.success) {
+          throw new Error(result.error || "Failed to save token state");
+        }
+        ErrorHandler.info("Token state saved successfully", "TokenController");
+      }, "Save Token State");
+    }
+    /**
+     * Load token state from persistent storage
+     * Restores previously imported tokens
+     *
+     * @returns Token state or null if not found
+     */
+    async loadTokens() {
+      return ErrorHandler.handle(async () => {
+        const result = await this.storage.getTokenState();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load token state");
+        }
+        if (!result.data) {
+          ErrorHandler.info("No saved token state found", "TokenController");
+          return null;
+        }
+        ErrorHandler.info(
+          `Token state loaded: ${Object.keys(result.data.tokenFiles).length} files`,
+          "TokenController"
+        );
+        return result.data;
+      }, "Load Token State");
+    }
+    /**
+     * Clear all saved token state
+     * Useful for plugin reset
+     */
+    async clearTokens() {
+      return ErrorHandler.handle(async () => {
+        const result = await this.storage.clearTokenState();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to clear token state");
+        }
+        ErrorHandler.info("Token state cleared", "TokenController");
+        ErrorHandler.notifyUser("Token state cleared", "success");
+      }, "Clear Token State");
+    }
+    /**
+     * Get token metadata from last import
+     * Useful for debugging and UI display
+     */
+    getTokenMetadata() {
+      return this.variableManager.getTokenMetadata();
+    }
+  };
+
+  // src/backend/controllers/GitHubController.ts
+  var GitHubController = class {
+    constructor(githubService, storage) {
+      this.githubService = githubService;
+      this.storage = storage;
+    }
+    /**
+     * Fetch list of files from GitHub repository
+     * Returns only .json files suitable for token import
+     *
+     * @param config - GitHub repository configuration
+     * @returns Array of file paths
+     */
+    async fetchFiles(config) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          config,
+          ["owner", "repo", "branch"],
+          "Fetch GitHub Files"
+        );
+        ErrorHandler.info(
+          `Fetching files from ${config.owner}/${config.repo}@${config.branch}`,
+          "GitHubController"
+        );
+        const fileObjects = await this.githubService.fetchRepositoryFiles(config);
+        const filePaths = fileObjects.map((file) => file.path);
+        ErrorHandler.info(
+          `Found ${filePaths.length} JSON files in repository`,
+          "GitHubController"
+        );
+        return filePaths;
+      }, "Fetch GitHub Files");
+    }
+    /**
+     * Import multiple token files from GitHub
+     * Fetches and parses selected files
+     *
+     * @param config - GitHub configuration with selected files
+     * @returns Token data organized by primitives/semantics
+     */
+    async importFiles(config) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          config,
+          ["owner", "repo", "branch", "files"],
+          "Import GitHub Files"
+        );
+        ErrorHandler.assert(
+          config.files && config.files.length > 0,
+          "No files selected for import",
+          "Import GitHub Files"
+        );
+        ErrorHandler.info(
+          `Importing ${config.files.length} files from ${config.owner}/${config.repo}@${config.branch}`,
+          "GitHubController"
+        );
+        const result = await this.githubService.fetchMultipleFiles(
+          config,
+          config.files
+        );
+        ErrorHandler.info(
+          `Files imported successfully (primitives: ${result.primitives ? "yes" : "no"}, semantics: ${result.semantics ? "yes" : "no"})`,
+          "GitHubController"
+        );
+        return result;
+      }, "Import GitHub Files");
+    }
+    /**
+     * Save GitHub configuration to storage
+     * Allows resuming GitHub sync without re-entering credentials
+     *
+     * @param config - GitHub configuration to save
+     */
+    async saveConfig(config) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          config,
+          ["owner", "repo", "branch"],
+          "Save GitHub Config"
+        );
+        const result = await this.storage.saveGitHubConfig(config);
+        if (!result.success) {
+          throw new Error(result.error || "Failed to save GitHub configuration");
+        }
+        ErrorHandler.info("GitHub configuration saved", "GitHubController");
+        ErrorHandler.notifyUser(SUCCESS_MESSAGES.CONFIG_SAVED, "success");
+      }, "Save GitHub Config");
+    }
+    /**
+     * Load GitHub configuration from storage
+     * Restores previously saved credentials and repo info
+     *
+     * @returns GitHub config or null if not found
+     */
+    async loadConfig() {
+      return ErrorHandler.handle(async () => {
+        const result = await this.storage.getGitHubConfig();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load GitHub configuration");
+        }
+        if (!result.data) {
+          ErrorHandler.info("No saved GitHub config found", "GitHubController");
+          return null;
+        }
+        ErrorHandler.info(
+          `GitHub config loaded: ${result.data.owner}/${result.data.repo}@${result.data.branch}`,
+          "GitHubController"
+        );
+        return result.data;
+      }, "Load GitHub Config");
+    }
+    /**
+     * Clear saved GitHub configuration
+     * Useful for disconnecting from repository
+     */
+    async clearConfig() {
+      return ErrorHandler.handle(async () => {
+        const result = await this.storage.clearGitHubConfig();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to clear GitHub configuration");
+        }
+        ErrorHandler.info("GitHub configuration cleared", "GitHubController");
+        ErrorHandler.notifyUser("GitHub configuration cleared", "success");
+      }, "Clear GitHub Config");
+    }
+    /**
+     * Validate GitHub configuration
+     * Tests connection to repository without fetching files
+     *
+     * @param config - GitHub configuration to validate
+     * @returns True if valid, false otherwise
+     */
+    async validateConfig(config) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.validateRequired(
+          config,
+          ["owner", "repo", "branch"],
+          "Validate GitHub Config"
+        );
+        try {
+          await this.githubService.fetchRepositoryFiles(config);
+          ErrorHandler.info("GitHub configuration is valid", "GitHubController");
+          return true;
+        } catch (error) {
+          ErrorHandler.warn(
+            `GitHub configuration validation failed: ${ErrorHandler.formatError(error)}`,
+            "GitHubController"
+          );
+          return false;
+        }
+      }, "Validate GitHub Config");
+    }
+  };
+
+  // src/backend/controllers/ScopeController.ts
+  var ScopeController = class {
+    /**
+     * Get all Figma variables with their current scopes
+     * Useful for UI display and scope management
+     *
+     * @returns Map of variable names to variable data
+     */
+    async getFigmaVariables() {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.info("Fetching all Figma variables...", "ScopeController");
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const variables = {};
+        for (const collection of collections) {
+          ErrorHandler.info(`Processing collection: ${collection.name}`, "ScopeController");
+          const variablePromises = collection.variableIds.map(
+            (id) => figma.variables.getVariableByIdAsync(id)
+          );
+          const collectionVariables = await Promise.all(variablePromises);
+          for (const variable of collectionVariables) {
+            if (variable) {
+              variables[variable.name] = {
+                id: variable.id,
+                name: variable.name,
+                scopes: variable.scopes,
+                type: variable.resolvedType,
+                collection: collection.name,
+                collectionId: collection.id
+              };
+            }
+          }
+        }
+        const count = Object.keys(variables).length;
+        ErrorHandler.info(`Found ${count} variables across ${collections.length} collections`, "ScopeController");
+        if (count === 0) {
+          ErrorHandler.warn("No Figma variables found. Import tokens first.", "ScopeController");
+        }
+        return variables;
+      }, "Get Figma Variables");
+    }
+    /**
+     * Apply scope assignments to variables
+     * Updates the scopes property of selected variables
+     *
+     * @param scopeAssignments - Map of variable names to scope arrays
+     * @returns Number of variables updated
+     */
+    async applyScopes(scopeAssignments) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.assert(
+          scopeAssignments && Object.keys(scopeAssignments).length > 0,
+          "No scope assignments provided",
+          "Apply Scopes"
+        );
+        const variableNames = Object.keys(scopeAssignments);
+        ErrorHandler.info(
+          `Applying scopes to ${variableNames.length} variable(s)`,
+          "ScopeController"
+        );
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        let updatedCount = 0;
+        for (const collection of collections) {
+          const variablePromises = collection.variableIds.map(
+            (id) => figma.variables.getVariableByIdAsync(id)
+          );
+          const collectionVariables = await Promise.all(variablePromises);
+          for (const variable of collectionVariables) {
+            if (variable && scopeAssignments[variable.name] !== void 0) {
+              const newScopes = scopeAssignments[variable.name];
+              this.validateScopes(newScopes, variable.name);
+              variable.scopes = newScopes;
+              updatedCount++;
+              ErrorHandler.info(
+                `Updated scopes for ${variable.name}: ${newScopes.join(", ")}`,
+                "ScopeController"
+              );
+            }
+          }
+        }
+        ErrorHandler.info(`Scopes updated for ${updatedCount} variable(s)`, "ScopeController");
+        if (updatedCount === 0) {
+          ErrorHandler.warn("No variables were updated. Check variable names.", "ScopeController");
+        }
+        ErrorHandler.notifyUser(
+          `${SUCCESS_MESSAGES.SCOPE_APPLIED}: ${updatedCount} variable(s)`,
+          "success"
+        );
+        return updatedCount;
+      }, "Apply Scopes");
+    }
+    /**
+     * Get variable by name across all collections
+     * Useful for finding a specific variable
+     *
+     * @param variableName - Name of the variable to find
+     * @returns Variable or null if not found
+     */
+    async getVariableByName(variableName) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.info(`Searching for variable: ${variableName}`, "ScopeController");
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        for (const collection of collections) {
+          const variablePromises = collection.variableIds.map(
+            (id) => figma.variables.getVariableByIdAsync(id)
+          );
+          const collectionVariables = await Promise.all(variablePromises);
+          const variable = collectionVariables.find((v) => v && v.name === variableName);
+          if (variable) {
+            ErrorHandler.info(`Found variable: ${variableName}`, "ScopeController");
+            return variable;
+          }
+        }
+        ErrorHandler.info(`Variable not found: ${variableName}`, "ScopeController");
+        return null;
+      }, "Get Variable By Name");
+    }
+    /**
+     * Get variables by collection name
+     * Useful for filtering variables
+     *
+     * @param collectionName - Name of the collection
+     * @returns Array of variables in the collection
+     */
+    async getVariablesByCollection(collectionName) {
+      return ErrorHandler.handle(async () => {
+        ErrorHandler.info(`Fetching variables from collection: ${collectionName}`, "ScopeController");
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const targetCollection = collections.find((c) => c.name === collectionName);
+        if (!targetCollection) {
+          ErrorHandler.warn(`Collection not found: ${collectionName}`, "ScopeController");
+          return [];
+        }
+        const variablePromises = targetCollection.variableIds.map(
+          (id) => figma.variables.getVariableByIdAsync(id)
+        );
+        const variables = await Promise.all(variablePromises);
+        const validVariables = variables.filter((v) => v !== null);
+        ErrorHandler.info(
+          `Found ${validVariables.length} variables in collection: ${collectionName}`,
+          "ScopeController"
+        );
+        return validVariables;
+      }, "Get Variables By Collection");
+    }
+    /**
+     * Validate scope array
+     * Ensures scopes are valid Figma VariableScope values
+     *
+     * @param scopes - Array of scope strings
+     * @param variableName - Variable name for error messages
+     */
+    validateScopes(scopes, variableName) {
+      ErrorHandler.assert(
+        Array.isArray(scopes),
+        `Scopes for ${variableName} must be an array`,
+        "Validate Scopes"
       );
-      console.log("Files fetched successfully, sending to preview screen...");
-      figma.ui.postMessage({
-        type: "github-files-imported",
-        data: { primitives, semantics }
-      });
-    } catch (error) {
-      console.error("Error in handleGitHubImportFiles:", error);
-      figma.ui.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to import files from GitHub"
-      });
     }
-  }
-  async function handleLoadGithubConfig() {
-    try {
-      const configString = await figma.clientStorage.getAsync("githubConfig");
-      if (configString) {
-        const config = JSON.parse(configString);
+    /**
+     * Reset all scopes for a variable (set to empty)
+     * Useful for clearing scope assignments
+     *
+     * @param variableName - Name of the variable to reset
+     */
+    async resetScopes(variableName) {
+      return ErrorHandler.handle(async () => {
+        const result = await this.getVariableByName(variableName);
+        if (!result.success) {
+          throw new Error(result.error || "Failed to find variable");
+        }
+        if (!result.data) {
+          throw new Error(`Variable not found: ${variableName}`);
+        }
+        const variable = result.data;
+        variable.scopes = [];
+        ErrorHandler.info(`Scopes reset for ${variableName}`, "ScopeController");
+        ErrorHandler.notifyUser(`Scopes reset for ${variableName}`, "success");
+      }, "Reset Scopes");
+    }
+    /**
+     * Get scope statistics
+     * Useful for debugging and UI display
+     *
+     * @returns Statistics about scope usage
+     */
+    async getScopeStats() {
+      return ErrorHandler.handle(async () => {
+        const result = await this.getFigmaVariables();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to fetch variables");
+        }
+        const variables = Object.values(result.data);
+        const totalVariables = variables.length;
+        const variablesWithScopes = variables.filter((v) => v.scopes.length > 0).length;
+        const variablesWithoutScopes = totalVariables - variablesWithScopes;
+        const stats = {
+          totalVariables,
+          variablesWithScopes,
+          variablesWithoutScopes
+        };
+        ErrorHandler.info(
+          `Scope stats: ${totalVariables} total, ${variablesWithScopes} with scopes, ${variablesWithoutScopes} without scopes`,
+          "ScopeController"
+        );
+        return stats;
+      }, "Get Scope Stats");
+    }
+  };
+
+  // src/backend/main.ts
+  var PluginBackend = class {
+    constructor() {
+      this.variableManager = new VariableManager();
+      this.githubService = new GitHubService();
+      this.storage = new StorageService();
+      this.tokenController = new TokenController(this.variableManager, this.storage);
+      this.githubController = new GitHubController(this.githubService, this.storage);
+      this.scopeController = new ScopeController();
+      ErrorHandler.info("Plugin backend initialized", "PluginBackend");
+    }
+    /**
+     * Initialize the plugin
+     * Shows UI and sets up message handler
+     */
+    init() {
+      figma.showUI(__html__, {
+        width: UI_CONFIG.width,
+        height: UI_CONFIG.height
+      });
+      figma.ui.onmessage = this.handleMessage.bind(this);
+      ErrorHandler.info("Plugin UI shown", "PluginBackend");
+    }
+    /**
+     * Handle messages from UI
+     * Routes messages to appropriate controllers
+     */
+    async handleMessage(msg) {
+      try {
+        ErrorHandler.info(`Received message: ${msg.type}`, "PluginBackend");
+        switch (msg.type) {
+          // ==================== TOKEN OPERATIONS ====================
+          case "import-tokens":
+            await this.handleImportTokens(msg);
+            break;
+          case "save-tokens":
+            await this.handleSaveTokens(msg);
+            break;
+          case "load-tokens":
+            await this.handleLoadTokens();
+            break;
+          // ==================== GITHUB OPERATIONS ====================
+          case "github-fetch-files":
+            await this.handleGitHubFetchFiles(msg);
+            break;
+          case "github-import-files":
+            await this.handleGitHubImportFiles(msg);
+            break;
+          case "load-github-config":
+            await this.handleLoadGitHubConfig();
+            break;
+          case "save-github-config":
+            await this.handleSaveGitHubConfig(msg);
+            break;
+          // ==================== SCOPE OPERATIONS ====================
+          case "get-figma-variables":
+            await this.handleGetFigmaVariables();
+            break;
+          case "apply-variable-scopes":
+            await this.handleApplyVariableScopes(msg);
+            break;
+          // ==================== PLUGIN CONTROL ====================
+          case "cancel":
+            figma.closePlugin();
+            break;
+          default:
+            ErrorHandler.warn(`Unknown message type: ${msg.type}`, "PluginBackend");
+        }
+      } catch (error) {
+        const errorMessage = ErrorHandler.formatError(error);
+        console.error("[PluginBackend] Unhandled error:", errorMessage);
         figma.ui.postMessage({
-          type: "github-config-loaded",
-          data: config
+          type: "error",
+          message: errorMessage
         });
       }
-    } catch (error) {
-      console.error("Error loading GitHub config:", error);
     }
-  }
-  async function handleSaveGithubConfig(data) {
-    try {
-      await figma.clientStorage.setAsync("githubConfig", JSON.stringify(data));
-      figma.notify("GitHub sync configuration saved!", { timeout: 3e3 });
-    } catch (error) {
-      console.error("Error saving GitHub config:", error);
-      throw new Error("Failed to save GitHub configuration");
+    // ==================== TOKEN HANDLERS ====================
+    async handleImportTokens(msg) {
+      const result = await this.tokenController.importTokens({
+        primitives: msg.data.primitives,
+        semantics: msg.data.semantics,
+        source: msg.data.source || "local"
+      });
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "import-success",
+          message: ` Tokens imported: ${result.data.added} added, ${result.data.updated} updated, ${result.data.skipped} skipped`
+        });
+      } else {
+        throw new Error(result.error);
+      }
     }
-  }
-  async function handleSaveTokens(data) {
-    try {
-      await figma.clientStorage.setAsync("tokenState", JSON.stringify(data));
-      console.log("Token state saved successfully");
-    } catch (error) {
-      console.error("Error saving token state:", error);
+    async handleSaveTokens(msg) {
+      const result = await this.tokenController.saveTokens(msg.data);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
     }
-  }
-  async function handleLoadTokens() {
-    try {
-      const tokenStateString = await figma.clientStorage.getAsync("tokenState");
-      if (tokenStateString) {
-        const tokenState = JSON.parse(tokenStateString);
+    async handleLoadTokens() {
+      const result = await this.tokenController.loadTokens();
+      if (result.success && result.data) {
         figma.ui.postMessage({
           type: "tokens-loaded",
-          data: tokenState
+          data: result.data
         });
-        console.log("Token state loaded successfully");
+      } else if (!result.success) {
+        throw new Error(result.error);
       }
-    } catch (error) {
-      console.error("Error loading token state:", error);
     }
-  }
-  async function handleGetFigmaVariables() {
-    try {
-      console.log("Fetching all Figma variables...");
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      const variables = {};
-      for (const collection of collections) {
-        console.log(`Processing collection: ${collection.name}`);
-        const variablePromises = collection.variableIds.map(
-          (id) => figma.variables.getVariableByIdAsync(id)
-        );
-        const collectionVariables = await Promise.all(variablePromises);
-        for (const variable of collectionVariables) {
-          if (variable) {
-            variables[variable.name] = {
-              id: variable.id,
-              name: variable.name,
-              scopes: variable.scopes,
-              type: variable.resolvedType,
-              collection: collection.name,
-              collectionId: collection.id
-            };
-          }
-        }
+    // ==================== GITHUB HANDLERS ====================
+    async handleGitHubFetchFiles(msg) {
+      const result = await this.githubController.fetchFiles(msg.data);
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "github-files-fetched",
+          data: { files: result.data }
+        });
+      } else {
+        throw new Error(result.error);
       }
-      console.log(`Found ${Object.keys(variables).length} variables`);
-      figma.ui.postMessage({
-        type: "figma-variables-loaded",
-        data: { variables }
-      });
-    } catch (error) {
-      console.error("Error fetching Figma variables:", error);
-      figma.ui.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to fetch Figma variables"
-      });
     }
-  }
-  async function handleApplyVariableScopes(data) {
-    try {
-      console.log("Applying scopes to variables:", data);
-      const { variableScopes } = data;
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      let updatedCount = 0;
-      for (const collection of collections) {
-        const variablePromises = collection.variableIds.map(
-          (id) => figma.variables.getVariableByIdAsync(id)
-        );
-        const collectionVariables = await Promise.all(variablePromises);
-        for (const variable of collectionVariables) {
-          if (variable && variableScopes[variable.name] !== void 0) {
-            const newScopes = variableScopes[variable.name];
-            variable.scopes = newScopes;
-            updatedCount++;
-            console.log(`Updated scopes for ${variable.name}:`, newScopes);
-          }
-        }
+    async handleGitHubImportFiles(msg) {
+      const result = await this.githubController.importFiles(msg.data);
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "github-files-imported",
+          data: result.data
+        });
+      } else {
+        throw new Error(result.error);
       }
-      figma.notify(`\u2713 Scopes updated for ${updatedCount} variable(s)`, { timeout: 3e3 });
-      figma.ui.postMessage({
-        type: "scopes-applied",
-        message: `Scopes updated for ${updatedCount} variable(s)`
-      });
-    } catch (error) {
-      console.error("Error applying variable scopes:", error);
-      figma.ui.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to apply variable scopes"
-      });
     }
-  }
+    async handleLoadGitHubConfig() {
+      const result = await this.githubController.loadConfig();
+      if (result.success && result.data) {
+        figma.ui.postMessage({
+          type: "github-config-loaded",
+          data: result.data
+        });
+      } else if (!result.success) {
+        throw new Error(result.error);
+      }
+    }
+    async handleSaveGitHubConfig(msg) {
+      const result = await this.githubController.saveConfig(msg.data);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    }
+    // ==================== SCOPE HANDLERS ====================
+    async handleGetFigmaVariables() {
+      const result = await this.scopeController.getFigmaVariables();
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "figma-variables-loaded",
+          data: { variables: result.data }
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    }
+    async handleApplyVariableScopes(msg) {
+      const result = await this.scopeController.applyScopes(msg.data.variableScopes);
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "scopes-applied",
+          message: `Scopes updated for ${result.data} variable(s)`
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    }
+  };
+  var backend = new PluginBackend();
+  backend.init();
 })();

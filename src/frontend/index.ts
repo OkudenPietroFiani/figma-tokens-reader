@@ -33,11 +33,11 @@ class FrontendApp {
     this.state = new AppState();
     this.bridge = new PluginBridge();
 
-    // Create components
+    // Create components (pass both state and bridge)
     this.welcomeScreen = new WelcomeScreen(this.state);
-    this.importScreen = new ImportScreen(this.state);
-    this.tokenScreen = new TokenScreen(this.state);
-    this.scopeScreen = new ScopeScreen(this.state);
+    this.importScreen = new ImportScreen(this.state, this.bridge);
+    this.tokenScreen = new TokenScreen(this.state, this.bridge);
+    this.scopeScreen = new ScopeScreen(this.state, this.bridge);
 
     // Register screens
     this.screens = new Map([
