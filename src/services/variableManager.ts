@@ -4,6 +4,7 @@ import { COLLECTION_NAMES } from '../constants';
 import { DesignToken, TokenData, ImportStats, TokenMetadata } from '../types';
 import { inferTokenType } from '../utils/parser';
 import { mapTokenTypeToFigma, processTokenValue } from '../utils/tokenProcessor';
+import { StyleManager } from './styleManager';
 
 export class VariableManager {
   private variableMap: Map<string, Variable>;
@@ -44,6 +45,20 @@ export class VariableManager {
         console.log('\n=== PROCESSING SEMANTICS ===');
         const cleanedSemantics = this.prepareAndValidateTokens(semantics, 'semantic');
         await this.processTokenGroup(cleanedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
+      }
+
+      // Create text styles for composite typography tokens
+      // This runs after variables are created so references can be resolved
+      const styleManager = new StyleManager(this.variableMap);
+
+      if (primitives) {
+        const cleanedPrimitives = this.prepareAndValidateTokens(primitives, 'primitive');
+        await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+      }
+
+      if (semantics) {
+        const cleanedSemantics = this.prepareAndValidateTokens(semantics, 'semantic');
+        await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
       }
 
       figma.notify(
@@ -325,7 +340,13 @@ export class VariableManager {
       // Check if this is a token (has $value) or a group
       if (value && typeof value === 'object') {
         if ('$value' in value) {
-          // This is a token
+          // Skip composite typography tokens - they'll be handled as text styles
+          if (this.isCompositeTypographyToken(value)) {
+            console.log(`[SKIP] Skipping typography token ${currentPath.join('/')} - will be created as text style`);
+            continue;
+          }
+
+          // This is a simple token - create variable
           await this.createVariable(value, currentPath, collection, collectionName);
         } else {
           // This is a group, recurse
@@ -333,6 +354,19 @@ export class VariableManager {
         }
       }
     }
+  }
+
+  /**
+   * Check if token is a composite typography token
+   * These will be created as text styles instead of variables
+   */
+  private isCompositeTypographyToken(token: any): boolean {
+    return (
+      token.$type === 'typography' &&
+      token.$value &&
+      typeof token.$value === 'object' &&
+      !Array.isArray(token.$value)
+    );
   }
 
   private async createVariable(

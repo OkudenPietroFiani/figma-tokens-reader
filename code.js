@@ -241,6 +241,205 @@
     return null;
   }
 
+  // src/services/styleManager.ts
+  var StyleManager = class {
+    constructor(variableMap) {
+      this.variableMap = variableMap;
+      this.styleStats = { created: 0, updated: 0, skipped: 0 };
+    }
+    /**
+     * Process tokens and create text styles for composite typography tokens
+     * Clean code: Single responsibility - only handles text styles
+     */
+    async createTextStyles(tokens, pathPrefix = []) {
+      console.log("\n=== CREATING TEXT STYLES ===");
+      this.styleStats = { created: 0, updated: 0, skipped: 0 };
+      await this.processTokenGroup(tokens, pathPrefix);
+      if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
+        figma.notify(
+          `\u2713 Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
+          { timeout: 3e3 }
+        );
+      }
+      return this.styleStats;
+    }
+    /**
+     * Recursively process token groups to find typography tokens
+     */
+    async processTokenGroup(tokens, pathPrefix) {
+      for (const [key, value] of Object.entries(tokens)) {
+        const currentPath = [...pathPrefix, key];
+        if (value && typeof value === "object") {
+          if (this.isTypographyToken(value)) {
+            await this.createTextStyle(value, currentPath);
+          } else if (!("$value" in value)) {
+            await this.processTokenGroup(value, currentPath);
+          }
+        }
+      }
+    }
+    /**
+     * Check if token is a composite typography token
+     */
+    isTypographyToken(token) {
+      return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
+    }
+    /**
+     * Create or update Figma text style from typography token
+     * Clean code: Single purpose, clear error handling
+     */
+    async createTextStyle(token, path) {
+      try {
+        const styleName = path.join("/");
+        const typography = token.$value;
+        console.log(`[STYLE] Creating text style: ${styleName}`);
+        const existingStyles = await figma.getLocalTextStylesAsync();
+        let textStyle = existingStyles.find((s) => s.name === styleName);
+        if (!textStyle) {
+          textStyle = figma.createTextStyle();
+          textStyle.name = styleName;
+          this.styleStats.created++;
+          console.log(`[STYLE] \u2713 Created new text style: ${styleName}`);
+        } else {
+          this.styleStats.updated++;
+          console.log(`[STYLE] \u2713 Updating existing text style: ${styleName}`);
+        }
+        if (token.$description) {
+          textStyle.description = token.$description;
+        }
+        await this.applyTypographyProperties(textStyle, typography);
+      } catch (error) {
+        console.error(`[STYLE] Error creating text style ${path.join("/")}: ${error}`);
+        this.styleStats.skipped++;
+      }
+    }
+    /**
+     * Apply typography properties to text style
+     * Resolves token references to actual values
+     */
+    async applyTypographyProperties(textStyle, typography) {
+      if (typography.fontFamily) {
+        const fontFamily = this.resolveTokenReference(typography.fontFamily);
+        if (fontFamily) {
+          try {
+            await figma.loadFontAsync({ family: fontFamily, style: "Regular" });
+            textStyle.fontName = { family: fontFamily, style: "Regular" };
+          } catch (error) {
+            console.warn(`[STYLE] Could not load font ${fontFamily}, using default`);
+          }
+        }
+      }
+      if (typography.fontSize) {
+        const fontSize = this.resolveNumericValue(typography.fontSize);
+        if (fontSize) {
+          textStyle.fontSize = fontSize;
+        }
+      }
+      if (typography.fontWeight) {
+        const fontWeight = this.resolveFontWeight(typography.fontWeight);
+        if (fontWeight && textStyle.fontName) {
+          try {
+            await figma.loadFontAsync({ family: textStyle.fontName.family, style: fontWeight });
+            textStyle.fontName = { family: textStyle.fontName.family, style: fontWeight };
+          } catch (error) {
+            console.warn(`[STYLE] Could not load font weight ${fontWeight}`);
+          }
+        }
+      }
+      if (typography.lineHeight) {
+        const lineHeight = this.resolveLineHeight(typography.lineHeight);
+        if (lineHeight) {
+          textStyle.lineHeight = lineHeight;
+        }
+      }
+      if (typography.letterSpacing) {
+        const letterSpacing = this.resolveNumericValue(typography.letterSpacing);
+        if (letterSpacing !== null) {
+          textStyle.letterSpacing = { value: letterSpacing, unit: "PIXELS" };
+        }
+      }
+    }
+    /**
+     * Resolve token reference like "{primitive.typography.font-family.primary}"
+     * to actual value from variables
+     */
+    resolveTokenReference(value) {
+      if (typeof value !== "string") {
+        return String(value);
+      }
+      const match = value.match(/^\{(.+)\}$/);
+      if (!match) {
+        return value;
+      }
+      const path = match[1];
+      const variableName = path.replace(/\./g, "/");
+      const variable = this.variableMap.get(variableName);
+      if (variable) {
+        return String(variable.name);
+      }
+      console.warn(`[STYLE] Could not resolve reference: ${value}`);
+      return null;
+    }
+    /**
+     * Resolve numeric value (handles references and units)
+     */
+    resolveNumericValue(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      const resolved = this.resolveTokenReference(value);
+      if (!resolved) return null;
+      const numMatch = resolved.match(/^([\d.]+)/);
+      if (numMatch) {
+        return parseFloat(numMatch[1]);
+      }
+      return null;
+    }
+    /**
+     * Resolve font weight to Figma font style
+     */
+    resolveFontWeight(weight) {
+      const resolved = this.resolveTokenReference(String(weight));
+      if (!resolved) return null;
+      const weightMap = {
+        "100": "Thin",
+        "200": "Extra Light",
+        "300": "Light",
+        "400": "Regular",
+        "500": "Medium",
+        "600": "Semi Bold",
+        "700": "Bold",
+        "800": "Extra Bold",
+        "900": "Black",
+        "normal": "Regular",
+        "bold": "Bold"
+      };
+      return weightMap[resolved.toLowerCase()] || "Regular";
+    }
+    /**
+     * Resolve line height (can be numeric or percentage)
+     */
+    resolveLineHeight(value) {
+      if (typeof value === "number") {
+        return { value, unit: "PIXELS" };
+      }
+      const resolved = this.resolveTokenReference(value);
+      if (!resolved) return null;
+      if (resolved.includes("%")) {
+        const percent = parseFloat(resolved);
+        return { value: percent, unit: "PERCENT" };
+      }
+      const pixels = this.resolveNumericValue(resolved);
+      if (pixels) {
+        return { value: pixels, unit: "PIXELS" };
+      }
+      return null;
+    }
+    getStats() {
+      return this.styleStats;
+    }
+  };
+
   // src/services/variableManager.ts
   var VariableManager = class {
     constructor() {
@@ -267,6 +466,15 @@
           console.log("\n=== PROCESSING SEMANTICS ===");
           const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
           await this.processTokenGroup(cleanedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
+        }
+        const styleManager = new StyleManager(this.variableMap);
+        if (primitives) {
+          const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
+          await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+        }
+        if (semantics) {
+          const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
+          await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
         }
         figma.notify(
           `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
@@ -468,12 +676,23 @@
         const currentPath = [...pathPrefix, key];
         if (value && typeof value === "object") {
           if ("$value" in value) {
+            if (this.isCompositeTypographyToken(value)) {
+              console.log(`[SKIP] Skipping typography token ${currentPath.join("/")} - will be created as text style`);
+              continue;
+            }
             await this.createVariable(value, currentPath, collection, collectionName);
           } else {
             await this.processTokenGroup(value, collectionName, collection, currentPath);
           }
         }
       }
+    }
+    /**
+     * Check if token is a composite typography token
+     * These will be created as text styles instead of variables
+     */
+    isCompositeTypographyToken(token) {
+      return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
     }
     async createVariable(token, path, collection, collectionName) {
       try {
