@@ -1,7 +1,7 @@
 // Figma text style management service
 // Handles creation of text styles from composite typography tokens
 
-import { DesignToken, TokenData } from '../types';
+import { DesignToken, TokenData } from '../shared/types';
 
 interface TypographyToken {
   fontFamily?: string;

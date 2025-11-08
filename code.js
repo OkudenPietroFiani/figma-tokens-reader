@@ -5,6 +5,23 @@
     width: 800,
     height: 600
   };
+  var COLLECTION_NAMES = {
+    primitive: "primitive",
+    semantic: "semantic"
+  };
+  var TYPE_MAPPING = {
+    "color": "COLOR",
+    "dimension": "FLOAT",
+    "spacing": "FLOAT",
+    "number": "FLOAT",
+    "fontFamily": "STRING",
+    "fontWeight": "FLOAT",
+    "fontSize": "FLOAT",
+    "lineHeight": "STRING",
+    "typography": "STRING",
+    "string": "STRING"
+  };
+  var REM_TO_PX_RATIO = 16;
   var STORAGE_KEYS = {
     TOKEN_STATE: "tokenState",
     GITHUB_CONFIG: "githubConfig"
@@ -256,25 +273,6 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
   };
-
-  // src/constants.ts
-  var COLLECTION_NAMES = {
-    primitive: "primitive",
-    semantic: "semantic"
-  };
-  var TYPE_MAPPING = {
-    "color": "COLOR",
-    "dimension": "FLOAT",
-    "spacing": "FLOAT",
-    "number": "FLOAT",
-    "fontFamily": "STRING",
-    "fontWeight": "FLOAT",
-    "fontSize": "FLOAT",
-    "lineHeight": "STRING",
-    "typography": "STRING",
-    "string": "STRING"
-  };
-  var REM_TO_PX_RATIO = 16;
 
   // src/utils/parser.ts
   function parseColor(value) {

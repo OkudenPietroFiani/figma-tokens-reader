@@ -1,7 +1,7 @@
 // Figma variable management service
 
-import { COLLECTION_NAMES } from '../constants';
-import { DesignToken, TokenData, ImportStats, TokenMetadata } from '../types';
+import { COLLECTION_NAMES } from '../shared/constants';
+import { DesignToken, TokenData, ImportStats, TokenMetadata } from '../shared/types';
 import { inferTokenType } from '../utils/parser';
 import { mapTokenTypeToFigma, processTokenValue } from '../utils/tokenProcessor';
 import { StyleManager } from './styleManager';
