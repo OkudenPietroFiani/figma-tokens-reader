@@ -95,28 +95,35 @@ class FrontendApp {
    */
   private async loadSavedTokens(): Promise<void> {
     try {
+      console.log('[Frontend] Loading saved tokens...');
       const response = await this.bridge.send('load-tokens');
+      console.log('[Frontend] Load tokens response:', response);
 
       if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
         // Restore state
         const files = Object.values(response.tokenFiles);
+        console.log('[Frontend] Found saved tokens:', files.length, 'files');
+
         this.state.setTokenFiles(files);
         this.state.setTokenSource(response.tokenSource || 'local');
 
         // Restore GitHub config if present
         if (response.githubConfig) {
+          console.log('[Frontend] Restoring GitHub config:', response.githubConfig);
           this.state.setGitHubConfig(response.githubConfig);
         }
 
         // Navigate to token screen
+        console.log('[Frontend] Navigating to token screen');
         this.state.setCurrentScreen('token');
-        console.log('[Frontend] Restored saved tokens:', files.length, 'files');
+        console.log('[Frontend] Restored saved tokens successfully');
       } else {
         // No saved tokens, show welcome screen
+        console.log('[Frontend] No saved tokens found, showing welcome screen');
         this.welcomeScreen.show();
       }
     } catch (error) {
-      console.warn('[Frontend] Failed to load saved tokens:', error);
+      console.error('[Frontend] Failed to load saved tokens:', error);
       // Show welcome screen on error
       this.welcomeScreen.show();
     }
