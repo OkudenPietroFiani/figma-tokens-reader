@@ -1565,9 +1565,11 @@
      * Handle sync tokens from GitHub
      */
     async handleSyncTokens() {
+      console.log("[ImportScreen] Sync Tokens clicked");
       const selectedFiles = Array.from(
         this.githubFilesContainer.querySelectorAll('input[type="checkbox"]:checked')
       ).map((cb) => cb.value);
+      console.log("[ImportScreen] Selected files:", selectedFiles);
       if (selectedFiles.length === 0) {
         this.showNotification("Please select at least one file", "error");
         return;
@@ -1579,15 +1581,20 @@
       }
       config.files = selectedFiles;
       this.state.setGitHubConfig(config);
+      console.log("[ImportScreen] Saving GitHub config...");
       await this.bridge.send("save-github-config", config);
+      console.log("[ImportScreen] Config saved");
       this.setLoading(this.githubLoading, true);
       this.setEnabled(this.syncTokensBtn, false);
+      console.log("[ImportScreen] Sending import request...");
       this.bridge.sendAsync("github-import-files", config);
+      console.log("[ImportScreen] Import request sent, waiting for backend response");
     }
     /**
      * Handle files imported from GitHub
      */
     handleFilesImported(data) {
+      console.log("[ImportScreen] Files imported from GitHub:", data);
       this.setLoading(this.githubLoading, false);
       const tokenFiles = [];
       if (data.primitives) {
@@ -1606,8 +1613,10 @@
           source: "github"
         });
       }
+      console.log("[ImportScreen] Created token files:", tokenFiles.length);
       this.state.setTokenFiles(tokenFiles);
       this.state.setTokenSource("github");
+      console.log("[ImportScreen] Navigating to token screen...");
       this.state.setCurrentScreen("token");
     }
     /**
@@ -1898,6 +1907,9 @@
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
       this.tokenScreen.mount(body);
+      this.welcomeScreen.hide();
+      this.importScreen.hide();
+      this.tokenScreen.hide();
       this.welcomeScreen.show();
       this.state.subscribe("screen-changed", (screen) => {
         this.handleScreenChange(screen);

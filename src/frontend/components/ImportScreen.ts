@@ -302,9 +302,13 @@ export class ImportScreen extends BaseComponent {
    * Handle sync tokens from GitHub
    */
   private async handleSyncTokens(): Promise<void> {
+    console.log('[ImportScreen] Sync Tokens clicked');
+
     const selectedFiles = Array.from(
       this.githubFilesContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')
     ).map(cb => cb.value);
+
+    console.log('[ImportScreen] Selected files:', selectedFiles);
 
     if (selectedFiles.length === 0) {
       this.showNotification('Please select at least one file', 'error');
@@ -321,15 +325,19 @@ export class ImportScreen extends BaseComponent {
     config.files = selectedFiles;
     this.state.setGitHubConfig(config);
 
+    console.log('[ImportScreen] Saving GitHub config...');
     // Save config
     await this.bridge.send('save-github-config', config);
+    console.log('[ImportScreen] Config saved');
 
     // Show loading
     this.setLoading(this.githubLoading, true);
     this.setEnabled(this.syncTokensBtn, false);
 
+    console.log('[ImportScreen] Sending import request...');
     // Send import request (async - response comes via 'github-files-imported' event)
     this.bridge.sendAsync('github-import-files', config);
+    console.log('[ImportScreen] Import request sent, waiting for backend response');
 
     // Note: Loading state will be cleared in handleFilesImported() when backend responds
   }
@@ -338,6 +346,7 @@ export class ImportScreen extends BaseComponent {
    * Handle files imported from GitHub
    */
   private handleFilesImported(data: { primitives: any; semantics: any }): void {
+    console.log('[ImportScreen] Files imported from GitHub:', data);
     this.setLoading(this.githubLoading, false);
 
     // Convert to TokenFile format
@@ -361,10 +370,13 @@ export class ImportScreen extends BaseComponent {
       });
     }
 
+    console.log('[ImportScreen] Created token files:', tokenFiles.length);
+
     // Update state
     this.state.setTokenFiles(tokenFiles);
     this.state.setTokenSource('github');
 
+    console.log('[ImportScreen] Navigating to token screen...');
     // Navigate to token screen
     this.state.setCurrentScreen('token');
   }
