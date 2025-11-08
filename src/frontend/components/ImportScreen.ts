@@ -41,7 +41,7 @@ export class ImportScreen extends BaseComponent {
   // Local elements
   private localContent!: HTMLDivElement;
   private fileInput!: HTMLInputElement;
-  private dropZone!: HTMLDivElement;
+  private localFilesList!: HTMLDivElement;
 
   constructor(state: AppState, bridge: PluginBridge) {
     super(state);
@@ -55,7 +55,7 @@ export class ImportScreen extends BaseComponent {
 
     screen.innerHTML = `
       <div class="import-header">
-        <a class="back-link" id="back-to-welcome">← Back to Welcome</a>
+        <a class="back-link" id="back-to-welcome">← Back</a>
         <h1 class="import-title" id="import-title">Import Tokens</h1>
         <p class="import-subtitle" id="import-subtitle">Configure your token source</p>
       </div>
@@ -63,31 +63,35 @@ export class ImportScreen extends BaseComponent {
       <!-- GitHub Import Content -->
       <div class="import-content active" id="github-import-content">
         <div class="input-group">
-          <label for="github-token">GitHub Personal Access Token</label>
-          <input type="password" id="github-token" placeholder="ghp_...">
-          <div class="input-hint">Required for private repositories</div>
+          <label for="github-token">Github access key</label>
+          <input type="password" id="github-token" placeholder="example">
         </div>
 
         <div class="input-group">
-          <label for="repo-url">Repository URL</label>
-          <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
+          <label for="repo-url">Repository url</label>
+          <input type="text" id="repo-url" placeholder="example">
         </div>
 
         <div class="input-group">
-          <label for="branch-name">Branch</label>
+          <label for="branch-name">Branch (optional)</label>
           <input type="text" id="branch-name" placeholder="main" value="main">
         </div>
 
-        <button class="btn btn-primary btn-full" id="fetch-files-btn">Connect to Repository</button>
+        <button class="btn btn-primary btn-full" id="fetch-files-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" fill="currentColor"/>
+          </svg>
+          Connect repository
+        </button>
 
-        <div class="loading" id="github-loading">
+        <div class="loading hidden" id="github-loading">
           <span>Fetching files from GitHub...</span>
         </div>
 
         <div id="github-files-container"></div>
 
         <div class="action-buttons hidden" id="github-action-buttons">
-          <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Sync Tokens</button>
+          <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Synchronise files</button>
         </div>
       </div>
 
@@ -95,10 +99,8 @@ export class ImportScreen extends BaseComponent {
       <div class="import-content" id="local-import-content">
         <input type="file" id="file-input" multiple accept=".json,.zip" style="display: none;">
 
-        <div class="drop-zone" id="drop-zone">
-          <div class="drop-zone-icon">📁</div>
-          <div class="drop-zone-text">Click to select token files or drag & drop</div>
-          <div class="drop-zone-hint">Supports .json and .zip files</div>
+        <div class="file-selector-section">
+          <div id="local-files-list" class="file-list-items"></div>
         </div>
       </div>
     `;
@@ -122,7 +124,7 @@ export class ImportScreen extends BaseComponent {
     // Local elements
     this.localContent = screen.querySelector('#local-import-content')!;
     this.fileInput = screen.querySelector('#file-input')!;
-    this.dropZone = screen.querySelector('#drop-zone')!;
+    this.localFilesList = screen.querySelector('#local-files-list')!;
 
     return screen;
   }
@@ -152,34 +154,6 @@ export class ImportScreen extends BaseComponent {
       }
     });
 
-    // Drop zone click
-    this.addEventListener(this.dropZone, 'click', () => {
-      this.fileInput.click();
-    });
-
-    // Drop zone drag & drop
-    this.addEventListener(this.dropZone, 'dragover', (e) => {
-      e.preventDefault();
-      this.dropZone.style.borderColor = '#0d99ff';
-      this.dropZone.style.background = '#f8fcff';
-    });
-
-    this.addEventListener(this.dropZone, 'dragleave', (e) => {
-      e.preventDefault();
-      this.dropZone.style.borderColor = '#e0e0e0';
-      this.dropZone.style.background = '';
-    });
-
-    this.addEventListener(this.dropZone, 'drop', (e) => {
-      e.preventDefault();
-      this.dropZone.style.borderColor = '#e0e0e0';
-      this.dropZone.style.background = '';
-
-      if (e.dataTransfer?.files) {
-        this.handleLocalFiles(Array.from(e.dataTransfer.files));
-      }
-    });
-
     // Listen to state changes
     this.subscribeToState('import-mode-changed', (mode) => {
       this.updateMode(mode);
@@ -193,25 +167,20 @@ export class ImportScreen extends BaseComponent {
    * Setup backend event listeners
    */
   private setupBackendListeners(): void {
-    // GitHub files fetched
-    this.bridge.on('github-files-fetched', (data) => {
-      this.handleFilesFetched(data.files);
-    });
-
-    // GitHub files imported
+    // GitHub files imported (fire-and-forget from sync button)
     this.bridge.on('github-files-imported', (data) => {
       this.handleFilesImported(data);
     });
 
-    // GitHub config loaded
+    // GitHub config loaded (fire-and-forget)
     this.bridge.on('github-config-loaded', (config) => {
       this.loadGitHubConfig(config);
     });
 
-    // Errors
+    // Errors (general error handler for async messages without requestId)
     this.bridge.on('error', (message) => {
       this.showNotification(message, 'error');
-      this.setLoading(this.githubLoading, false);
+      this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.fetchFilesBtn, true);
     });
   }
@@ -248,15 +217,16 @@ export class ImportScreen extends BaseComponent {
     this.state.setGitHubConfig(githubConfig);
 
     // Show loading
-    this.setLoading(this.githubLoading, true);
+    this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
     this.setEnabled(this.fetchFilesBtn, false);
 
     // Send request to backend
     try {
-      await this.bridge.send('github-fetch-files', githubConfig);
+      const response = await this.bridge.send('github-fetch-files', githubConfig);
+      this.handleFilesFetched(response.files);
     } catch (error) {
       console.error('Error fetching files:', error);
-      this.setLoading(this.githubLoading, false);
+      this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.fetchFilesBtn, true);
     }
   }
@@ -265,7 +235,7 @@ export class ImportScreen extends BaseComponent {
    * Handle files fetched from GitHub
    */
   private handleFilesFetched(files: string[]): void {
-    this.setLoading(this.githubLoading, false);
+    this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
     this.setEnabled(this.fetchFilesBtn, true);
 
     if (files.length === 0) {
@@ -330,7 +300,7 @@ export class ImportScreen extends BaseComponent {
     this.bridge.sendAsync('save-github-config', config);
 
     // Show loading
-    this.setLoading(this.githubLoading, true);
+    this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
     this.setEnabled(this.syncTokensBtn, false);
 
     console.log('[ImportScreen] Sending import request...');
@@ -346,7 +316,7 @@ export class ImportScreen extends BaseComponent {
    */
   private handleFilesImported(data: { primitives: any; semantics: any }): void {
     console.log('[ImportScreen] Files imported from GitHub:', data);
-    this.setLoading(this.githubLoading, false);
+    this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
 
     // Convert to TokenFile format
     const tokenFiles: TokenFile[] = [];
@@ -447,16 +417,16 @@ export class ImportScreen extends BaseComponent {
    */
   private updateMode(mode: 'github' | 'local'): void {
     if (mode === 'github') {
-      this.importTitle.textContent = 'Connect to GitHub';
-      this.importSubtitle.textContent = 'Import tokens from a GitHub repository';
+      this.importTitle.textContent = 'Connect to github';
+      this.importSubtitle.textContent = 'Connect to a GitHub repository to import and synchronize design tokens.';
       this.githubContent.classList.add(CSS_CLASSES.ACTIVE);
       this.localContent.classList.remove(CSS_CLASSES.ACTIVE);
 
       // Load saved GitHub config
       this.bridge.sendAsync('load-github-config');
     } else {
-      this.importTitle.textContent = 'Import Local Files';
-      this.importSubtitle.textContent = 'Select token files from your computer';
+      this.importTitle.textContent = 'Import from local';
+      this.importSubtitle.textContent = 'Import local design tokens from your files.';
       this.localContent.classList.add(CSS_CLASSES.ACTIVE);
       this.githubContent.classList.remove(CSS_CLASSES.ACTIVE);
     }

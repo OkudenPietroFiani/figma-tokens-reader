@@ -119,6 +119,7 @@ export interface PluginMessage {
   type: PluginMessageType;
   data?: any;
   scopeAssignments?: ScopeAssignments;
+  requestId?: string;
 }
 
 // Messages sent from backend to frontend
@@ -136,6 +137,7 @@ export interface UIMessage {
   type: UIMessageType;
   data?: any;
   message?: string;
+  requestId?: string;
 }
 
 // ==================== FRONTEND STATE TYPES ====================

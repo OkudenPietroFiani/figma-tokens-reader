@@ -10,9 +10,10 @@ import { PluginBridge } from '../services/PluginBridge';
 export class TokenScreen extends BaseComponent {
   private bridge: PluginBridge;
   private syncBtn!: HTMLButtonElement;
+  private pullChangesBtn!: HTMLButtonElement;
   private switchSourceBtn!: HTMLButtonElement;
   private fileTabsList!: HTMLDivElement;
-  private jsonContent!: HTMLDivElement;
+  private tokenTreeContent!: HTMLDivElement;
 
   constructor(state: AppState, bridge: PluginBridge) {
     super(state);
@@ -29,6 +30,7 @@ export class TokenScreen extends BaseComponent {
       <div class="token-top-bar">
         <div class="token-top-bar-tabs">
           <button class="token-tab active" id="tokens-tab">Tokens</button>
+          <button class="token-tab" id="scope-tab">Scopes</button>
         </div>
         <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
       </div>
@@ -46,9 +48,9 @@ export class TokenScreen extends BaseComponent {
             </div>
           </div>
 
-          <!-- Right Column: JSON Preview -->
-          <div class="json-preview">
-            <div class="json-content" id="json-content">
+          <!-- Right Column: Token Tree View -->
+          <div class="token-tree-view">
+            <div id="token-tree-content">
               <div class="empty-state">Select a token file from the left to preview its contents</div>
             </div>
           </div>
@@ -58,14 +60,23 @@ export class TokenScreen extends BaseComponent {
       <!-- Action Footer -->
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
+        <button class="btn btn-secondary hidden" id="pull-changes-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+            <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Pull changes</span>
+        </button>
       </div>
     `;
 
     // Cache references
     this.syncBtn = screen.querySelector('#sync-to-figma-btn')!;
+    this.pullChangesBtn = screen.querySelector('#pull-changes-btn')!;
     this.switchSourceBtn = screen.querySelector('#switch-source-btn')!;
     this.fileTabsList = screen.querySelector('#file-tabs-list')!;
-    this.jsonContent = screen.querySelector('#json-content')!;
+    this.tokenTreeContent = screen.querySelector('#token-tree-content')!;
 
     return screen;
   }
@@ -76,23 +87,32 @@ export class TokenScreen extends BaseComponent {
       this.handleSyncToFigma();
     });
 
+    // Pull changes button
+    this.addEventListener(this.pullChangesBtn, 'click', () => {
+      this.handlePullChanges();
+    });
+
     // Switch source button
     this.addEventListener(this.switchSourceBtn, 'click', () => {
       this.state.setCurrentScreen('welcome');
     });
 
+    // Scope tab button
+    const scopeTab = this.element.querySelector('#scope-tab');
+    if (scopeTab) {
+      this.addEventListener(scopeTab as HTMLElement, 'click', () => {
+        this.state.setCurrentScreen('scope');
+      });
+    }
+
     // Listen to state changes
     this.subscribeToState('files-loaded', () => {
       this.renderFileList();
+      this.updatePullChangesButton();
     });
 
     this.subscribeToState('file-selected', (fileName) => {
       this.renderFilePreview(fileName);
-    });
-
-    // Backend listeners
-    this.bridge.on('import-success', (message) => {
-      this.showNotification(message, 'success');
     });
   }
 
@@ -132,23 +152,111 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
-   * Render file preview
+   * Render file preview as tree view
    */
   private renderFilePreview(fileName: string | null): void {
     if (!fileName) {
-      this.jsonContent.innerHTML = '<div class="empty-state">Select a file to preview</div>';
+      this.tokenTreeContent.innerHTML = '<div class="empty-state">Select a file to preview</div>';
       return;
     }
 
     const file = this.state.tokenFiles.get(fileName);
     if (!file) {
-      this.jsonContent.innerHTML = '<div class="empty-state">File not found</div>';
+      this.tokenTreeContent.innerHTML = '<div class="empty-state">File not found</div>';
       return;
     }
 
-    // Simple JSON preview
-    const jsonStr = JSON.stringify(file.content, null, 2);
-    this.jsonContent.innerHTML = '<pre>' + jsonStr + '</pre>';
+    // Render token tree
+    this.tokenTreeContent.innerHTML = this.renderTokenTree(file.content);
+
+    // Add click handlers for expand/collapse
+    const toggleBtns = this.tokenTreeContent.querySelectorAll('.tree-toggle');
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const parent = target.closest('.tree-group');
+        parent?.classList.toggle('collapsed');
+      });
+    });
+  }
+
+  /**
+   * Render token tree recursively
+   */
+  private renderTokenTree(obj: any, level: number = 0): string {
+    if (typeof obj !== 'object' || obj === null) {
+      return `<div class="tree-value">${this.escapeHtml(JSON.stringify(obj))}</div>`;
+    }
+
+    let html = '';
+
+    for (const [key, value] of Object.entries(obj)) {
+      // Check if this is a token group or a token value
+      const isGroup = typeof value === 'object' && value !== null && !value.$value;
+
+      if (isGroup) {
+        html += `
+          <div class="tree-group" style="padding-left: ${level * 12}px;">
+            <div class="tree-header">
+              <span class="tree-toggle"></span>
+              <span class="tree-label">${this.escapeHtml(key)}</span>
+            </div>
+            <div class="tree-children">
+              ${this.renderTokenTree(value, level + 1)}
+            </div>
+          </div>
+        `;
+      } else {
+        // Get the display value
+        let displayValue = '';
+        if (value && typeof value === 'object' && value.$value !== undefined) {
+          displayValue = this.formatTokenValue(value.$value);
+        } else {
+          displayValue = this.formatTokenValue(value);
+        }
+
+        html += `
+          <div class="tree-item" style="padding-left: ${level * 12 + 16}px;">
+            <span class="token-name">${this.escapeHtml(key)}</span>
+            <span class="token-value">${displayValue}</span>
+          </div>
+        `;
+      }
+    }
+
+    return html;
+  }
+
+  /**
+   * Format token value for display
+   */
+  private formatTokenValue(value: any): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return this.escapeHtml(value);
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      return this.escapeHtml(JSON.stringify(value));
+    }
+
+    return this.escapeHtml(String(value));
+  }
+
+  /**
+   * Escape HTML special characters
+   */
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**
@@ -181,11 +289,12 @@ export class TokenScreen extends BaseComponent {
 
     try {
       this.setEnabled(this.syncBtn, false);
-      await this.bridge.send('import-tokens', {
+      const message = await this.bridge.send('import-tokens', {
         primitives,
         semantics,
         source: this.state.tokenSource
       });
+      this.showNotification(message, 'success');
       this.setEnabled(this.syncBtn, true);
     } catch (error) {
       console.error('Error syncing to Figma:', error);
@@ -195,11 +304,81 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
+   * Update pull changes button visibility
+   */
+  private updatePullChangesButton(): void {
+    if (this.state.tokenSource === 'github') {
+      this.pullChangesBtn.classList.remove('hidden');
+    } else {
+      this.pullChangesBtn.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Handle pull changes from GitHub
+   */
+  private async handlePullChanges(): Promise<void> {
+    const githubConfig = this.state.githubConfig;
+
+    if (!githubConfig) {
+      this.showNotification('GitHub configuration not found', 'error');
+      return;
+    }
+
+    try {
+      this.showNotification('Pulling latest changes from GitHub...', 'info');
+      this.setEnabled(this.pullChangesBtn, false);
+
+      const response = await this.bridge.send('github-import-files', githubConfig);
+      this.handleFilesImported(response);
+
+      this.setEnabled(this.pullChangesBtn, true);
+    } catch (error) {
+      console.error('Error pulling changes:', error);
+      this.showNotification('Failed to pull changes', 'error');
+      this.setEnabled(this.pullChangesBtn, true);
+    }
+  }
+
+  /**
+   * Handle files imported from GitHub
+   */
+  private handleFilesImported(data: any): void {
+    console.log('[TokenScreen] Files imported from GitHub:', data);
+
+    const tokenFiles = [];
+
+    if (data.primitives) {
+      tokenFiles.push({
+        name: 'primitives',
+        path: 'github://primitives',
+        content: data.primitives,
+        source: 'github' as const
+      });
+    }
+
+    if (data.semantics) {
+      tokenFiles.push({
+        name: 'semantics',
+        path: 'github://semantics',
+        content: data.semantics,
+        source: 'github' as const
+      });
+    }
+
+    if (tokenFiles.length > 0) {
+      this.state.setTokenFiles(tokenFiles);
+      this.showNotification('Successfully pulled latest changes', 'success');
+    }
+  }
+
+  /**
    * Show this screen
    */
   show(): void {
     super.show();
     this.renderFileList();
+    this.updatePullChangesButton();
     console.log('[TokenScreen] Screen shown');
   }
 }
