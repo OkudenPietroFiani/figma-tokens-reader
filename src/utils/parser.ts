@@ -1,6 +1,6 @@
 // Token parsing utilities
 
-import { REM_TO_PX_RATIO } from '../constants';
+import { REM_TO_PX_RATIO } from '../shared/constants';
 
 export function parseColor(value: any): RGB {
   // Handle object format: {value: "#ff0000"}

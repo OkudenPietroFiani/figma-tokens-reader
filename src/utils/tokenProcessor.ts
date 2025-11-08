@@ -1,7 +1,7 @@
 // Token processing utilities
 
-import { TYPE_MAPPING } from '../constants';
-import { ProcessedValue } from '../types';
+import { TYPE_MAPPING } from '../shared/constants';
+import { ProcessedValue } from '../shared/types';
 import {
   parseColor,
   parseNumber,
