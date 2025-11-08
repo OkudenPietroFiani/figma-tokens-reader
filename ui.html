@@ -941,9 +941,33 @@
       console.error('[HTML] Unhandled promise rejection:', event.reason);
     });
   </script>
-  <script src="ui.js"></script>
   <script>
-    console.log('[HTML] ui.js loaded successfully');
+    console.log('[HTML] About to execute INLINED ui.js code...');
+  </script>
+  <script>
+    // INLINED ui.js for testing
+    console.log("[TEST] Script started");
+    var testDiv2 = document.createElement("div");
+    testDiv2.id = "minimal-test";
+    testDiv2.style.cssText = "padding: 30px; background: #00ff00; color: black; font-size: 20px; font-family: sans-serif; margin: 20px;";
+    testDiv2.innerHTML = "<h1>MINIMAL TEST SUCCESS!</h1><p>If you see this green box, the bundled JavaScript is executing.</p>";
+    console.log("[TEST] Test element created:", testDiv2);
+    if (document.readyState === "loading") {
+      console.log("[TEST] Waiting for DOM...");
+      document.addEventListener("DOMContentLoaded", function() {
+        console.log("[TEST] DOM ready, appending element");
+        document.body.appendChild(testDiv2);
+        console.log("[TEST] Element appended. Body has", document.body.children.length, "children");
+      });
+    } else {
+      console.log("[TEST] DOM already ready, appending element immediately");
+      document.body.appendChild(testDiv2);
+      console.log("[TEST] Element appended. Body has", document.body.children.length, "children");
+    }
+    console.log("[TEST] Script completed");
+  </script>
+  <script>
+    console.log('[HTML] After inlined ui.js code');
     console.log('[HTML] document.body:', document.body);
     console.log('[HTML] document.body.children:', document.body.children.length, 'children');
 
