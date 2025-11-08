@@ -657,7 +657,7 @@
         <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
       </div>
 
-      <button class="welcome-back-btn ${CSS_CLASSES.HIDDEN}" id="back-to-tokens-btn">
+      <button class="welcome-back-btn hidden" id="back-to-tokens-btn">
         \uFFFD Back to Tokens
       </button>
     `;
