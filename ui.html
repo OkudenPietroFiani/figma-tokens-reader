@@ -16,7 +16,16 @@
       font-size: 12px;
       color: #333;
       background: #ffffff;
+      width: 100%;
+      height: 100vh;
       overflow: hidden;
+    }
+
+    /* Screen container base */
+    .screen {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
     }
 
     /* Base button styles */
@@ -167,18 +176,6 @@
 
     .import-screen {
       padding: 20px;
-      height: 600px;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    .import-screen::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .import-screen::-webkit-scrollbar-thumb {
-      background: #d4d4d4;
-      border-radius: 4px;
     }
 
     .import-header {
@@ -390,7 +387,6 @@
     .token-screen {
       display: flex;
       flex-direction: column;
-      height: 600px;
     }
 
     .token-header {
@@ -412,15 +408,6 @@
       gap: 6px;
       overflow-x: auto;
       padding-bottom: 8px;
-    }
-
-    .file-tabs::-webkit-scrollbar {
-      height: 4px;
-    }
-
-    .file-tabs::-webkit-scrollbar-thumb {
-      background: #d4d4d4;
-      border-radius: 2px;
     }
 
     .file-tab {
@@ -462,15 +449,6 @@
       background: #fafafa;
     }
 
-    .token-preview::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .token-preview::-webkit-scrollbar-thumb {
-      background: #d4d4d4;
-      border-radius: 4px;
-    }
-
     .json-preview {
       background: #1e1e1e;
       color: #d4d4d4;
@@ -481,15 +459,6 @@
       line-height: 1.6;
       overflow-x: auto;
       white-space: pre;
-    }
-
-    .json-preview::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    .json-preview::-webkit-scrollbar-thumb {
-      background: #555;
-      border-radius: 3px;
     }
 
     /* Token actions */
@@ -1906,7 +1875,8 @@
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],
         ["import", this.importScreen],
-        ["token", this.tokenScreen]
+        ["token", this.tokenScreen],
+        ["scope", this.scopeScreen]
       ]);
     }
     /**
@@ -1917,9 +1887,11 @@
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
       this.tokenScreen.mount(body);
+      this.scopeScreen.mount(body);
       this.welcomeScreen.hide();
       this.importScreen.hide();
       this.tokenScreen.hide();
+      this.scopeScreen.hide();
       this.welcomeScreen.show();
       this.state.subscribe("screen-changed", (screen) => {
         this.handleScreenChange(screen);

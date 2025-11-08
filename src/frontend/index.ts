@@ -50,6 +50,7 @@ class FrontendApp {
       ['welcome', this.welcomeScreen],
       ['import', this.importScreen],
       ['token', this.tokenScreen],
+      ['scope', this.scopeScreen],
     ]);
   }
 
@@ -62,11 +63,13 @@ class FrontendApp {
     this.welcomeScreen.mount(body);
     this.importScreen.mount(body);
     this.tokenScreen.mount(body);
+    this.scopeScreen.mount(body);
 
     // Hide all screens initially
     this.welcomeScreen.hide();
     this.importScreen.hide();
     this.tokenScreen.hide();
+    this.scopeScreen.hide();
 
     // Show welcome screen by default
     this.welcomeScreen.show();

@@ -1272,7 +1272,8 @@
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],
         ["import", this.importScreen],
-        ["token", this.tokenScreen]
+        ["token", this.tokenScreen],
+        ["scope", this.scopeScreen]
       ]);
     }
     /**
@@ -1283,9 +1284,11 @@
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
       this.tokenScreen.mount(body);
+      this.scopeScreen.mount(body);
       this.welcomeScreen.hide();
       this.importScreen.hide();
       this.tokenScreen.hide();
+      this.scopeScreen.hide();
       this.welcomeScreen.show();
       this.state.subscribe("screen-changed", (screen) => {
         this.handleScreenChange(screen);
