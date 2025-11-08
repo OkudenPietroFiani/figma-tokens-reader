@@ -926,6 +926,14 @@
 </head>
 <body>
   <!-- Components will be mounted here by frontend/index.ts -->
+  <script>
+    console.log('[HTML] Inline script executing - JavaScript is working!');
+    console.log('[HTML] document.readyState:', document.readyState);
+    console.log('[HTML] About to load ui.js...');
+  </script>
   <script src="ui.js"></script>
+  <script>
+    console.log('[HTML] ui.js loaded successfully');
+  </script>
 </body>
 </html>
