@@ -4,10 +4,46 @@ import { REM_TO_PX_RATIO } from '../shared/constants';
 
 /**
  * Parse color value and extract RGB(A) components
- * Supports: hex (#RGB, #RRGGBB, #RGBA, #RRGGBBAA), rgb(a), hsl(a)
+ * Supports:
+ * - hex (#RGB, #RRGGBB, #RGBA, #RRGGBBAA)
+ * - rgb(a) strings
+ * - hsl(a) strings
+ * - colorSpace object format: { colorSpace: "hsl", components: [h,s,l], alpha: 0.5 }
  * Returns RGB object with optional alpha channel (0-1)
  */
 export function parseColor(value: any): RGB {
+  // Handle colorSpace object format
+  // Format: { colorSpace: "hsl", components: [h, s, l], alpha: 0.75 }
+  if (typeof value === 'object' && value !== null && 'colorSpace' in value && 'components' in value) {
+    const { colorSpace, components, alpha } = value;
+    const alphaValue = typeof alpha === 'number' ? alpha : 1;
+
+    if (colorSpace === 'hsl' && Array.isArray(components) && components.length === 3) {
+      // HSL format: components are [hue (0-360), saturation (0-100), lightness (0-100)]
+      const h = components[0] / 360;
+      const s = components[1] / 100;
+      const l = components[2] / 100;
+      const rgb = hslToRgb(h, s, l);
+      return { ...rgb, a: alphaValue };
+    }
+
+    if (colorSpace === 'rgb' && Array.isArray(components) && components.length === 3) {
+      // RGB format: components are [r (0-255), g (0-255), b (0-255)]
+      return {
+        r: components[0] / 255,
+        g: components[1] / 255,
+        b: components[2] / 255,
+        a: alphaValue
+      };
+    }
+
+    // If we have hex as fallback
+    if (value.hex) {
+      const rgb = hexToRgb(value.hex);
+      return { ...rgb, a: alphaValue };
+    }
+  }
+
   // Handle object format: {value: "#ff0000"}
   if (typeof value === 'object' && value !== null && 'value' in value) {
     return parseColor(value.value);

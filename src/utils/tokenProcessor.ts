@@ -19,7 +19,7 @@ export async function processTokenValue(
   tokenType: string,
   variableMap: Map<string, Variable>
 ): Promise<ProcessedValue> {
-  // Check if it's a reference
+  // Check if it's a reference (simple string reference)
   if (typeof value === 'string' && value.includes('{') && value.includes('}')) {
     const reference = extractReference(value);
     if (reference) {
@@ -33,6 +33,37 @@ export async function processTokenValue(
   // Process based on type
   switch (tokenType) {
     case 'color':
+      // Handle color object format with alpha reference
+      // Format: { colorSpace: "hsl", components: [0,0,0], alpha: "{primitive.color.transparency.75}" }
+      if (typeof value === 'object' && value !== null && 'alpha' in value) {
+        const alphaValue = value.alpha;
+
+        // If alpha is a reference, resolve it
+        if (typeof alphaValue === 'string' && alphaValue.includes('{') && alphaValue.includes('}')) {
+          const alphaRef = extractReference(alphaValue);
+          if (alphaRef) {
+            const alphaVariable = resolveReference(alphaRef, variableMap);
+            if (alphaVariable) {
+              // Get the resolved numeric value from the variable
+              const modeId = Object.keys(alphaVariable.valuesByMode)[0];
+              const resolvedAlpha = alphaVariable.valuesByMode[modeId];
+
+              // Create a new value object with resolved alpha
+              const resolvedValue = {
+                ...value,
+                alpha: typeof resolvedAlpha === 'number' ? resolvedAlpha : 1
+              };
+
+              return { value: parseColor(resolvedValue), isAlias: false };
+            }
+          }
+
+          // If reference couldn't be resolved, default to full opacity
+          console.warn(`Could not resolve alpha reference: ${alphaValue}`);
+          return { value: parseColor({ ...value, alpha: 1 }), isAlias: false };
+        }
+      }
+
       return { value: parseColor(value), isAlias: false };
 
     case 'dimension':

@@ -464,6 +464,22 @@ export class ImportScreen extends BaseComponent {
     super.show();
     // Update mode based on current import mode
     this.updateMode(this.state.importMode);
+
+    // Auto-fill GitHub credentials if available
+    if (this.state.githubConfig) {
+      const config = this.state.githubConfig;
+      if (config.token) {
+        this.githubToken.value = config.token;
+      }
+      if (config.owner && config.repo) {
+        this.repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
+      }
+      if (config.branch) {
+        this.branchName.value = config.branch;
+      }
+      console.log('[ImportScreen] Auto-filled GitHub credentials from saved config');
+    }
+
     console.log('[ImportScreen] Screen shown');
   }
 }
