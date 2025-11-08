@@ -57,7 +57,7 @@ class FrontendApp {
   /**
    * Initialize and start the application
    */
-  init(): void {
+  async init(): Promise<void> {
     // Mount all components
     const body = document.body;
     this.welcomeScreen.mount(body);
@@ -71,18 +71,83 @@ class FrontendApp {
     this.tokenScreen.hide();
     this.scopeScreen.hide();
 
-    // Show welcome screen by default
-    this.welcomeScreen.show();
-
     // Subscribe to screen changes
     this.state.subscribe('screen-changed', (screen: ScreenType) => {
       this.handleScreenChange(screen);
     });
 
+    // Subscribe to file changes to auto-save
+    this.state.subscribe('files-loaded', () => {
+      this.saveTokenState();
+    });
+
     // Setup backend message handlers
     this.setupBackendHandlers();
 
+    // Load saved tokens if any
+    await this.loadSavedTokens();
+
     console.log('[Frontend] Application started');
+  }
+
+  /**
+   * Load saved tokens from storage
+   */
+  private async loadSavedTokens(): Promise<void> {
+    try {
+      const response = await this.bridge.send('load-tokens');
+
+      if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
+        // Restore state
+        const files = Object.values(response.tokenFiles);
+        this.state.setTokenFiles(files);
+        this.state.setTokenSource(response.tokenSource || 'local');
+
+        // Restore GitHub config if present
+        if (response.githubConfig) {
+          this.state.setGitHubConfig(response.githubConfig);
+        }
+
+        // Navigate to token screen
+        this.state.setCurrentScreen('token');
+        console.log('[Frontend] Restored saved tokens:', files.length, 'files');
+      } else {
+        // No saved tokens, show welcome screen
+        this.welcomeScreen.show();
+      }
+    } catch (error) {
+      console.warn('[Frontend] Failed to load saved tokens:', error);
+      // Show welcome screen on error
+      this.welcomeScreen.show();
+    }
+  }
+
+  /**
+   * Save current token state to storage
+   */
+  private saveTokenState(): void {
+    const files = Array.from(this.state.tokenFiles.values());
+
+    // Only save if there are files
+    if (files.length === 0) {
+      return;
+    }
+
+    // Convert files array to object keyed by name
+    const tokenFiles: { [key: string]: any } = {};
+    files.forEach(file => {
+      tokenFiles[file.name] = file;
+    });
+
+    const tokenState = {
+      tokenFiles,
+      tokenSource: this.state.tokenSource,
+      githubConfig: this.state.githubConfig
+    };
+
+    // Save asynchronously without waiting
+    this.bridge.sendAsync('save-tokens', tokenState);
+    console.log('[Frontend] Saved token state:', files.length, 'files');
   }
 
   /**

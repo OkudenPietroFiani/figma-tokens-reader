@@ -1779,6 +1779,21 @@
       return tree;
     }
     /**
+     * Get all variable types within a tree node (for checking compatibility)
+     */
+    getGroupVariableTypes(tree) {
+      const types = /* @__PURE__ */ new Set();
+      for (const value of Object.values(tree)) {
+        if (value._isVariable) {
+          types.add(value._data.type);
+        } else {
+          const childTypes = this.getGroupVariableTypes(value);
+          childTypes.forEach((type) => types.add(type));
+        }
+      }
+      return types;
+    }
+    /**
      * Render variable tree recursively
      */
     renderVariableTree(tree, level) {
@@ -1797,11 +1812,13 @@
           </div>
         `;
         } else {
+          const groupTypes = this.getGroupVariableTypes(value);
+          const hasCompatibleTypes = groupTypes.size === 1;
           const groupId = `group-${level}-${key}`;
           html += `
           <div class="tree-group" style="padding-left: ${level * 12}px;">
             <div class="tree-header">
-              <input type="checkbox" class="group-checkbox" data-group-id="${groupId}">
+              ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle"></span>
               <span class="tree-label">${key}</span>
             </div>
@@ -1953,7 +1970,7 @@
     /**
      * Initialize and start the application
      */
-    init() {
+    async init() {
       const body = document.body;
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
@@ -1963,12 +1980,58 @@
       this.importScreen.hide();
       this.tokenScreen.hide();
       this.scopeScreen.hide();
-      this.welcomeScreen.show();
       this.state.subscribe("screen-changed", (screen) => {
         this.handleScreenChange(screen);
       });
+      this.state.subscribe("files-loaded", () => {
+        this.saveTokenState();
+      });
       this.setupBackendHandlers();
+      await this.loadSavedTokens();
       console.log("[Frontend] Application started");
+    }
+    /**
+     * Load saved tokens from storage
+     */
+    async loadSavedTokens() {
+      try {
+        const response = await this.bridge.send("load-tokens");
+        if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
+          const files = Object.values(response.tokenFiles);
+          this.state.setTokenFiles(files);
+          this.state.setTokenSource(response.tokenSource || "local");
+          if (response.githubConfig) {
+            this.state.setGitHubConfig(response.githubConfig);
+          }
+          this.state.setCurrentScreen("token");
+          console.log("[Frontend] Restored saved tokens:", files.length, "files");
+        } else {
+          this.welcomeScreen.show();
+        }
+      } catch (error) {
+        console.warn("[Frontend] Failed to load saved tokens:", error);
+        this.welcomeScreen.show();
+      }
+    }
+    /**
+     * Save current token state to storage
+     */
+    saveTokenState() {
+      const files = Array.from(this.state.tokenFiles.values());
+      if (files.length === 0) {
+        return;
+      }
+      const tokenFiles = {};
+      files.forEach((file) => {
+        tokenFiles[file.name] = file;
+      });
+      const tokenState = {
+        tokenFiles,
+        tokenSource: this.state.tokenSource,
+        githubConfig: this.state.githubConfig
+      };
+      this.bridge.sendAsync("save-tokens", tokenState);
+      console.log("[Frontend] Saved token state:", files.length, "files");
     }
     /**
      * Handle screen navigation
