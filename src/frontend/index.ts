@@ -3,8 +3,6 @@
 // Initializes and manages all UI components
 // ====================================================================================
 
-console.log('[Frontend] Script loading...');
-
 import { AppState } from './state/AppState';
 import { PluginBridge } from './services/PluginBridge';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -13,8 +11,6 @@ import { TokenScreen } from './components/TokenScreen';
 import { ScopeScreen } from './components/ScopeScreen';
 import { ScreenType } from '../shared/types';
 
-console.log('[Frontend] All imports loaded');
-
 /**
  * Frontend application class
  * Manages components and screen navigation
@@ -22,37 +18,28 @@ console.log('[Frontend] All imports loaded');
 class FrontendApp {
   private state: AppState;
   private bridge: PluginBridge;
-  
+
   // Components
   private welcomeScreen: WelcomeScreen;
   private importScreen: ImportScreen;
   private tokenScreen: TokenScreen;
   private scopeScreen: ScopeScreen;
-  
+
   // Screen registry
   private screens: Map<ScreenType, any>;
 
   constructor() {
-    console.log('[FrontendApp] Constructor starting...');
-
     // Initialize state and bridge
-    console.log('[FrontendApp] Creating AppState...');
     this.state = new AppState();
-    console.log('[FrontendApp] Creating PluginBridge...');
     this.bridge = new PluginBridge();
 
     // Create components (pass both state and bridge)
-    console.log('[FrontendApp] Creating WelcomeScreen...');
     this.welcomeScreen = new WelcomeScreen(this.state);
-    console.log('[FrontendApp] Creating ImportScreen...');
     this.importScreen = new ImportScreen(this.state, this.bridge);
-    console.log('[FrontendApp] Creating TokenScreen...');
     this.tokenScreen = new TokenScreen(this.state, this.bridge);
-    console.log('[FrontendApp] Creating ScopeScreen...');
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
 
     // Initialize components (bind events after all properties are set)
-    console.log('[FrontendApp] Initializing components...');
     this.welcomeScreen.init();
     this.importScreen.init();
     this.tokenScreen.init();
@@ -64,8 +51,6 @@ class FrontendApp {
       ['import', this.importScreen],
       ['token', this.tokenScreen],
     ]);
-
-    console.log('[FrontendApp] Initialized');
   }
 
   /**
@@ -89,14 +74,14 @@ class FrontendApp {
     // Setup backend message handlers
     this.setupBackendHandlers();
 
-    console.log('[FrontendApp] Started');
+    console.log('[Frontend] Application started');
   }
 
   /**
    * Handle screen navigation
    */
   private handleScreenChange(screen: ScreenType): void {
-    console.log(`[FrontendApp] Navigating to: ${screen}`);
+    console.log(`[Frontend] Navigating to: ${screen}`);
 
     // Hide all screens
     this.screens.forEach(s => s.hide());
@@ -106,7 +91,7 @@ class FrontendApp {
     if (targetScreen) {
       targetScreen.show();
     } else {
-      console.warn(`[FrontendApp] Unknown screen: ${screen}`);
+      console.warn(`[Frontend] Unknown screen: ${screen}`);
     }
   }
 
@@ -116,58 +101,37 @@ class FrontendApp {
   private setupBackendHandlers(): void {
     // Import success
     this.bridge.on('import-success', (message: string) => {
-      console.log('[FrontendApp] Import success:', message);
-      // Show notification or update UI
+      console.log('[Frontend] Import success:', message);
     });
 
     // Error
     this.bridge.on('error', (message: string) => {
-      console.error('[FrontendApp] Backend error:', message);
-      // Show error notification
+      console.error('[Frontend] Backend error:', message);
     });
 
     // GitHub files fetched
     this.bridge.on('github-files-fetched', (data: any) => {
-      console.log('[FrontendApp] GitHub files fetched:', data);
+      console.log('[Frontend] GitHub files fetched:', data);
     });
 
     // Tokens loaded
     this.bridge.on('tokens-loaded', (data: any) => {
-      console.log('[FrontendApp] Tokens loaded:', data);
-      // Update state with loaded tokens
+      console.log('[Frontend] Tokens loaded:', data);
     });
-
-    console.log('[FrontendApp] Backend handlers setup complete');
   }
 }
 
 // Initialize app when DOM is ready
-console.log('[Frontend] Setting up initialization...');
-console.log('[Frontend] document.readyState:', document.readyState);
-
 try {
   if (document.readyState === 'loading') {
-    console.log('[Frontend] Waiting for DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('[Frontend] DOMContentLoaded fired!');
-      try {
-        const app = new FrontendApp();
-        app.init();
-      } catch (error) {
-        console.error('[Frontend] Error during initialization:', error);
-        console.error('[Frontend] Error stack:', error instanceof Error ? error.stack : 'No stack');
-      }
-    });
-  } else {
-    console.log('[Frontend] DOM already loaded, initializing immediately...');
-    try {
       const app = new FrontendApp();
       app.init();
-    } catch (error) {
-      console.error('[Frontend] Error during initialization:', error);
-      console.error('[Frontend] Error stack:', error instanceof Error ? error.stack : 'No stack');
-    }
+    });
+  } else {
+    const app = new FrontendApp();
+    app.init();
   }
 } catch (error) {
-  console.error('[Frontend] Error in setup:', error);
+  console.error('[Frontend] Initialization error:', error);
 }

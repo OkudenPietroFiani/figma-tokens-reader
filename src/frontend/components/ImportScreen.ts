@@ -328,14 +328,10 @@ export class ImportScreen extends BaseComponent {
     this.setLoading(this.githubLoading, true);
     this.setEnabled(this.syncTokensBtn, false);
 
-    // Send import request
-    try {
-      await this.bridge.send('github-import-files', config);
-    } catch (error) {
-      console.error('Error importing files:', error);
-      this.setLoading(this.githubLoading, false);
-      this.setEnabled(this.syncTokensBtn, true);
-    }
+    // Send import request (async - response comes via 'github-files-imported' event)
+    this.bridge.sendAsync('github-import-files', config);
+
+    // Note: Loading state will be cleared in handleFilesImported() when backend responds
   }
 
   /**
