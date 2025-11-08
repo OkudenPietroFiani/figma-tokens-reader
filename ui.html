@@ -946,6 +946,16 @@
     console.log('[HTML] ui.js loaded successfully');
     console.log('[HTML] document.body:', document.body);
     console.log('[HTML] document.body.children:', document.body.children.length, 'children');
+
+    // Direct DOM test - create a visible element
+    console.log('[HTML] Creating test element...');
+    var testDiv = document.createElement('div');
+    testDiv.id = 'test-element';
+    testDiv.style.cssText = 'padding: 20px; background: #ff0000; color: white; font-size: 16px; font-family: sans-serif;';
+    testDiv.textContent = 'TEST: If you see this red box, DOM rendering works!';
+    document.body.appendChild(testDiv);
+    console.log('[HTML] Test element created and appended');
+    console.log('[HTML] document.body.children after test:', document.body.children.length, 'children');
   </script>
 </body>
 </html>

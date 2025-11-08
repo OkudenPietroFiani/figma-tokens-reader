@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "esbuild src/backend/main.ts --bundle --outfile=code.js --target=es2017",
-    "build:frontend": "esbuild src/frontend/index.ts --bundle --outfile=ui.js --target=es2017",
+    "build:frontend": "esbuild src/frontend/index.ts --bundle --outfile=ui.js --target=es2017 --format=iife",
     "watch": "npm run build -- --watch",
     "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
     "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix ."
