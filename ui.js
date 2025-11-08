@@ -1,0 +1,1323 @@
+"use strict";
+(() => {
+  // src/frontend/state/AppState.ts
+  var AppState = class {
+    constructor() {
+      // ==================== STATE PROPERTIES ====================
+      this._tokenFiles = /* @__PURE__ */ new Map();
+      this._selectedFile = null;
+      this._selectedTokens = /* @__PURE__ */ new Set();
+      this._currentScreen = "welcome";
+      this._currentTab = "tokens";
+      this._importMode = "github";
+      this._tokenSource = null;
+      this._githubConfig = null;
+      this._figmaVariables = /* @__PURE__ */ new Map();
+      this._tokenScopesMap = /* @__PURE__ */ new Map();
+      // ==================== OBSERVABLE PATTERN ====================
+      this.eventListeners = /* @__PURE__ */ new Map();
+    }
+    /**
+     * Subscribe to state change events
+     * Returns unsubscribe function
+     */
+    subscribe(event, callback) {
+      if (!this.eventListeners.has(event)) {
+        this.eventListeners.set(event, /* @__PURE__ */ new Set());
+      }
+      this.eventListeners.get(event).add(callback);
+      return () => {
+        this.unsubscribe(event, callback);
+      };
+    }
+    /**
+     * Unsubscribe from state change events
+     */
+    unsubscribe(event, callback) {
+      const listeners = this.eventListeners.get(event);
+      if (listeners) {
+        listeners.delete(callback);
+      }
+    }
+    /**
+     * Emit an event to all subscribers
+     */
+    emit(event, data) {
+      const listeners = this.eventListeners.get(event);
+      if (listeners) {
+        listeners.forEach((callback) => {
+          try {
+            callback(data);
+          } catch (error) {
+            console.error(`[AppState] Error in event listener for ${event}:`, error);
+          }
+        });
+      }
+    }
+    // ==================== GETTERS ====================
+    get tokenFiles() {
+      return new Map(this._tokenFiles);
+    }
+    get selectedFile() {
+      return this._selectedFile;
+    }
+    get selectedTokens() {
+      return new Set(this._selectedTokens);
+    }
+    get currentScreen() {
+      return this._currentScreen;
+    }
+    get currentTab() {
+      return this._currentTab;
+    }
+    get importMode() {
+      return this._importMode;
+    }
+    get tokenSource() {
+      return this._tokenSource;
+    }
+    get githubConfig() {
+      return this._githubConfig;
+    }
+    get figmaVariables() {
+      return new Map(this._figmaVariables);
+    }
+    get tokenScopesMap() {
+      return new Map(this._tokenScopesMap);
+    }
+    // ==================== SETTERS WITH EVENTS ====================
+    /**
+     * Set token files and emit event
+     */
+    setTokenFiles(files) {
+      this._tokenFiles.clear();
+      files.forEach((file) => {
+        this._tokenFiles.set(file.name, file);
+      });
+      this.emit("files-loaded", files);
+      console.log(`[AppState] Token files updated: ${files.length} files`);
+    }
+    /**
+     * Add a single token file
+     */
+    addTokenFile(file) {
+      this._tokenFiles.set(file.name, file);
+      this.emit("files-loaded", Array.from(this._tokenFiles.values()));
+      console.log(`[AppState] Token file added: ${file.name}`);
+    }
+    /**
+     * Remove a token file
+     */
+    removeTokenFile(fileName) {
+      this._tokenFiles.delete(fileName);
+      this.emit("files-loaded", Array.from(this._tokenFiles.values()));
+      console.log(`[AppState] Token file removed: ${fileName}`);
+    }
+    /**
+     * Clear all token files
+     */
+    clearTokenFiles() {
+      this._tokenFiles.clear();
+      this.emit("files-loaded", []);
+      console.log(`[AppState] All token files cleared`);
+    }
+    /**
+     * Set selected file and emit event
+     */
+    setSelectedFile(fileName) {
+      this._selectedFile = fileName;
+      this.emit("file-selected", fileName);
+      console.log(`[AppState] Selected file: ${fileName}`);
+    }
+    /**
+     * Select a token (for scope assignment)
+     */
+    selectToken(tokenPath) {
+      this._selectedTokens.add(tokenPath);
+      this.emit("tokens-selected", Array.from(this._selectedTokens));
+      console.log(`[AppState] Token selected: ${tokenPath}`);
+    }
+    /**
+     * Deselect a token
+     */
+    deselectToken(tokenPath) {
+      this._selectedTokens.delete(tokenPath);
+      this.emit("tokens-selected", Array.from(this._selectedTokens));
+      console.log(`[AppState] Token deselected: ${tokenPath}`);
+    }
+    /**
+     * Toggle token selection
+     */
+    toggleTokenSelection(tokenPath) {
+      if (this._selectedTokens.has(tokenPath)) {
+        this.deselectToken(tokenPath);
+      } else {
+        this.selectToken(tokenPath);
+      }
+    }
+    /**
+     * Clear all token selections
+     */
+    clearTokenSelection() {
+      this._selectedTokens.clear();
+      this.emit("tokens-selected", []);
+      console.log(`[AppState] Token selection cleared`);
+    }
+    /**
+     * Set current screen and emit event
+     */
+    setCurrentScreen(screen) {
+      this._currentScreen = screen;
+      this.emit("screen-changed", screen);
+      console.log(`[AppState] Screen changed to: ${screen}`);
+    }
+    /**
+     * Set current tab and emit event
+     */
+    setCurrentTab(tab) {
+      this._currentTab = tab;
+      this.emit("tab-changed", tab);
+      console.log(`[AppState] Tab changed to: ${tab}`);
+    }
+    /**
+     * Set import mode and emit event
+     */
+    setImportMode(mode) {
+      this._importMode = mode;
+      this.emit("import-mode-changed", mode);
+      console.log(`[AppState] Import mode changed to: ${mode}`);
+    }
+    /**
+     * Set token source
+     */
+    setTokenSource(source) {
+      this._tokenSource = source;
+      console.log(`[AppState] Token source set to: ${source}`);
+    }
+    /**
+     * Set GitHub configuration
+     */
+    setGitHubConfig(config) {
+      this._githubConfig = config;
+      console.log(`[AppState] GitHub config updated`);
+    }
+    /**
+     * Set Figma variables and emit event
+     */
+    setFigmaVariables(variables) {
+      this._figmaVariables.clear();
+      Object.entries(variables).forEach(([name, data]) => {
+        this._figmaVariables.set(name, data);
+      });
+      this.emit("variables-loaded", variables);
+      console.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
+    }
+    /**
+     * Set scope for a token
+     */
+    setTokenScopes(tokenPath, scopes) {
+      this._tokenScopesMap.set(tokenPath, scopes);
+      this.emit("scopes-updated", { tokenPath, scopes });
+      console.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(", ")}`);
+    }
+    /**
+     * Clear scope for a token
+     */
+    clearTokenScopes(tokenPath) {
+      this._tokenScopesMap.delete(tokenPath);
+      this.emit("scopes-updated", { tokenPath, scopes: [] });
+      console.log(`[AppState] Scopes cleared for ${tokenPath}`);
+    }
+    /**
+     * Get scopes for a token
+     */
+    getTokenScopes(tokenPath) {
+      return this._tokenScopesMap.get(tokenPath) || [];
+    }
+    // ==================== UTILITY METHODS ====================
+    /**
+     * Get state snapshot
+     * Useful for saving/restoring state
+     */
+    getSnapshot() {
+      return {
+        tokenFiles: Array.from(this._tokenFiles.values()),
+        selectedFile: this._selectedFile,
+        selectedTokens: Array.from(this._selectedTokens),
+        currentScreen: this._currentScreen,
+        currentTab: this._currentTab,
+        importMode: this._importMode,
+        tokenSource: this._tokenSource,
+        githubConfig: this._githubConfig,
+        figmaVariables: Array.from(this._figmaVariables.entries()),
+        tokenScopesMap: Array.from(this._tokenScopesMap.entries())
+      };
+    }
+    /**
+     * Restore state from snapshot
+     */
+    restoreSnapshot(snapshot) {
+      if (snapshot.tokenFiles) {
+        this.setTokenFiles(snapshot.tokenFiles);
+      }
+      if (snapshot.selectedFile !== void 0) {
+        this.setSelectedFile(snapshot.selectedFile);
+      }
+      if (snapshot.selectedTokens) {
+        this._selectedTokens = new Set(snapshot.selectedTokens);
+      }
+      if (snapshot.currentScreen) {
+        this.setCurrentScreen(snapshot.currentScreen);
+      }
+      if (snapshot.currentTab) {
+        this.setCurrentTab(snapshot.currentTab);
+      }
+      if (snapshot.importMode) {
+        this.setImportMode(snapshot.importMode);
+      }
+      if (snapshot.tokenSource !== void 0) {
+        this.setTokenSource(snapshot.tokenSource);
+      }
+      if (snapshot.githubConfig !== void 0) {
+        this.setGitHubConfig(snapshot.githubConfig);
+      }
+      if (snapshot.figmaVariables) {
+        const variablesObj = {};
+        snapshot.figmaVariables.forEach(([name, data]) => {
+          variablesObj[name] = data;
+        });
+        this.setFigmaVariables(variablesObj);
+      }
+      if (snapshot.tokenScopesMap) {
+        this._tokenScopesMap = new Map(snapshot.tokenScopesMap);
+      }
+      console.log(`[AppState] State restored from snapshot`);
+    }
+    /**
+     * Reset state to initial values
+     */
+    reset() {
+      this._tokenFiles.clear();
+      this._selectedFile = null;
+      this._selectedTokens.clear();
+      this._currentScreen = "welcome";
+      this._currentTab = "tokens";
+      this._importMode = "github";
+      this._tokenSource = null;
+      this._githubConfig = null;
+      this._figmaVariables.clear();
+      this._tokenScopesMap.clear();
+      console.log(`[AppState] State reset to initial values`);
+    }
+  };
+
+  // src/frontend/services/PluginBridge.ts
+  var PluginBridge = class {
+    constructor() {
+      this.messageHandlers = /* @__PURE__ */ new Map();
+      this.pendingRequests = /* @__PURE__ */ new Map();
+      window.addEventListener("message", this.handleBackendMessage.bind(this));
+      console.log("[PluginBridge] Initialized");
+    }
+    /**
+     * Send message to plugin backend
+     * Returns a promise that resolves when backend responds
+     *
+     * @param type - Message type
+     * @param data - Message data (optional)
+     * @returns Promise that resolves with response data
+     */
+    send(type, data) {
+      return new Promise((resolve, reject) => {
+        try {
+          const requestId = `${type}_${Date.now()}_${Math.random()}`;
+          this.pendingRequests.set(requestId, { resolve, reject });
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type,
+                data,
+                requestId
+              }
+            },
+            "*"
+          );
+          console.log(`[PluginBridge] Sent message: ${type}`, data);
+          setTimeout(() => {
+            if (this.pendingRequests.has(requestId)) {
+              this.pendingRequests.delete(requestId);
+              reject(new Error(`Request timeout: ${type}`));
+            }
+          }, 3e4);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+    /**
+     * Send message to backend without waiting for response
+     * Fire-and-forget style
+     *
+     * @param type - Message type
+     * @param data - Message data (optional)
+     */
+    sendAsync(type, data) {
+      try {
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type,
+              data
+            }
+          },
+          "*"
+        );
+        console.log(`[PluginBridge] Sent async message: ${type}`, data);
+      } catch (error) {
+        console.error(`[PluginBridge] Error sending async message:`, error);
+      }
+    }
+    /**
+     * Subscribe to backend messages
+     * Returns unsubscribe function
+     *
+     * @param type - Message type to listen for
+     * @param handler - Handler function
+     */
+    on(type, handler) {
+      if (!this.messageHandlers.has(type)) {
+        this.messageHandlers.set(type, /* @__PURE__ */ new Set());
+      }
+      this.messageHandlers.get(type).add(handler);
+      console.log(`[PluginBridge] Subscribed to: ${type}`);
+      return () => {
+        this.off(type, handler);
+      };
+    }
+    /**
+     * Unsubscribe from backend messages
+     *
+     * @param type - Message type
+     * @param handler - Handler function to remove
+     */
+    off(type, handler) {
+      if (!handler) {
+        this.messageHandlers.delete(type);
+        console.log(`[PluginBridge] Unsubscribed from all: ${type}`);
+      } else {
+        const handlers = this.messageHandlers.get(type);
+        if (handlers) {
+          handlers.delete(handler);
+          console.log(`[PluginBridge] Unsubscribed from: ${type}`);
+        }
+      }
+    }
+    /**
+     * Handle messages from backend
+     * Routes to appropriate handlers
+     */
+    handleBackendMessage(event) {
+      const message = event.data.pluginMessage;
+      if (!message) return;
+      const { type, data, message: messageText, requestId } = message;
+      console.log(`[PluginBridge] Received message: ${type}`, data || messageText);
+      if (requestId && this.pendingRequests.has(requestId)) {
+        const { resolve, reject } = this.pendingRequests.get(requestId);
+        this.pendingRequests.delete(requestId);
+        if (type === "error") {
+          reject(new Error(messageText || "Unknown error"));
+        } else {
+          resolve(data || messageText);
+        }
+        return;
+      }
+      const handlers = this.messageHandlers.get(type);
+      if (handlers) {
+        handlers.forEach((handler) => {
+          try {
+            handler(data || messageText);
+          } catch (error) {
+            console.error(`[PluginBridge] Error in message handler for ${type}:`, error);
+          }
+        });
+      }
+    }
+    /**
+     * Clear all message handlers
+     * Useful for cleanup
+     */
+    clearAllHandlers() {
+      this.messageHandlers.clear();
+      console.log("[PluginBridge] All handlers cleared");
+    }
+    /**
+     * Get list of active subscriptions
+     * Useful for debugging
+     */
+    getActiveSubscriptions() {
+      return Array.from(this.messageHandlers.keys());
+    }
+  };
+
+  // src/shared/constants.ts
+  var SCREEN_IDS = {
+    WELCOME: "welcome-screen",
+    IMPORT: "import-screen",
+    TOKEN: "token-screen"
+  };
+  var SCOPE_CATEGORIES = {
+    // Fill scopes
+    fill: {
+      label: "Fill",
+      scopes: ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"]
+    },
+    // Stroke scopes
+    stroke: {
+      label: "Stroke",
+      scopes: ["STROKE_COLOR"]
+    },
+    // Effect scopes
+    effect: {
+      label: "Effect",
+      scopes: ["EFFECT_COLOR"]
+    },
+    // Size & spacing
+    sizeSpacing: {
+      label: "Size & Spacing",
+      scopes: ["CORNER_RADIUS", "WIDTH_HEIGHT", "GAP"]
+    },
+    // Text content
+    textContent: {
+      label: "Text Content",
+      scopes: ["TEXT_CONTENT"]
+    },
+    // Typography
+    typography: {
+      label: "Typography",
+      scopes: [
+        "FONT_FAMILY",
+        "FONT_STYLE",
+        "FONT_WEIGHT",
+        "FONT_SIZE",
+        "LINE_HEIGHT",
+        "LETTER_SPACING",
+        "PARAGRAPH_SPACING",
+        "PARAGRAPH_INDENT"
+      ]
+    }
+  };
+  var ALL_SCOPES = Object.values(SCOPE_CATEGORIES).flatMap((category) => category.scopes);
+  var CSS_CLASSES = {
+    ACTIVE: "active",
+    HIDDEN: "hidden",
+    LOADING: "loading",
+    DISABLED: "disabled",
+    CHECKED: "checked",
+    ERROR: "error",
+    SUCCESS: "success"
+  };
+
+  // src/frontend/components/BaseComponent.ts
+  var BaseComponent = class {
+    constructor(state) {
+      this.eventCleanupFunctions = [];
+      this.state = state;
+      this.element = this.createElement();
+      this.bindEvents();
+    }
+    /**
+     * Mount the component to a parent element
+     */
+    mount(parent2) {
+      parent2.appendChild(this.element);
+    }
+    /**
+     * Unmount the component from the DOM
+     * Cleans up all event listeners to prevent memory leaks
+     */
+    unmount() {
+      this.eventCleanupFunctions.forEach((cleanup) => cleanup());
+      this.eventCleanupFunctions = [];
+      if (this.element.parentNode) {
+        this.element.parentNode.removeChild(this.element);
+      }
+    }
+    /**
+     * Show the component (make visible)
+     */
+    show() {
+      this.element.classList.add(CSS_CLASSES.ACTIVE);
+      this.element.classList.remove(CSS_CLASSES.HIDDEN);
+    }
+    /**
+     * Hide the component (make invisible)
+     */
+    hide() {
+      this.element.classList.remove(CSS_CLASSES.ACTIVE);
+      this.element.classList.add(CSS_CLASSES.HIDDEN);
+    }
+    /**
+     * Get the component's root element
+     */
+    getElement() {
+      return this.element;
+    }
+    /**
+     * Helper: Add event listener with automatic cleanup tracking
+     * Prevents memory leaks by storing cleanup functions
+     */
+    addEventListener(element, type, listener, options) {
+      element.addEventListener(type, listener, options);
+      this.eventCleanupFunctions.push(() => {
+        element.removeEventListener(type, listener, options);
+      });
+    }
+    /**
+     * Helper: Subscribe to AppState changes with automatic cleanup
+     */
+    subscribeToState(event, callback) {
+      this.state.subscribe(event, callback);
+      this.eventCleanupFunctions.push(() => {
+        this.state.unsubscribe(event, callback);
+      });
+    }
+    /**
+     * Helper: Query selector with type safety
+     */
+    querySelector(selector) {
+      return this.element.querySelector(selector);
+    }
+    /**
+     * Helper: Query all with type safety
+     */
+    querySelectorAll(selector) {
+      return this.element.querySelectorAll(selector);
+    }
+    /**
+     * Helper: Get element by ID from component's subtree
+     */
+    getElementById(id) {
+      return document.getElementById(id);
+    }
+    /**
+     * Helper: Enable/disable an element
+     */
+    setEnabled(element, enabled) {
+      if (enabled) {
+        element.classList.remove(CSS_CLASSES.DISABLED);
+        if (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) {
+          element.disabled = false;
+        }
+      } else {
+        element.classList.add(CSS_CLASSES.DISABLED);
+        if (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) {
+          element.disabled = true;
+        }
+      }
+    }
+    /**
+     * Helper: Show/hide loading state
+     */
+    setLoading(element, loading) {
+      if (loading) {
+        element.classList.add(CSS_CLASSES.LOADING);
+      } else {
+        element.classList.remove(CSS_CLASSES.LOADING);
+      }
+    }
+    /**
+     * Helper: Show notification (delegates to global notification system)
+     */
+    showNotification(message, type = "info") {
+      const event = new CustomEvent("notification", {
+        detail: { message, type }
+      });
+      window.dispatchEvent(event);
+    }
+  };
+
+  // src/frontend/components/WelcomeScreen.ts
+  var WelcomeScreen = class extends BaseComponent {
+    constructor(state) {
+      super(state);
+    }
+    createElement() {
+      const screen = document.createElement("div");
+      screen.id = SCREEN_IDS.WELCOME;
+      screen.className = "screen welcome-screen";
+      screen.innerHTML = `
+      <div class="welcome-logo"><\uFFFD</div>
+      <h1 class="welcome-title">W3C Design Tokens Importer</h1>
+      <p class="welcome-subtitle">
+        Import and sync design tokens from GitHub repositories or local files to Figma Variables
+      </p>
+
+      <div class="welcome-buttons">
+        <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
+        <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
+      </div>
+
+      <button class="welcome-back-btn ${CSS_CLASSES.HIDDEN}" id="back-to-tokens-btn">
+        \uFFFD Back to Tokens
+      </button>
+    `;
+      this.connectGithubBtn = screen.querySelector("#connect-github-btn");
+      this.importLocalBtn = screen.querySelector("#import-local-btn");
+      this.backToTokensBtn = screen.querySelector("#back-to-tokens-btn");
+      return screen;
+    }
+    bindEvents() {
+      this.addEventListener(this.connectGithubBtn, "click", () => {
+        this.handleGitHubConnect();
+      });
+      this.addEventListener(this.importLocalBtn, "click", () => {
+        this.handleLocalImport();
+      });
+      this.addEventListener(this.backToTokensBtn, "click", () => {
+        this.handleBackToTokens();
+      });
+      this.subscribeToState("files-loaded", () => {
+        this.updateBackButton();
+      });
+    }
+    /**
+     * Handle GitHub connect button click
+     * Navigates to import screen with GitHub mode
+     */
+    handleGitHubConnect() {
+      console.log("[WelcomeScreen] GitHub connect clicked");
+      this.state.setImportMode("github");
+      this.state.setCurrentScreen("import");
+    }
+    /**
+     * Handle local import button click
+     * Navigates to import screen with local mode
+     */
+    handleLocalImport() {
+      console.log("[WelcomeScreen] Local import clicked");
+      this.state.setImportMode("local");
+      this.state.setCurrentScreen("import");
+    }
+    /**
+     * Handle back to tokens button click
+     * Returns to token screen
+     */
+    handleBackToTokens() {
+      console.log("[WelcomeScreen] Back to tokens clicked");
+      this.state.setCurrentScreen("token");
+    }
+    /**
+     * Update back button visibility
+     * Show if tokens are loaded, hide otherwise
+     */
+    updateBackButton() {
+      const hasTokens = this.state.tokenFiles.size > 0;
+      if (hasTokens) {
+        this.backToTokensBtn.classList.remove(CSS_CLASSES.HIDDEN);
+      } else {
+        this.backToTokensBtn.classList.add(CSS_CLASSES.HIDDEN);
+      }
+    }
+    /**
+     * Show this screen
+     * Override to add custom logic if needed
+     */
+    show() {
+      super.show();
+      this.updateBackButton();
+      console.log("[WelcomeScreen] Screen shown");
+    }
+  };
+
+  // src/frontend/components/ImportScreen.ts
+  var ImportScreen = class extends BaseComponent {
+    constructor(state, bridge) {
+      super(state);
+      this.bridge = bridge;
+    }
+    createElement() {
+      const screen = document.createElement("div");
+      screen.id = "import-screen";
+      screen.className = "screen import-screen";
+      screen.innerHTML = `
+      <div class="import-header">
+        <a class="back-link" id="back-to-welcome">\u2190 Back to Welcome</a>
+        <h1 class="import-title" id="import-title">Import Tokens</h1>
+        <p class="import-subtitle" id="import-subtitle">Configure your token source</p>
+      </div>
+
+      <!-- GitHub Import Content -->
+      <div class="import-content active" id="github-import-content">
+        <div class="input-group">
+          <label for="github-token">GitHub Personal Access Token</label>
+          <input type="password" id="github-token" placeholder="ghp_...">
+          <div class="input-hint">Required for private repositories</div>
+        </div>
+
+        <div class="input-group">
+          <label for="repo-url">Repository URL</label>
+          <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
+        </div>
+
+        <div class="input-group">
+          <label for="branch-name">Branch</label>
+          <input type="text" id="branch-name" placeholder="main" value="main">
+        </div>
+
+        <button class="btn btn-primary btn-full" id="fetch-files-btn">Connect to Repository</button>
+
+        <div class="loading" id="github-loading">
+          <span>Fetching files from GitHub...</span>
+        </div>
+
+        <div id="github-files-container"></div>
+
+        <div class="action-buttons hidden" id="github-action-buttons">
+          <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Sync Tokens</button>
+        </div>
+      </div>
+
+      <!-- Local Import Content -->
+      <div class="import-content" id="local-import-content">
+        <input type="file" id="file-input" multiple accept=".json,.zip" style="display: none;">
+
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-zone-icon">\u{1F4C1}</div>
+          <div class="drop-zone-text">Click to select token files or drag & drop</div>
+          <div class="drop-zone-hint">Supports .json and .zip files</div>
+        </div>
+      </div>
+    `;
+      this.backLink = screen.querySelector("#back-to-welcome");
+      this.importTitle = screen.querySelector("#import-title");
+      this.importSubtitle = screen.querySelector("#import-subtitle");
+      this.githubContent = screen.querySelector("#github-import-content");
+      this.githubToken = screen.querySelector("#github-token");
+      this.repoUrl = screen.querySelector("#repo-url");
+      this.branchName = screen.querySelector("#branch-name");
+      this.fetchFilesBtn = screen.querySelector("#fetch-files-btn");
+      this.githubLoading = screen.querySelector("#github-loading");
+      this.githubFilesContainer = screen.querySelector("#github-files-container");
+      this.githubActionButtons = screen.querySelector("#github-action-buttons");
+      this.syncTokensBtn = screen.querySelector("#sync-tokens-btn");
+      this.localContent = screen.querySelector("#local-import-content");
+      this.fileInput = screen.querySelector("#file-input");
+      this.dropZone = screen.querySelector("#drop-zone");
+      return screen;
+    }
+    bindEvents() {
+      this.addEventListener(this.backLink, "click", (e) => {
+        e.preventDefault();
+        this.state.setCurrentScreen("welcome");
+      });
+      this.addEventListener(this.fetchFilesBtn, "click", () => {
+        this.handleFetchFiles();
+      });
+      this.addEventListener(this.syncTokensBtn, "click", () => {
+        this.handleSyncTokens();
+      });
+      this.addEventListener(this.fileInput, "change", (e) => {
+        const target = e.target;
+        if (target.files) {
+          this.handleLocalFiles(Array.from(target.files));
+        }
+      });
+      this.addEventListener(this.dropZone, "click", () => {
+        this.fileInput.click();
+      });
+      this.addEventListener(this.dropZone, "dragover", (e) => {
+        e.preventDefault();
+        this.dropZone.style.borderColor = "#0d99ff";
+        this.dropZone.style.background = "#f8fcff";
+      });
+      this.addEventListener(this.dropZone, "dragleave", (e) => {
+        e.preventDefault();
+        this.dropZone.style.borderColor = "#e0e0e0";
+        this.dropZone.style.background = "";
+      });
+      this.addEventListener(this.dropZone, "drop", (e) => {
+        var _a;
+        e.preventDefault();
+        this.dropZone.style.borderColor = "#e0e0e0";
+        this.dropZone.style.background = "";
+        if ((_a = e.dataTransfer) == null ? void 0 : _a.files) {
+          this.handleLocalFiles(Array.from(e.dataTransfer.files));
+        }
+      });
+      this.subscribeToState("import-mode-changed", (mode) => {
+        this.updateMode(mode);
+      });
+      this.setupBackendListeners();
+    }
+    /**
+     * Setup backend event listeners
+     */
+    setupBackendListeners() {
+      this.bridge.on("github-files-fetched", (data) => {
+        this.handleFilesFetched(data.files);
+      });
+      this.bridge.on("github-files-imported", (data) => {
+        this.handleFilesImported(data);
+      });
+      this.bridge.on("github-config-loaded", (config) => {
+        this.loadGitHubConfig(config);
+      });
+      this.bridge.on("error", (message) => {
+        this.showNotification(message, "error");
+        this.setLoading(this.githubLoading, false);
+        this.setEnabled(this.fetchFilesBtn, true);
+      });
+    }
+    /**
+     * Handle fetch files from GitHub
+     */
+    async handleFetchFiles() {
+      const token = this.githubToken.value.trim();
+      const url = this.repoUrl.value.trim();
+      const branch = this.branchName.value.trim() || "main";
+      if (!url) {
+        this.showNotification("Please enter a repository URL", "error");
+        return;
+      }
+      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (!match) {
+        this.showNotification("Invalid GitHub URL format", "error");
+        return;
+      }
+      const [, owner, repo] = match;
+      const githubConfig = {
+        token,
+        owner,
+        repo: repo.replace(".git", ""),
+        branch
+      };
+      this.state.setGitHubConfig(githubConfig);
+      this.setLoading(this.githubLoading, true);
+      this.setEnabled(this.fetchFilesBtn, false);
+      try {
+        await this.bridge.send("github-fetch-files", githubConfig);
+      } catch (error) {
+        console.error("Error fetching files:", error);
+        this.setLoading(this.githubLoading, false);
+        this.setEnabled(this.fetchFilesBtn, true);
+      }
+    }
+    /**
+     * Handle files fetched from GitHub
+     */
+    handleFilesFetched(files) {
+      this.setLoading(this.githubLoading, false);
+      this.setEnabled(this.fetchFilesBtn, true);
+      if (files.length === 0) {
+        this.githubFilesContainer.innerHTML = '<div class="empty-state">No JSON files found in repository</div>';
+        return;
+      }
+      const fileList = document.createElement("div");
+      fileList.className = "file-list";
+      fileList.innerHTML = `
+      <div class="file-list-header">Select files to sync (${files.length} found)</div>
+      ${files.map((file) => `
+        <div class="file-item">
+          <input type="checkbox" class="file-checkbox" value="${file}" id="file-${file}" checked>
+          <label for="file-${file}">
+            <div class="file-name">${file.split("/").pop()}</div>
+            <div class="file-path">${file}</div>
+          </label>
+        </div>
+      `).join("")}
+    `;
+      this.githubFilesContainer.innerHTML = "";
+      this.githubFilesContainer.appendChild(fileList);
+      this.fetchFilesBtn.classList.add(CSS_CLASSES.HIDDEN);
+      this.githubActionButtons.classList.remove(CSS_CLASSES.HIDDEN);
+      this.setEnabled(this.syncTokensBtn, true);
+    }
+    /**
+     * Handle sync tokens from GitHub
+     */
+    async handleSyncTokens() {
+      const selectedFiles = Array.from(
+        this.githubFilesContainer.querySelectorAll('input[type="checkbox"]:checked')
+      ).map((cb) => cb.value);
+      if (selectedFiles.length === 0) {
+        this.showNotification("Please select at least one file", "error");
+        return;
+      }
+      const config = this.state.githubConfig;
+      if (!config) {
+        this.showNotification("GitHub configuration missing", "error");
+        return;
+      }
+      config.files = selectedFiles;
+      this.state.setGitHubConfig(config);
+      await this.bridge.send("save-github-config", config);
+      this.setLoading(this.githubLoading, true);
+      this.setEnabled(this.syncTokensBtn, false);
+      try {
+        await this.bridge.send("github-import-files", config);
+      } catch (error) {
+        console.error("Error importing files:", error);
+        this.setLoading(this.githubLoading, false);
+        this.setEnabled(this.syncTokensBtn, true);
+      }
+    }
+    /**
+     * Handle files imported from GitHub
+     */
+    handleFilesImported(data) {
+      this.setLoading(this.githubLoading, false);
+      const tokenFiles = [];
+      if (data.primitives) {
+        tokenFiles.push({
+          name: "primitives",
+          path: "github://primitives",
+          content: data.primitives,
+          source: "github"
+        });
+      }
+      if (data.semantics) {
+        tokenFiles.push({
+          name: "semantics",
+          path: "github://semantics",
+          content: data.semantics,
+          source: "github"
+        });
+      }
+      this.state.setTokenFiles(tokenFiles);
+      this.state.setTokenSource("github");
+      this.state.setCurrentScreen("token");
+    }
+    /**
+     * Handle local file selection
+     */
+    async handleLocalFiles(files) {
+      if (files.length === 0) return;
+      const tokenFiles = [];
+      for (const file of files) {
+        if (file.name.endsWith(".json")) {
+          const content = await this.readFileAsText(file);
+          try {
+            const parsed = JSON.parse(content);
+            tokenFiles.push({
+              name: file.name,
+              path: `local://${file.name}`,
+              content: parsed,
+              source: "local"
+            });
+          } catch (error) {
+            console.error(`Error parsing ${file.name}:`, error);
+            this.showNotification(`Failed to parse ${file.name}`, "error");
+          }
+        } else if (file.name.endsWith(".zip")) {
+          this.showNotification("ZIP files not yet supported", "error");
+        }
+      }
+      if (tokenFiles.length > 0) {
+        this.state.setTokenFiles(tokenFiles);
+        this.state.setTokenSource("local");
+        this.state.setCurrentScreen("token");
+      }
+    }
+    /**
+     * Read file as text
+     */
+    readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+    /**
+     * Load GitHub config into form
+     */
+    loadGitHubConfig(config) {
+      if (config.token) this.githubToken.value = config.token;
+      if (config.owner && config.repo) {
+        this.repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
+      }
+      if (config.branch) this.branchName.value = config.branch;
+    }
+    /**
+     * Update mode (GitHub or Local)
+     */
+    updateMode(mode) {
+      if (mode === "github") {
+        this.importTitle.textContent = "Connect to GitHub";
+        this.importSubtitle.textContent = "Import tokens from a GitHub repository";
+        this.githubContent.classList.add(CSS_CLASSES.ACTIVE);
+        this.localContent.classList.remove(CSS_CLASSES.ACTIVE);
+        this.bridge.sendAsync("load-github-config");
+      } else {
+        this.importTitle.textContent = "Import Local Files";
+        this.importSubtitle.textContent = "Select token files from your computer";
+        this.localContent.classList.add(CSS_CLASSES.ACTIVE);
+        this.githubContent.classList.remove(CSS_CLASSES.ACTIVE);
+      }
+    }
+    /**
+     * Show this screen
+     */
+    show() {
+      super.show();
+      this.updateMode(this.state.importMode);
+      console.log("[ImportScreen] Screen shown");
+    }
+  };
+
+  // src/frontend/components/TokenScreen.ts
+  var TokenScreen = class extends BaseComponent {
+    constructor(state, bridge) {
+      super(state);
+      this.bridge = bridge;
+    }
+    createElement() {
+      const screen = document.createElement("div");
+      screen.id = "token-screen";
+      screen.className = "screen token-screen";
+      screen.innerHTML = `
+      <!-- Top Bar -->
+      <div class="token-top-bar">
+        <div class="token-top-bar-tabs">
+          <button class="token-tab active" id="tokens-tab">Tokens</button>
+        </div>
+        <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
+      </div>
+
+      <!-- Tokens View -->
+      <div class="token-view active" id="tokens-view">
+        <div class="token-layout">
+          <!-- Left Column: File Tabs -->
+          <div class="file-tabs">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title">Files</div>
+            </div>
+            <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
+              <!-- Tabs will be dynamically added here -->
+            </div>
+          </div>
+
+          <!-- Right Column: JSON Preview -->
+          <div class="json-preview">
+            <div class="json-content" id="json-content">
+              <div class="empty-state">Select a token file from the left to preview its contents</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="token-actions">
+        <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
+      </div>
+    `;
+      this.syncBtn = screen.querySelector("#sync-to-figma-btn");
+      this.switchSourceBtn = screen.querySelector("#switch-source-btn");
+      this.fileTabsList = screen.querySelector("#file-tabs-list");
+      this.jsonContent = screen.querySelector("#json-content");
+      return screen;
+    }
+    bindEvents() {
+      this.addEventListener(this.syncBtn, "click", () => {
+        this.handleSyncToFigma();
+      });
+      this.addEventListener(this.switchSourceBtn, "click", () => {
+        this.state.setCurrentScreen("welcome");
+      });
+      this.subscribeToState("files-loaded", () => {
+        this.renderFileList();
+      });
+      this.subscribeToState("file-selected", (fileName) => {
+        this.renderFilePreview(fileName);
+      });
+      this.bridge.on("import-success", (message) => {
+        this.showNotification(message, "success");
+      });
+    }
+    /**
+     * Render file list
+     */
+    renderFileList() {
+      const files = Array.from(this.state.tokenFiles.values());
+      if (files.length === 0) {
+        this.fileTabsList.innerHTML = '<div class="empty-state">No files loaded</div>';
+        return;
+      }
+      this.fileTabsList.innerHTML = files.map((file) => {
+        return `<button class="file-tab" data-file="${file.name}">${file.name}</button>`;
+      }).join("");
+      const fileTabs = this.fileTabsList.querySelectorAll(".file-tab");
+      fileTabs.forEach((tab) => {
+        this.addEventListener(tab, "click", () => {
+          const fileName = tab.getAttribute("data-file");
+          this.state.setSelectedFile(fileName);
+          fileTabs.forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+        });
+      });
+      if (files.length > 0 && !this.state.selectedFile) {
+        this.state.setSelectedFile(files[0].name);
+        fileTabs[0].classList.add("active");
+      }
+    }
+    /**
+     * Render file preview
+     */
+    renderFilePreview(fileName) {
+      if (!fileName) {
+        this.jsonContent.innerHTML = '<div class="empty-state">Select a file to preview</div>';
+        return;
+      }
+      const file = this.state.tokenFiles.get(fileName);
+      if (!file) {
+        this.jsonContent.innerHTML = '<div class="empty-state">File not found</div>';
+        return;
+      }
+      const jsonStr = JSON.stringify(file.content, null, 2);
+      this.jsonContent.innerHTML = "<pre>" + jsonStr + "</pre>";
+    }
+    /**
+     * Handle sync to Figma
+     */
+    async handleSyncToFigma() {
+      const files = Array.from(this.state.tokenFiles.values());
+      if (files.length === 0) {
+        this.showNotification("No token files loaded", "error");
+        return;
+      }
+      let primitives = null;
+      let semantics = null;
+      files.forEach((file) => {
+        if (file.name.toLowerCase().includes("primitive")) {
+          primitives = file.content;
+        } else if (file.name.toLowerCase().includes("semantic")) {
+          semantics = file.content;
+        }
+      });
+      if (!primitives && files.length > 0) {
+        primitives = files[0].content;
+      }
+      try {
+        this.setEnabled(this.syncBtn, false);
+        await this.bridge.send("import-tokens", {
+          primitives,
+          semantics,
+          source: this.state.tokenSource
+        });
+        this.setEnabled(this.syncBtn, true);
+      } catch (error) {
+        console.error("Error syncing to Figma:", error);
+        this.showNotification("Failed to sync tokens", "error");
+        this.setEnabled(this.syncBtn, true);
+      }
+    }
+    /**
+     * Show this screen
+     */
+    show() {
+      super.show();
+      this.renderFileList();
+      console.log("[TokenScreen] Screen shown");
+    }
+  };
+
+  // src/frontend/components/ScopeScreen.ts
+  var ScopeScreen = class extends BaseComponent {
+    constructor(state, bridge) {
+      super(state);
+      this.bridge = bridge;
+    }
+    createElement() {
+      const div = document.createElement("div");
+      div.className = "scope-screen";
+      div.innerHTML = `
+      <div style="padding: 40px; text-align: center;">
+        <h2>Scope Management</h2>
+        <p style="color: #666; margin-top: 16px;">
+          Scope management interface will be added in a future update.
+        </p>
+        <p style="color: #999; margin-top: 8px; font-size: 12px;">
+          For now, variables are created with default scopes.
+        </p>
+      </div>
+    `;
+      return div;
+    }
+    bindEvents() {
+    }
+  };
+
+  // src/frontend/index.ts
+  var FrontendApp = class {
+    constructor() {
+      this.state = new AppState();
+      this.bridge = new PluginBridge();
+      this.welcomeScreen = new WelcomeScreen(this.state);
+      this.importScreen = new ImportScreen(this.state, this.bridge);
+      this.tokenScreen = new TokenScreen(this.state, this.bridge);
+      this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+      this.screens = /* @__PURE__ */ new Map([
+        ["welcome", this.welcomeScreen],
+        ["import", this.importScreen],
+        ["token", this.tokenScreen]
+      ]);
+      console.log("[FrontendApp] Initialized");
+    }
+    /**
+     * Initialize and start the application
+     */
+    init() {
+      const body = document.body;
+      this.welcomeScreen.mount(body);
+      this.importScreen.mount(body);
+      this.tokenScreen.mount(body);
+      this.welcomeScreen.show();
+      this.state.subscribe("screen-changed", (screen) => {
+        this.handleScreenChange(screen);
+      });
+      this.setupBackendHandlers();
+      console.log("[FrontendApp] Started");
+    }
+    /**
+     * Handle screen navigation
+     */
+    handleScreenChange(screen) {
+      console.log(`[FrontendApp] Navigating to: ${screen}`);
+      this.screens.forEach((s) => s.hide());
+      const targetScreen = this.screens.get(screen);
+      if (targetScreen) {
+        targetScreen.show();
+      } else {
+        console.warn(`[FrontendApp] Unknown screen: ${screen}`);
+      }
+    }
+    /**
+     * Setup backend message handlers
+     */
+    setupBackendHandlers() {
+      this.bridge.on("import-success", (message) => {
+        console.log("[FrontendApp] Import success:", message);
+      });
+      this.bridge.on("error", (message) => {
+        console.error("[FrontendApp] Backend error:", message);
+      });
+      this.bridge.on("github-files-fetched", (data) => {
+        console.log("[FrontendApp] GitHub files fetched:", data);
+      });
+      this.bridge.on("tokens-loaded", (data) => {
+        console.log("[FrontendApp] Tokens loaded:", data);
+      });
+      console.log("[FrontendApp] Backend handlers setup complete");
+    }
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      const app = new FrontendApp();
+      app.init();
+    });
+  } else {
+    const app = new FrontendApp();
+    app.init();
+  }
+})();

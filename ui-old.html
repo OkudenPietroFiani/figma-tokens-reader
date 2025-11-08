@@ -1,0 +1,2877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>W3C Design Tokens Importer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #333;
+      background: #fff;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .screen {
+      display: none;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    /* ==================== WELCOME SCREEN ==================== */
+    .welcome-screen {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 24px;
+    }
+
+    .welcome-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 40px;
+    }
+
+    .welcome-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #000;
+    }
+
+    .welcome-subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 40px;
+      max-width: 400px;
+    }
+
+    .welcome-buttons {
+      display: flex;
+      flex-direction: row;
+      gap: 12px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .welcome-back-btn {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: transparent;
+      color: #666;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .welcome-back-btn:hover {
+      color: #333;
+      text-decoration: underline;
+    }
+
+    /* Pill Buttons */
+    .btn-pill {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-pill.primary {
+      background: #0d99ff;
+      color: white;
+    }
+
+    .btn-pill.primary:hover {
+      background: #0b7fd4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(13, 153, 255, 0.3);
+    }
+
+    .btn-pill.secondary {
+      background: #fff;
+      color: #333;
+      border: 2px solid #e0e0e0;
+    }
+
+    .btn-pill.secondary:hover {
+      background: #f5f5f5;
+      border-color: #c0c0c0;
+    }
+
+    /* ==================== IMPORT SCREEN ==================== */
+    .import-screen {
+      flex-direction: column;
+      padding: 24px;
+    }
+
+    .import-header {
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      color: #0d99ff;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .import-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #000;
+    }
+
+    .import-subtitle {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .import-mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 2px;
+    }
+
+    .import-mode-tab {
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .import-mode-tab:hover {
+      color: #333;
+    }
+
+    .import-mode-tab.active {
+      color: #0d99ff;
+      border-bottom-color: #0d99ff;
+    }
+
+    .import-content {
+      display: none;
+    }
+
+    .import-content.active {
+      display: block;
+    }
+
+    /* GitHub Import */
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #0d99ff;
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #0d99ff;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #0b7fd4;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: #333;
+      border: 2px solid #e0e0e0;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #f5f5f5;
+    }
+
+    .btn-full {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    /* File List */
+    .file-list {
+      margin-top: 24px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .file-list-header {
+      padding: 12px 16px;
+      background: #f8f8f8;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .file-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-item:last-child {
+      border-bottom: none;
+    }
+
+    .file-checkbox {
+      flex-shrink: 0;
+    }
+
+    .file-name {
+      flex: 1;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .file-path {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .action-buttons {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      color: #666;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Local File Import */
+    #file-input {
+      display: none;
+    }
+
+    .drop-zone {
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .drop-zone:hover {
+      border-color: #0d99ff;
+      background: #f8fcff;
+    }
+
+    .drop-zone-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .drop-zone-text {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .drop-zone-hint {
+      font-size: 12px;
+      color: #999;
+    }
+
+    /* ==================== TOKEN SCREEN ==================== */
+    .token-screen {
+      flex-direction: column;
+      padding: 0;
+      height: 100vh;
+    }
+
+    .token-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      height: 58px;
+      border-bottom: 1px solid #e5e5e0;
+      background: #fff;
+    }
+
+    .token-top-bar-tabs {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .token-tab {
+      font-size: 16px;
+      font-weight: 400;
+      color: #161e3d;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      transition: font-weight 0.2s;
+      font-family: inherit;
+    }
+
+    .token-tab:hover {
+      font-weight: 500;
+    }
+
+    .token-tab.active {
+      font-weight: 700;
+    }
+
+    .token-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .token-view {
+      display: none;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .token-view.active {
+      display: flex;
+    }
+
+    /* Left Column - File Tabs */
+    .file-tabs {
+      width: 245px;
+      background: #fff;
+      border-right: 1px solid #e5e5e0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .file-tabs-header {
+      padding: 16px;
+      border-bottom: 1px solid #e8e9ec;
+    }
+
+    .file-tabs-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 0;
+    }
+
+    .btn-switch-source {
+      padding: 8px 20px;
+      background: #fff;
+      color: #050914;
+      border: 1px solid #161e3d;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-switch-source:hover {
+      background: #f8f8f8;
+    }
+
+    .file-tab {
+      padding: 8px;
+      margin: 0 0 8px 0;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 16px;
+      color: #000;
+      background: transparent;
+      text-align: left;
+      word-break: break-word;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .file-tab:hover {
+      background: #f5f5f5;
+    }
+
+    .file-tab.active {
+      background: #e8e9ec;
+      font-weight: 600;
+    }
+
+    .file-tab-count {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    /* Right Column - JSON Preview */
+    .json-preview {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .json-header {
+      display: none; /* Hide the header as it's not in the design */
+    }
+
+    .json-filename {
+      font-size: 16px;
+      font-weight: 600;
+      color: #000;
+      margin-bottom: 4px;
+    }
+
+    .json-source {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .json-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .json-content pre {
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      overflow-x: auto;
+    }
+
+    /* Interactive JSON Viewer */
+    .json-tree {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #000;
+      background: #fff;
+      padding: 0;
+      border-radius: 0;
+      border: none;
+    }
+
+    .json-node {
+      margin-left: 16px;
+    }
+
+    .json-line {
+      padding: 4px 0;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .json-line:hover {
+      background: transparent;
+    }
+
+    .json-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: #000;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+
+    .json-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .json-key {
+      color: #000;
+      font-weight: 400;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .json-key.primary {
+      font-weight: 600;
+    }
+
+    .json-value {
+      color: #1a1aa6;
+    }
+
+    .json-value.string {
+      color: #c41a16;
+    }
+
+    .json-value.number {
+      color: #1c00cf;
+    }
+
+    .json-value.boolean {
+      color: #0d99ff;
+    }
+
+    .json-value.null {
+      color: #999;
+    }
+
+    .json-type {
+      color: #999;
+      font-style: italic;
+      margin-left: 8px;
+    }
+
+    .json-collapsed {
+      display: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: #999;
+      font-size: 14px;
+    }
+
+    /* Action Footer */
+    .token-actions {
+      padding: 12px 16px;
+      height: 64px;
+      border-top: 1px solid #e5e5e0;
+      background: #fff;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .token-actions .btn {
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
+    }
+
+    .token-actions .btn-primary {
+      background: #253152;
+      color: #f5f5f3;
+    }
+
+    .token-actions .btn-primary:hover:not(:disabled) {
+      background: #1a2440;
+    }
+
+    .token-actions .btn-secondary {
+      background: #fff;
+      color: #050914;
+      border: 1px solid #161e3d;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .token-actions .btn-secondary:hover:not(:disabled) {
+      background: #f8f8f8;
+    }
+
+    /* Notifications */
+    .notification {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: #fff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .notification.active {
+      display: flex;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .notification.success {
+      border-left: 4px solid #00c853;
+    }
+
+    .notification.error {
+      border-left: 4px solid #ff3b30;
+    }
+
+    /* Scope Selection Styles */
+    .scope-tree {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #000;
+    }
+
+    .scope-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .scope-item:hover {
+      background: #f5f5f5;
+    }
+
+    .scope-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .scope-item-content {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .scope-chevron {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scope-chevron svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .scope-label {
+      font-weight: 400;
+    }
+
+    .scope-label.primary {
+      font-weight: 600;
+    }
+
+    .scope-children {
+      margin-left: 24px;
+    }
+
+    .scope-children.collapsed {
+      display: none;
+    }
+
+    /* Scope Selection - Left Column */
+    .scope-left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .scope-selection-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scope-selection-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .scope-selection-count {
+      font-size: 12px;
+      color: #8b94b1;
+    }
+
+    .scope-type-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .scope-option-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .scope-option-item:hover {
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .scope-option-label {
+      font-size: 16px;
+      font-weight: 400;
+      color: #000;
+    }
+
+    .scope-option-checkbox {
+      width: 16px;
+      height: 16px;
+      border: 0.8px solid #161e3d;
+      border-radius: 3.2px;
+      background: white;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .scope-option-checkbox.checked {
+      background: #000;
+    }
+
+    .scope-option-checkbox.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .scope-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .scope-btn {
+      width: 100%;
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    .scope-btn-primary {
+      background: white;
+      color: #050914;
+      border: 1px solid #161e3d;
+    }
+
+    .scope-btn-primary:hover {
+      background: #f8f8f8;
+    }
+
+    .scope-btn-secondary {
+      background: transparent;
+      color: #050914;
+      border: none;
+      text-decoration: underline;
+      padding: 8px 20px;
+    }
+
+    .scope-btn-secondary:hover {
+      color: #666;
+    }
+
+    /* Scope indicators next to tokens */
+    .token-scope-indicator {
+      font-size: 12px;
+      color: #8b94b1;
+      margin-left: auto;
+      padding-right: 8px;
+    }
+
+    .scope-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .scope-item.disabled .scope-checkbox {
+      cursor: not-allowed;
+      background: #e4e4e4;
+      border-color: #c5c8d1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== WELCOME SCREEN ==================== -->
+  <div class="screen active welcome-screen" id="welcome-screen">
+    <div class="welcome-logo">🎨</div>
+    <h1 class="welcome-title">W3C Design Tokens Importer</h1>
+    <p class="welcome-subtitle">Import and sync design tokens from GitHub repositories or local files to Figma Variables</p>
+
+    <div class="welcome-buttons">
+      <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
+      <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
+    </div>
+
+    <button class="welcome-back-btn hidden" id="back-to-tokens-btn">← Back to Tokens</button>
+  </div>
+
+  <!-- ==================== IMPORT SCREEN ==================== -->
+  <div class="screen import-screen" id="import-screen">
+    <div class="import-header">
+      <a class="back-link" id="back-to-welcome">← Back to Welcome</a>
+      <h1 class="import-title" id="import-title">Import Tokens</h1>
+      <p class="import-subtitle" id="import-subtitle">Configure your token source</p>
+    </div>
+
+    <!-- GitHub Import Content -->
+    <div class="import-content active" id="github-import-content">
+      <div class="input-group">
+        <label for="github-token">GitHub Personal Access Token</label>
+        <input type="password" id="github-token" placeholder="ghp_...">
+        <div class="input-hint">Required for private repositories</div>
+      </div>
+
+      <div class="input-group">
+        <label for="repo-url">Repository URL</label>
+        <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
+      </div>
+
+      <div class="input-group">
+        <label for="branch-name">Branch</label>
+        <input type="text" id="branch-name" placeholder="main" value="main">
+      </div>
+
+      <button class="btn btn-primary btn-full" id="fetch-files-btn">Connect to Repository</button>
+
+      <div class="loading" id="github-loading">
+        <span>Fetching files from GitHub...</span>
+      </div>
+
+      <!-- File list will be populated here -->
+      <div id="github-files-container"></div>
+
+      <div class="action-buttons hidden" id="github-action-buttons">
+        <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Sync Tokens</button>
+      </div>
+    </div>
+
+    <!-- Local Import Content -->
+    <div class="import-content" id="local-import-content">
+      <input type="file" id="file-input" multiple accept=".json,.zip">
+
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">📁</div>
+        <div class="drop-zone-text">Click to select token files or drag & drop</div>
+        <div class="drop-zone-hint">Supports .json and .zip files</div>
+      </div>
+
+      <div class="loading" id="local-loading">
+        <span>Processing token files...</span>
+      </div>
+
+      <!-- File list will be populated here -->
+      <div id="local-files-container"></div>
+
+      <div class="action-buttons hidden" id="local-action-buttons">
+        <button class="btn btn-primary btn-full" id="upload-tokens-btn" disabled>Upload Tokens</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOKEN SCREEN ==================== -->
+  <div class="screen token-screen" id="token-screen">
+    <!-- Top Bar -->
+    <div class="token-top-bar">
+      <div class="token-top-bar-tabs">
+        <button class="token-tab active" id="tokens-tab" data-tab="tokens">Tokens</button>
+        <button class="token-tab" id="scopes-tab" data-tab="scopes">Scopes</button>
+      </div>
+      <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
+    </div>
+
+    <!-- Tokens View -->
+    <div class="token-view active" id="tokens-view">
+      <div class="token-layout">
+        <!-- Left Column: File Tabs -->
+        <div class="file-tabs">
+          <div class="file-tabs-header">
+            <div class="file-tabs-title">Files</div>
+          </div>
+          <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
+            <!-- Tabs will be dynamically added here -->
+          </div>
+        </div>
+
+        <!-- Right Column: JSON Preview -->
+        <div class="json-preview">
+          <div class="json-header">
+            <div class="json-filename" id="json-filename">Select a file</div>
+            <div class="json-source" id="json-source">No file selected</div>
+          </div>
+          <div class="json-content" id="json-content">
+            <div class="empty-state">Select a token file from the left to preview its contents</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scopes View -->
+    <div class="token-view" id="scopes-view">
+      <div class="token-layout">
+        <!-- Left Column: Dynamic (File Selection / Scope Assignment) -->
+        <div class="file-tabs" id="scope-left-column">
+          <!-- File Selection State (Default) -->
+          <div id="scope-file-selection">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title">Scope selection</div>
+            </div>
+            <div id="scope-file-tabs-list" style="padding: 16px 16px 0 16px;">
+              <!-- File tabs for scope selection -->
+            </div>
+          </div>
+
+          <!-- Scope Assignment State (When tokens selected) -->
+          <div id="scope-assignment-view" class="scope-left-column" style="display: none;">
+            <div class="scope-selection-header">
+              <div class="scope-selection-title" id="scope-type-title">Scopes</div>
+              <div class="scope-selection-count" id="scope-selection-count">0 tokens selected</div>
+            </div>
+
+            <div class="scope-type-group" id="scope-options-container">
+              <!-- Scope options will be dynamically added here -->
+            </div>
+
+            <div class="scope-actions">
+              <button class="scope-btn scope-btn-primary" id="apply-scopes-btn">Apply scopes</button>
+              <button class="scope-btn scope-btn-secondary" id="reset-selection-btn">Reset selection</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Token Selection with Checkboxes -->
+        <div class="json-preview">
+          <div class="json-content" id="scope-token-content" style="padding: 16px;">
+            <div class="empty-state">Select tokens to assign scopes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Footer -->
+    <div class="token-actions">
+      <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
+      <button class="btn btn-secondary hidden" id="pull-changes-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+          <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Pull changes</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <span id="notification-message"></span>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    // ==================== STATE MANAGEMENT ====================
+    let importMode = 'github'; // 'github' or 'local'
+    let tokenFiles = {}; // Stores all token file data
+    let tokenSource = null; // 'github' or 'local'
+    let githubConfig = null; // Stores GitHub configuration for pull changes
+    let savedTokenState = null; // Backup state when switching source
+
+    // Scope selection state
+    let selectedTokensForScopes = new Set(); // Tokens selected for scope assignment
+    let tokenScopesMap = new Map(); // Maps token paths to assigned scopes
+    let figmaVariables = {}; // Stores all Figma variables with their current scopes
+    let figmaVariablesLoaded = false; // Track if variables have been loaded
+
+    // ==================== SCREEN NAVIGATION ====================
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+      });
+      document.getElementById(screenId).classList.add('active');
+    }
+
+    // ==================== WELCOME SCREEN ====================
+    document.getElementById('connect-github-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
+      importMode = 'github';
+      document.getElementById('import-title').textContent = 'Connect to GitHub';
+      document.getElementById('import-subtitle').textContent = 'Import tokens from a GitHub repository';
+      document.getElementById('github-import-content').classList.add('active');
+      document.getElementById('local-import-content').classList.remove('active');
+      showScreen('import-screen');
+      loadGitHubConfig();
+    });
+
+    document.getElementById('import-local-btn').addEventListener('click', () => {
+      // Clear saved state when choosing a new source
+      savedTokenState = null;
+      document.getElementById('back-to-tokens-btn').classList.add('hidden');
+
+      importMode = 'local';
+      document.getElementById('import-title').textContent = 'Import Local Files';
+      document.getElementById('import-subtitle').textContent = 'Select token files from your computer';
+      document.getElementById('local-import-content').classList.add('active');
+      document.getElementById('github-import-content').classList.remove('active');
+      showScreen('import-screen');
+    });
+
+    document.getElementById('back-to-welcome').addEventListener('click', () => {
+      // If we have saved token state, show back button on welcome screen
+      if (savedTokenState) {
+        document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+      }
+      showScreen('welcome-screen');
+    });
+
+    // ==================== GITHUB IMPORT ====================
+    const githubToken = document.getElementById('github-token');
+    const repoUrl = document.getElementById('repo-url');
+    const branchName = document.getElementById('branch-name');
+    const fetchFilesBtn = document.getElementById('fetch-files-btn');
+    const syncTokensBtn = document.getElementById('sync-tokens-btn');
+
+    async function loadGitHubConfig() {
+      try {
+        parent.postMessage({ pluginMessage: { type: 'load-github-config' } }, '*');
+      } catch (error) {
+        console.error('Error loading GitHub config:', error);
+      }
+    }
+
+    async function saveGitHubConfig(config) {
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'save-github-config',
+            data: config
+          }
+        }, '*');
+      } catch (error) {
+        console.error('Error saving GitHub config:', error);
+      }
+    }
+
+    fetchFilesBtn.addEventListener('click', async () => {
+      const token = githubToken.value.trim();
+      const url = repoUrl.value.trim();
+      const branch = branchName.value.trim() || 'main';
+
+      if (!url) {
+        showNotification('Please enter a repository URL', 'error');
+        return;
+      }
+
+      // Parse owner and repo from URL
+      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (!match) {
+        showNotification('Invalid GitHub URL format', 'error');
+        return;
+      }
+
+      const [, owner, repo] = match;
+
+      // Save config for later use
+      githubConfig = { token, owner, repo: repo.replace('.git', ''), branch };
+
+      document.getElementById('github-loading').classList.add('active');
+      fetchFilesBtn.disabled = true;
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-fetch-files',
+          data: githubConfig
+        }
+      }, '*');
+    });
+
+    syncTokensBtn.addEventListener('click', async () => {
+      const selectedFiles = Array.from(document.querySelectorAll('#github-files-container input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+
+      if (selectedFiles.length === 0) {
+        showNotification('Please select at least one file', 'error');
+        return;
+      }
+
+      // Update config with selected files
+      githubConfig.files = selectedFiles;
+
+      // Save GitHub config
+      await saveGitHubConfig(githubConfig);
+
+      document.getElementById('github-loading').classList.add('active');
+      syncTokensBtn.disabled = true;
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-import-files',
+          data: githubConfig
+        }
+      }, '*');
+    });
+
+    function displayGitHubFiles(files) {
+      const container = document.getElementById('github-files-container');
+
+      if (files.length === 0) {
+        container.innerHTML = '<div class="empty-state">No JSON files found in repository</div>';
+        return;
+      }
+
+      const fileList = document.createElement('div');
+      fileList.className = 'file-list';
+      fileList.innerHTML = `
+        <div class="file-list-header">Select files to sync (${files.length} found)</div>
+        ${files.map(file => `
+          <div class="file-item">
+            <input type="checkbox" class="file-checkbox" value="${file}" id="file-${file}" checked>
+            <label for="file-${file}">
+              <div class="file-name">${file.split('/').pop()}</div>
+              <div class="file-path">${file}</div>
+            </label>
+          </div>
+        `).join('')}
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(fileList);
+
+      // Hide fetch button, show sync button
+      fetchFilesBtn.classList.add('hidden');
+      document.getElementById('github-action-buttons').classList.remove('hidden');
+      syncTokensBtn.disabled = false;
+    }
+
+    // ==================== LOCAL IMPORT ====================
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const uploadTokensBtn = document.getElementById('upload-tokens-btn');
+
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#0d99ff';
+      dropZone.style.background = '#f8fcff';
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#e0e0e0';
+      dropZone.style.background = 'transparent';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#e0e0e0';
+      dropZone.style.background = 'transparent';
+
+      const files = Array.from(e.dataTransfer.files);
+      handleLocalFiles(files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      handleLocalFiles(files);
+    });
+
+    async function handleLocalFiles(files) {
+      if (files.length === 0) return;
+
+      document.getElementById('local-loading').classList.add('active');
+      dropZone.classList.add('hidden');
+
+      const tokenData = { primitives: {}, semantics: {} };
+
+      for (const file of files) {
+        try {
+          if (file.name.endsWith('.json')) {
+            const text = await file.text();
+            const json = JSON.parse(text);
+
+            // Store file data
+            const fileKey = `local_${file.name}`;
+            tokenFiles[fileKey] = {
+              name: file.name,
+              content: json,
+              source: 'Local File'
+            };
+
+            // Categorize as primitive or semantic
+            if (file.name.toLowerCase().includes('primitive')) {
+              tokenData.primitives[file.name] = json;
+            } else {
+              tokenData.semantics[file.name] = json;
+            }
+          } else if (file.name.endsWith('.zip')) {
+            const zip = await JSZip.loadAsync(file);
+            const jsonFiles = Object.keys(zip.files).filter(name => name.endsWith('.json'));
+
+            for (const fileName of jsonFiles) {
+              const text = await zip.files[fileName].async('text');
+              const json = JSON.parse(text);
+
+              const fileKey = `local_${fileName}`;
+              tokenFiles[fileKey] = {
+                name: fileName,
+                content: json,
+                source: 'Local File (ZIP)'
+              };
+
+              if (fileName.toLowerCase().includes('primitive')) {
+                tokenData.primitives[fileName] = json;
+              } else {
+                tokenData.semantics[fileName] = json;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
+          showNotification(`Error processing ${file.name}`, 'error');
+        }
+      }
+
+      document.getElementById('local-loading').classList.remove('active');
+
+      // Display file list
+      displayLocalFiles(Object.keys(tokenFiles));
+
+      // Store for upload
+      window.localTokenData = tokenData;
+    }
+
+    function displayLocalFiles(fileKeys) {
+      const container = document.getElementById('local-files-container');
+
+      if (fileKeys.length === 0) {
+        container.innerHTML = '<div class="empty-state">No valid token files found</div>';
+        return;
+      }
+
+      const fileList = document.createElement('div');
+      fileList.className = 'file-list';
+      fileList.innerHTML = `
+        <div class="file-list-header">Files ready to upload (${fileKeys.length})</div>
+        ${fileKeys.map(key => {
+          const file = tokenFiles[key];
+          return `
+            <div class="file-item">
+              <div class="file-name">${file.name}</div>
+              <div class="file-path">${file.source}</div>
+            </div>
+          `;
+        }).join('')}
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(fileList);
+
+      // Show upload button
+      document.getElementById('local-action-buttons').classList.remove('hidden');
+      uploadTokensBtn.disabled = false;
+    }
+
+    uploadTokensBtn.addEventListener('click', () => {
+      if (!window.localTokenData) return;
+
+      tokenSource = 'local';
+
+      // Show token screen with loaded files
+      showTokenScreen();
+    });
+
+    // ==================== TOKEN SCREEN ====================
+    function showTokenScreen() {
+      const tabsList = document.getElementById('file-tabs-list');
+      tabsList.innerHTML = '';
+
+      // Filter out metadata files
+      const fileKeys = Object.keys(tokenFiles).filter(key => {
+        const file = tokenFiles[key];
+        const fileName = file.name.toLowerCase();
+        return !fileName.includes('metadata') &&
+               !fileName.startsWith('$') &&
+               !fileName.includes('$metadata');
+      });
+
+      fileKeys.forEach((key, index) => {
+        const file = tokenFiles[key];
+        const tokenCount = countTokens(file.content);
+
+        const tab = document.createElement('button');
+        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
+        tab.innerHTML = `
+          ${file.name}
+          <span class="file-tab-count">${tokenCount} tokens</span>
+        `;
+        tab.dataset.file = key;
+        tab.addEventListener('click', () => selectFile(key));
+        tabsList.appendChild(tab);
+      });
+
+      // Show first file
+      if (fileKeys.length > 0) {
+        selectFile(fileKeys[0]);
+      }
+
+      // Show/hide pull changes button
+      const pullBtn = document.getElementById('pull-changes-btn');
+      if (tokenSource === 'github') {
+        pullBtn.classList.remove('hidden');
+      } else {
+        pullBtn.classList.add('hidden');
+      }
+
+      showScreen('token-screen');
+
+      // Save tokens to persistence
+      saveTokens();
+    }
+
+    function countTokens(obj, count = 0) {
+      if (!obj || typeof obj !== 'object') return count;
+
+      for (const key in obj) {
+        const value = obj[key];
+        if (value && typeof value === 'object') {
+          // Check if this is a token (has $value)
+          if ('$value' in value) {
+            count++;
+          } else {
+            // Recurse into nested objects
+            count = countTokens(value, count);
+          }
+        }
+      }
+      return count;
+    }
+
+    function selectFile(fileKey) {
+      const file = tokenFiles[fileKey];
+      if (!file) return;
+
+      // Update active tab
+      document.querySelectorAll('.file-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.file === fileKey);
+      });
+
+      // Update preview
+      document.getElementById('json-filename').textContent = file.name;
+      document.getElementById('json-source').textContent = `Source: ${file.source}`;
+
+      // Render interactive JSON tree
+      const jsonContent = document.getElementById('json-content');
+      jsonContent.innerHTML = '';
+      const tree = document.createElement('div');
+      tree.className = 'json-tree';
+      renderJsonTree(file.content, tree, '');
+      jsonContent.appendChild(tree);
+    }
+
+    function createChevronIcon(isExpanded) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '16');
+      svg.setAttribute('height', '16');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', isExpanded ? 'M6 9L12 15L18 9' : 'M9 6L15 12L9 18');
+      path.setAttribute('stroke', 'currentColor');
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+
+      svg.appendChild(path);
+      return svg;
+    }
+
+    function renderJsonTree(obj, container, path, isExpanded = true, depth = 0) {
+      if (obj === null) {
+        container.innerHTML = '<span class="json-value null">null</span>';
+        return;
+      }
+
+      if (typeof obj !== 'object') {
+        const type = typeof obj;
+        container.innerHTML = `<span class="json-value ${type}">${JSON.stringify(obj)}</span>`;
+        return;
+      }
+
+      const isArray = Array.isArray(obj);
+      const entries = Object.entries(obj);
+
+      if (entries.length === 0) {
+        container.innerHTML = isArray ? '[]' : '{}';
+        return;
+      }
+
+      const wrapper = document.createElement('div');
+
+      entries.forEach(([key, value], index) => {
+        const line = document.createElement('div');
+        line.className = 'json-line';
+        line.style.paddingLeft = `${depth * 16}px`;
+
+        const itemPath = path ? `${path}.${key}` : key;
+
+        if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0) {
+          // Check if this is a token (has $value, $type, etc.) or just a nested object
+          const isToken = '$value' in value || '$type' in value;
+
+          if (isToken) {
+            // This is a token leaf - display it with no toggle
+            const spacer = document.createElement('span');
+            spacer.style.width = '16px';
+            spacer.style.flexShrink = '0';
+
+            const keySpan = document.createElement('span');
+            keySpan.className = 'json-key';
+            keySpan.textContent = key;
+
+            const colon = document.createTextNode(': ');
+
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'json-value';
+            valueSpan.style.color = '#666';
+
+            // Display the $value if it exists
+            if ('$value' in value) {
+              const displayValue = typeof value.$value === 'string' ? value.$value : JSON.stringify(value.$value);
+              valueSpan.textContent = displayValue;
+            } else {
+              valueSpan.textContent = JSON.stringify(value);
+            }
+
+            line.appendChild(spacer);
+            line.appendChild(keySpan);
+            line.appendChild(colon);
+            line.appendChild(valueSpan);
+
+            wrapper.appendChild(line);
+          } else {
+            // Nested object/array with children
+            const itemToggle = document.createElement('span');
+            itemToggle.className = 'json-toggle';
+            const chevron = createChevronIcon(true);
+            itemToggle.appendChild(chevron);
+
+            const keySpan = document.createElement('span');
+            keySpan.className = depth === 0 ? 'json-key primary' : 'json-key';
+            keySpan.textContent = key;
+
+            line.appendChild(itemToggle);
+            line.appendChild(keySpan);
+
+            const nested = document.createElement('div');
+            nested.className = 'json-node';
+            renderJsonTree(value, nested, itemPath, true, depth + 1);
+
+            // Toggle functionality
+            itemToggle.addEventListener('click', (e) => {
+              e.stopPropagation();
+              nested.classList.toggle('json-collapsed');
+              itemToggle.innerHTML = '';
+              itemToggle.appendChild(createChevronIcon(!nested.classList.contains('json-collapsed')));
+            });
+
+            wrapper.appendChild(line);
+            wrapper.appendChild(nested);
+          }
+        } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+          // Primitive value
+          const spacer = document.createElement('span');
+          spacer.style.width = '16px';
+          spacer.style.flexShrink = '0';
+
+          const keySpan = document.createElement('span');
+          keySpan.className = 'json-key';
+          keySpan.textContent = key;
+
+          const colon = document.createTextNode(': ');
+
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'json-value';
+          valueSpan.style.color = '#666';
+          valueSpan.textContent = typeof value === 'string' ? value : JSON.stringify(value);
+
+          line.appendChild(spacer);
+          line.appendChild(keySpan);
+          line.appendChild(colon);
+          line.appendChild(valueSpan);
+
+          wrapper.appendChild(line);
+        } else if (Array.isArray(value)) {
+          // Array value
+          const spacer = document.createElement('span');
+          spacer.style.width = '16px';
+          spacer.style.flexShrink = '0';
+
+          const keySpan = document.createElement('span');
+          keySpan.className = 'json-key';
+          keySpan.textContent = key;
+
+          const colon = document.createTextNode(': ');
+
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'json-value';
+          valueSpan.style.color = '#666';
+          valueSpan.textContent = JSON.stringify(value);
+
+          line.appendChild(spacer);
+          line.appendChild(keySpan);
+          line.appendChild(colon);
+          line.appendChild(valueSpan);
+
+          wrapper.appendChild(line);
+        }
+      });
+
+      container.appendChild(wrapper);
+    }
+
+    // ==================== TOKEN ACTIONS ====================
+    document.getElementById('sync-to-figma-btn').addEventListener('click', () => {
+      const data = tokenSource === 'github' ?
+        window.githubTokenData : window.localTokenData;
+
+      if (!data) {
+        showNotification('No token data available', 'error');
+        return;
+      }
+
+      // Scopes are now managed independently in the Scopes tab
+      // Import only creates/updates variables without modifying scopes
+      parent.postMessage({
+        pluginMessage: {
+          type: 'import-tokens',
+          data: data
+        }
+      }, '*');
+    });
+
+    document.getElementById('pull-changes-btn').addEventListener('click', async () => {
+      if (!githubConfig) {
+        showNotification('GitHub configuration not found', 'error');
+        return;
+      }
+
+      showNotification('Pulling latest changes from GitHub...', 'success');
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'github-import-files',
+          data: githubConfig
+        }
+      }, '*');
+    });
+
+    document.getElementById('switch-source-btn').addEventListener('click', () => {
+      // Save current token state before switching
+      savedTokenState = {
+        tokenFiles: JSON.parse(JSON.stringify(tokenFiles)),
+        tokenSource: tokenSource,
+        githubTokenData: window.githubTokenData,
+        localTokenData: window.localTokenData,
+        githubConfig: githubConfig
+      };
+
+      // Show back button on welcome screen
+      document.getElementById('back-to-tokens-btn').classList.remove('hidden');
+
+      // Navigate to welcome screen (without clearing data)
+      showScreen('welcome-screen');
+    });
+
+    document.getElementById('back-to-tokens-btn').addEventListener('click', () => {
+      if (savedTokenState) {
+        // Restore token state
+        tokenFiles = savedTokenState.tokenFiles;
+        tokenSource = savedTokenState.tokenSource;
+        window.githubTokenData = savedTokenState.githubTokenData;
+        window.localTokenData = savedTokenState.localTokenData;
+        githubConfig = savedTokenState.githubConfig;
+
+        // Return to token screen
+        showTokenScreen();
+      }
+    });
+
+    // ==================== TAB SWITCHING ====================
+    document.getElementById('tokens-tab').addEventListener('click', () => {
+      switchToTokensView();
+    });
+
+    document.getElementById('scopes-tab').addEventListener('click', () => {
+      switchToScopesView();
+    });
+
+    function switchToTokensView() {
+      document.getElementById('tokens-tab').classList.add('active');
+      document.getElementById('scopes-tab').classList.remove('active');
+      document.getElementById('tokens-view').classList.add('active');
+      document.getElementById('scopes-view').classList.remove('active');
+    }
+
+    function switchToScopesView() {
+      document.getElementById('scopes-tab').classList.add('active');
+      document.getElementById('tokens-tab').classList.remove('active');
+      document.getElementById('scopes-view').classList.add('active');
+      document.getElementById('tokens-view').classList.remove('active');
+
+      // Load Figma variables when entering scope tab
+      loadFigmaVariables();
+    }
+
+    /**
+     * Load all existing Figma variables with their current scopes
+     * Single responsibility: Fetch variables from Figma
+     */
+    function loadFigmaVariables() {
+      console.log('Loading Figma variables...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'get-figma-variables'
+        }
+      }, '*');
+    }
+
+    // ==================== SCOPE SELECTION ====================
+    // Clean code: Separated concerns with single-responsibility functions
+
+    /**
+     * Initialize scope view with collection tabs
+     * Single responsibility: Setup initial view state
+     */
+    function initializeScopeView() {
+      // Wait for Figma variables to be loaded
+      if (!figmaVariablesLoaded) {
+        console.log('Waiting for Figma variables to load...');
+        return;
+      }
+
+      console.log('Initializing scope view with', Object.keys(figmaVariables).length, 'variables');
+
+      // Build tree structure from Figma variables
+      const variableTree = buildVariableTreeFromFigma();
+
+      renderCollectionTabsForScopes(variableTree);
+      resetScopeSelection();
+
+      const collections = Object.keys(variableTree);
+      if (collections.length > 0) {
+        showScopeCollectionContent(collections[0], variableTree);
+      }
+    }
+
+    /**
+     * Build tree structure from Figma variables
+     * Organizes variables by collection and hierarchical path
+     */
+    function buildVariableTreeFromFigma() {
+      console.log('Building variable tree from', Object.keys(figmaVariables).length, 'variables');
+      const tree = {};
+
+      // Organize variables by collection
+      Object.entries(figmaVariables).forEach(([variableName, variable]) => {
+        const collection = variable.collection || 'uncategorized';
+        console.log('Processing variable:', variableName, 'in collection:', collection);
+
+        if (!tree[collection]) {
+          tree[collection] = {};
+        }
+
+        // Parse variable name to build nested structure
+        // Example: "spacing/sm" -> { spacing: { sm: { ...variable } } }
+        const parts = variableName.split('/');
+        let current = tree[collection];
+
+        parts.forEach((part, index) => {
+          if (index === parts.length - 1) {
+            // Leaf node - store variable data
+            current[part] = {
+              $variable: true,
+              ...variable
+            };
+          } else {
+            // Group node
+            if (!current[part]) {
+              current[part] = {};
+            }
+            current = current[part];
+          }
+        });
+      });
+
+      console.log('Built variable tree with collections:', Object.keys(tree));
+      console.log('Tree structure:', tree);
+      return tree;
+    }
+
+    /**
+     * Render collection tabs in left column
+     * Single responsibility: Populate collection navigation
+     */
+    function renderCollectionTabsForScopes(variableTree) {
+      console.log('Rendering collection tabs for:', Object.keys(variableTree));
+      const scopeFileTabsList = document.getElementById('scope-file-tabs-list');
+      scopeFileTabsList.innerHTML = '';
+
+      const collections = Object.keys(variableTree);
+      console.log('Collections to render:', collections);
+
+      if (collections.length === 0) {
+        console.warn('No collections found in variable tree!');
+        scopeFileTabsList.innerHTML = '<div style="padding: 16px; color: #8b94b1;">No collections found</div>';
+        return;
+      }
+
+      collections.forEach((collection, index) => {
+        const tab = document.createElement('button');
+        tab.className = 'file-tab' + (index === 0 ? ' active' : '');
+        tab.textContent = collection;
+        tab.dataset.collection = collection;
+        tab.addEventListener('click', () => showScopeCollectionContent(collection, variableTree));
+        scopeFileTabsList.appendChild(tab);
+        console.log('Created tab for collection:', collection);
+      });
+    }
+
+    /**
+     * Show content for selected collection
+     * Single responsibility: Display variables for scope assignment
+     */
+    function showScopeCollectionContent(collectionName, variableTree) {
+      console.log('Showing collection content for:', collectionName);
+      const collectionData = variableTree[collectionName];
+
+      if (!collectionData) {
+        console.error('No data found for collection:', collectionName);
+        return;
+      }
+
+      console.log('Collection data:', collectionData);
+      console.log('Collection has', Object.keys(collectionData).length, 'items');
+
+      // Update active tab
+      document.querySelectorAll('#scope-file-tabs-list .file-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.collection === collectionName);
+      });
+
+      // Render variable tree with scope indicators
+      const scopeTokenContent = document.getElementById('scope-token-content');
+      scopeTokenContent.innerHTML = '';
+      const tree = document.createElement('div');
+      tree.className = 'scope-tree';
+
+      console.log('Rendering scope tree for collection:', collectionName);
+      renderScopeTree(collectionData, tree, '', collectionName);
+
+      console.log('Tree element children:', tree.children.length);
+      scopeTokenContent.appendChild(tree);
+      console.log('Appended tree to scope-token-content');
+    }
+
+    /**
+     * Render variable tree with checkboxes and scope indicators
+     * Single responsibility: Build interactive variable tree
+     */
+    function renderScopeTree(obj, container, path, collectionName, depth = 0) {
+      console.log(`[renderScopeTree] depth=${depth}, path="${path}", keys:`, Object.keys(obj));
+
+      if (!obj || typeof obj !== 'object') {
+        console.warn('[renderScopeTree] Invalid obj:', obj);
+        return;
+      }
+
+      const entries = Object.entries(obj);
+      console.log(`[renderScopeTree] Processing ${entries.length} entries`);
+
+      if (entries.length === 0) {
+        console.warn('[renderScopeTree] No entries to process');
+        return;
+      }
+
+      entries.forEach(([key, value]) => {
+        const currentPath = path ? `${path}/${key}` : key;
+        const fullPath = `${collectionName}:${currentPath}`;
+
+        console.log(`[renderScopeTree] Processing entry: key="${key}", currentPath="${currentPath}"`);
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const isVariable = '$variable' in value;
+          console.log(`[renderScopeTree] Entry "${key}" isVariable:`, isVariable);
+
+          if (isVariable) {
+            console.log(`[renderScopeTree] Rendering variable: ${key}`);
+            renderVariableItem(key, value, fullPath, depth, container);
+          } else {
+            console.log(`[renderScopeTree] Rendering group: ${key}`);
+            renderVariableGroupItem(key, value, currentPath, fullPath, collectionName, depth, container);
+          }
+        } else {
+          console.warn(`[renderScopeTree] Skipping entry "${key}" - not a valid object`);
+        }
+      });
+    }
+
+    /**
+     * Render individual variable with checkbox and scope indicator
+     * Single responsibility: Create variable UI element
+     */
+    function renderVariableItem(name, variable, fullPath, depth, container) {
+      console.log(`[renderVariableItem] Rendering: name="${name}", fullPath="${fullPath}", type="${variable.type}"`);
+
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+      item.dataset.path = fullPath;
+
+      // Determine variable type and available scopes from Figma type
+      const figmaType = variable.type; // 'COLOR', 'FLOAT', 'STRING'
+      const availableScopes = getAvailableScopesForFigmaType(figmaType);
+      console.log(`[renderVariableItem] figmaType="${figmaType}", availableScopes:`, availableScopes);
+
+      // Check if token is compatible with current selection
+      const isCompatible = isTokenCompatibleWithSelection(availableScopes);
+
+      // Create checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.figmaType = figmaType; // Fixed: was tokenType
+      checkbox.dataset.scopes = JSON.stringify(availableScopes);
+      checkbox.checked = selectedTokensForScopes.has(fullPath);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleTokenSelection(e, fullPath, availableScopes));
+      }
+
+      // Create content wrapper
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      // Spacer for alignment
+      const spacer = document.createElement('span');
+      spacer.className = 'scope-chevron';
+      spacer.innerHTML = '&nbsp;';
+
+      // Token name
+      const label = document.createElement('span');
+      label.className = 'scope-label';
+      label.textContent = name;
+
+      // Scope indicator
+      const scopeIndicator = document.createElement('span');
+      scopeIndicator.className = 'scope-indicator';
+      scopeIndicator.textContent = getScopeIndicatorText(availableScopes);
+      scopeIndicator.style.color = '#8b94b1';
+      scopeIndicator.style.fontSize = '12px';
+      scopeIndicator.style.marginLeft = '8px';
+
+      content.appendChild(spacer);
+      content.appendChild(label);
+      content.appendChild(scopeIndicator);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      // Add disabled styling if incompatible
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
+      console.log(`[renderVariableItem] Successfully appended item for "${name}" to container`);
+    }
+
+    /**
+     * Get available scopes based on Figma variable type
+     * Single responsibility: Map Figma types to available scopes
+     */
+    function getAvailableScopesForFigmaType(figmaType) {
+      const scopeMap = {
+        'COLOR': [
+          'ALL_FILLS',
+          'FRAME_FILL',
+          'SHAPE_FILL',
+          'TEXT_FILL',
+          'STROKE_COLOR',
+          'EFFECT_COLOR'
+        ],
+        'FLOAT': [
+          'WIDTH_HEIGHT',
+          'MIN_WIDTH',
+          'MAX_WIDTH',
+          'MIN_HEIGHT',
+          'MAX_HEIGHT',
+          'GAP',
+          'CORNER_RADIUS',
+          'FONT_SIZE',
+          'FONT_WEIGHT',
+          'LINE_HEIGHT',
+          'LETTER_SPACING',
+          'PARAGRAPH_SPACING',
+          'PARAGRAPH_INDENT'
+        ],
+        'STRING': [
+          'FONT_FAMILY',
+          'FONT_STYLE',
+          'TEXT_CASE',
+          'TEXT_DECORATION'
+        ]
+      };
+
+      return scopeMap[figmaType] || [];
+    }
+
+    /**
+     * Render group item with checkbox for bulk selection
+     * Single responsibility: Create group UI element
+     */
+    function renderVariableGroupItem(name, groupObj, currentPath, fullPath, collectionName, depth, container) {
+      console.log(`[renderVariableGroupItem] Rendering group: name="${name}", currentPath="${currentPath}"`);
+
+      const item = document.createElement('div');
+      item.className = 'scope-item';
+      item.style.paddingLeft = `${depth * 16}px`;
+
+      // Get all child variables to determine compatibility
+      const childVariables = getAllVariablesInGroup(groupObj, currentPath, collectionName);
+      console.log(`[renderVariableGroupItem] Group "${name}" has ${childVariables.length} child variables`);
+      const groupScopes = getGroupAvailableScopes(childVariables);
+      const isCompatible = isTokenCompatibleWithSelection(groupScopes);
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'scope-checkbox';
+      checkbox.dataset.path = fullPath;
+      checkbox.dataset.isGroup = 'true';
+      checkbox.dataset.scopes = JSON.stringify(groupScopes);
+      checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+      if (!checkbox.disabled) {
+        checkbox.addEventListener('change', (e) => handleGroupSelection(e, fullPath, groupObj, collectionName, currentPath, groupScopes));
+      }
+
+      // Check if all children are selected
+      const childrenSelected = areAllChildrenSelected(groupObj, collectionName, currentPath);
+      checkbox.checked = childrenSelected;
+
+      const content = document.createElement('div');
+      content.className = 'scope-item-content';
+
+      const chevron = document.createElement('span');
+      chevron.className = 'scope-chevron';
+      chevron.innerHTML = createChevronIcon(true).outerHTML;
+
+      const label = document.createElement('span');
+      label.className = depth === 0 ? 'scope-label primary' : 'scope-label';
+      label.textContent = name;
+
+      content.appendChild(chevron);
+      content.appendChild(label);
+
+      item.appendChild(checkbox);
+      item.appendChild(content);
+
+      const childrenContainer = document.createElement('div');
+      childrenContainer.className = 'scope-children';
+      renderScopeTree(groupObj, childrenContainer, currentPath, collectionName, depth + 1);
+
+      // Toggle functionality
+      chevron.addEventListener('click', (e) => {
+        e.stopPropagation();
+        childrenContainer.classList.toggle('collapsed');
+        chevron.innerHTML = '';
+        chevron.appendChild(createChevronIcon(!childrenContainer.classList.contains('collapsed')));
+      });
+
+      if (checkbox.disabled) {
+        item.classList.add('disabled');
+      }
+
+      container.appendChild(item);
+      container.appendChild(childrenContainer);
+    }
+
+    /**
+     * Get combined available scopes for a group
+     * Single responsibility: Determine group scope compatibility
+     */
+    function getGroupAvailableScopes(variables) {
+      if (variables.length === 0) return [];
+
+      // Get intersection of all variable scopes (only scopes available to ALL variables in group)
+      const scopeSets = variables.map(v => new Set(v.availableScopes));
+      const intersection = scopeSets.reduce((acc, set) =>
+        new Set([...acc].filter(x => set.has(x)))
+      );
+
+      return Array.from(intersection);
+    }
+
+    /**
+     * Get all variables in a group with their metadata
+     * Single responsibility: Extract variable information from group
+     */
+    function getAllVariablesInGroup(obj, basePath, collectionName) {
+      const variables = [];
+
+      function traverse(o, path) {
+        if (!o || typeof o !== 'object') return;
+
+        for (const [key, value] of Object.entries(o)) {
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
+
+          if (value && typeof value === 'object' && '$variable' in value) {
+            const figmaType = value.type;
+            variables.push({
+              fullPath,
+              figmaType,
+              availableScopes: getAvailableScopesForFigmaType(figmaType)
+            });
+          } else if (value && typeof value === 'object') {
+            traverse(value, currentPath);
+          }
+        }
+      }
+
+      traverse(obj, basePath);
+      return variables;
+    }
+
+    /**
+     * Check if token is compatible with current selection
+     * Single responsibility: Compatibility validation
+     */
+    function isTokenCompatibleWithSelection(tokenScopes) {
+      if (selectedTokensForScopes.size === 0) return true;
+
+      // Get scopes from first selected token
+      const firstSelected = Array.from(selectedTokensForScopes)[0];
+      const firstCheckbox = document.querySelector(`.scope-checkbox[data-path="${firstSelected}"]`);
+
+      if (!firstCheckbox) return true;
+
+      const selectedScopes = JSON.parse(firstCheckbox.dataset.scopes || '[]');
+
+      // Tokens are compatible if they have the same available scopes
+      return JSON.stringify(tokenScopes.sort()) === JSON.stringify(selectedScopes.sort());
+    }
+
+    /**
+     * Get scope indicator text for UI
+     * Single responsibility: Format scope display text
+     */
+    function getScopeIndicatorText(scopes) {
+      if (scopes.length === 0) return 'no scopes';
+
+      const scopeLabels = {
+        'ALL_FILLS': 'fill',
+        'STROKE_COLOR': 'stroke',
+        'TEXT_FILL': 'text',
+        'EFFECT_COLOR': 'effect',
+        'WIDTH_HEIGHT': 'size',
+        'GAP': 'gap',
+        'CORNER_RADIUS': 'radius',
+        'FONT_SIZE': 'font size',
+        'FONT_FAMILY': 'font family',
+        'FONT_WEIGHT': 'font weight',
+        'LINE_HEIGHT': 'line height'
+      };
+
+      if (scopes.length === 1) {
+        return scopeLabels[scopes[0]] || scopes[0].toLowerCase();
+      }
+
+      // Group by category
+      const hasColor = scopes.some(s => ['ALL_FILLS', 'STROKE_COLOR', 'TEXT_FILL', 'EFFECT_COLOR'].includes(s));
+      const hasDimension = scopes.some(s => ['WIDTH_HEIGHT', 'GAP', 'CORNER_RADIUS'].includes(s));
+      const hasTypography = scopes.some(s => ['FONT_SIZE', 'FONT_FAMILY', 'FONT_WEIGHT', 'LINE_HEIGHT'].includes(s));
+
+      if (hasColor) return 'color scopes';
+      if (hasDimension) return 'dimension scopes';
+      if (hasTypography) return 'typography scopes';
+
+      return 'multiple scopes';
+    }
+
+    /**
+     * Get all variable paths in a group
+     * Single responsibility: Extract paths from group
+     */
+    function getAllVariablePaths(obj, basePath, collectionName) {
+      const paths = [];
+
+      function traverse(o, path) {
+        if (!o || typeof o !== 'object') return;
+
+        for (const [key, value] of Object.entries(o)) {
+          const currentPath = path ? `${path}/${key}` : key;
+          const fullPath = `${collectionName}:${currentPath}`;
+
+          if (value && typeof value === 'object' && '$variable' in value) {
+            paths.push(fullPath);
+          } else if (value && typeof value === 'object') {
+            traverse(value, currentPath);
+          }
+        }
+      }
+
+      traverse(obj, basePath);
+      return paths;
+    }
+
+    /**
+     * Check if all children in group are selected
+     * Single responsibility: Selection state check
+     */
+    function areAllChildrenSelected(obj, collectionName, basePath) {
+      const variables = getAllVariablePaths(obj, basePath, collectionName);
+      return variables.length > 0 && variables.every(path => selectedTokensForScopes.has(path));
+    }
+
+    /**
+     * Update all parent group checkboxes based on child selection state
+     * Single responsibility: Synchronize group checkbox states
+     */
+    function updateParentGroupCheckboxes() {
+      const groupCheckboxes = document.querySelectorAll('.scope-checkbox[data-is-group="true"]');
+
+      groupCheckboxes.forEach(groupCheckbox => {
+        const groupPath = groupCheckbox.dataset.path;
+        // Find all child token checkboxes under this group
+        const childCheckboxes = Array.from(document.querySelectorAll('.scope-checkbox'))
+          .filter(cb => {
+            const cbPath = cb.dataset.path;
+            return cbPath !== groupPath && // Not the group itself
+                   cbPath.startsWith(groupPath) && // Is a descendant
+                   !cb.dataset.isGroup; // Is a token (not another group)
+          });
+
+        // Check if all children are selected
+        if (childCheckboxes.length > 0) {
+          const allSelected = childCheckboxes.every(cb => cb.checked);
+          groupCheckbox.checked = allSelected;
+        }
+      });
+    }
+
+    /**
+     * Handle individual token selection
+     * Single responsibility: Manage token selection state
+     */
+    function handleTokenSelection(e, fullPath, availableScopes) {
+      if (e.target.checked) {
+        selectedTokensForScopes.add(fullPath);
+      } else {
+        selectedTokensForScopes.delete(fullPath);
+      }
+
+      // Update parent group checkboxes
+      updateParentGroupCheckboxes();
+
+      updateScopeUIState(availableScopes);
+    }
+
+    /**
+     * Handle group selection (select/deselect all children)
+     * Single responsibility: Manage group selection state
+     */
+    function handleGroupSelection(e, fullPath, groupObj, collectionName, basePath, groupScopes) {
+      const variablePaths = getAllVariablePaths(groupObj, basePath, collectionName);
+
+      if (e.target.checked) {
+        variablePaths.forEach(path => selectedTokensForScopes.add(path));
+      } else {
+        variablePaths.forEach(path => selectedTokensForScopes.delete(path));
+      }
+
+      // Update all child checkboxes
+      variablePaths.forEach(path => {
+        const checkbox = document.querySelector(`.scope-checkbox[data-path="${path}"]`);
+        if (checkbox && !checkbox.disabled) {
+          checkbox.checked = e.target.checked;
+        }
+      });
+
+      updateScopeUIState(groupScopes);
+    }
+
+    /**
+     * Update UI state based on selection
+     * Single responsibility: Synchronize UI with selection state
+     */
+    function updateScopeUIState(selectedScopes) {
+      // Update left column state (file selection vs scope assignment)
+      const fileSelectionView = document.getElementById('scope-file-selection');
+      const scopeAssignmentView = document.getElementById('scope-assignment-view');
+      const selectionCount = document.getElementById('scope-selection-count');
+
+      if (selectedTokensForScopes.size > 0) {
+        // Switch to scope assignment view
+        fileSelectionView.style.display = 'none';
+        scopeAssignmentView.style.display = 'flex';
+
+        // Update count
+        selectionCount.textContent = `${selectedTokensForScopes.size} token${selectedTokensForScopes.size !== 1 ? 's' : ''} selected`;
+
+        // Populate scope options
+        populateScopeOptions(selectedScopes);
+      } else {
+        // Switch to file selection view
+        fileSelectionView.style.display = 'block';
+        scopeAssignmentView.style.display = 'none';
+      }
+
+      // Update compatibility state for all checkboxes
+      refreshTokenCompatibility();
+    }
+
+    /**
+     * Refresh token compatibility state (enable/disable checkboxes)
+     * Single responsibility: Update checkbox states
+     */
+    function refreshTokenCompatibility() {
+      const allCheckboxes = document.querySelectorAll('.scope-checkbox');
+
+      allCheckboxes.forEach(checkbox => {
+        const scopes = JSON.parse(checkbox.dataset.scopes || '[]');
+        const isCompatible = isTokenCompatibleWithSelection(scopes);
+        const wasDisabled = checkbox.disabled;
+
+        checkbox.disabled = !isCompatible && selectedTokensForScopes.size > 0;
+
+        // Update parent item styling
+        const item = checkbox.closest('.scope-item');
+        if (item) {
+          if (checkbox.disabled) {
+            item.classList.add('disabled');
+          } else {
+            item.classList.remove('disabled');
+          }
+        }
+      });
+    }
+
+    /**
+     * Populate scope options in left column
+     * Single responsibility: Render available scopes for selection
+     * Pre-checks scopes based on current Figma variable state
+     */
+    function populateScopeOptions(availableScopes) {
+      const container = document.getElementById('scope-options-container');
+
+      // Scope definitions with labels and hierarchy
+      const scopeDefinitions = [
+        // Fill scopes
+        { value: 'ALL_FILLS', label: 'All', category: 'Fill', subcategory: true },
+        { value: 'FRAME_FILL', label: 'Frame', category: 'Fill', subcategory: true },
+        { value: 'SHAPE_FILL', label: 'Shape', category: 'Fill', subcategory: true },
+        { value: 'TEXT_FILL', label: 'Text', category: 'Fill', subcategory: true },
+
+        // Stroke scopes
+        { value: 'STROKE_COLOR', label: 'Stroke', category: 'Stroke' },
+
+        // Effect scopes
+        { value: 'EFFECT_COLOR', label: 'Effect', category: 'Effect' },
+
+        // Size scopes
+        { value: 'WIDTH_HEIGHT', label: 'Width & Height', category: 'Size', subcategory: true },
+        { value: 'MIN_WIDTH', label: 'Min Width', category: 'Size', subcategory: true },
+        { value: 'MAX_WIDTH', label: 'Max Width', category: 'Size', subcategory: true },
+        { value: 'MIN_HEIGHT', label: 'Min Height', category: 'Size', subcategory: true },
+        { value: 'MAX_HEIGHT', label: 'Max Height', category: 'Size', subcategory: true },
+
+        // Spacing scopes
+        { value: 'GAP', label: 'Gap', category: 'Spacing', subcategory: true },
+        { value: 'LETTER_SPACING', label: 'Letter Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_SPACING', label: 'Paragraph Spacing', category: 'Spacing', subcategory: true },
+        { value: 'PARAGRAPH_INDENT', label: 'Paragraph Indent', category: 'Spacing', subcategory: true },
+
+        // Corner Radius
+        { value: 'CORNER_RADIUS', label: 'Corner Radius', category: 'Corner Radius' },
+
+        // Typography scopes
+        { value: 'FONT_SIZE', label: 'Font Size', category: 'Typography', subcategory: true },
+        { value: 'FONT_FAMILY', label: 'Font Family', category: 'Typography', subcategory: true },
+        { value: 'FONT_WEIGHT', label: 'Font Weight', category: 'Typography', subcategory: true },
+        { value: 'FONT_STYLE', label: 'Font Style', category: 'Typography', subcategory: true },
+        { value: 'LINE_HEIGHT', label: 'Line Height', category: 'Typography', subcategory: true },
+        { value: 'TEXT_CASE', label: 'Text Case', category: 'Typography', subcategory: true },
+        { value: 'TEXT_DECORATION', label: 'Text Decoration', category: 'Typography', subcategory: true }
+      ];
+
+      // Filter to only show available scopes
+      const relevantScopes = scopeDefinitions.filter(s => availableScopes.includes(s.value));
+
+      // Group by category
+      const categories = [...new Set(relevantScopes.map(s => s.category))];
+
+      // Get common scopes from all selected tokens
+      const commonScopes = getCommonScopesFromSelection();
+
+      container.innerHTML = '';
+
+      categories.forEach(category => {
+        const categoryScopes = relevantScopes.filter(s => s.category === category);
+        const hasMultipleScopes = categoryScopes.length > 1;
+        const hasSubcategories = categoryScopes.some(s => s.subcategory);
+
+        // Only show category checkbox if there are multiple scopes in this category
+        if (hasMultipleScopes) {
+          // Category checkbox (acts as "select all" for this category)
+          const categoryOption = document.createElement('div');
+          categoryOption.className = 'scope-option scope-category-option';
+          categoryOption.style.display = 'flex';
+          categoryOption.style.alignItems = 'center';
+          categoryOption.style.gap = '8px';
+          categoryOption.style.marginTop = category === categories[0] ? '0' : '16px';
+          categoryOption.style.marginBottom = '8px';
+          categoryOption.style.cursor = 'pointer';
+          categoryOption.dataset.category = category;
+
+          const categoryCheckbox = document.createElement('div');
+          categoryCheckbox.className = 'scope-option-checkbox scope-category-checkbox';
+          categoryCheckbox.dataset.category = category;
+
+          // Check if all child scopes are in commonScopes
+          const allChildScopesChecked = categoryScopes.every(s => commonScopes.includes(s.value));
+          if (allChildScopesChecked && categoryScopes.length > 0) {
+            categoryCheckbox.classList.add('checked');
+          }
+
+          const categoryLabel = document.createElement('span');
+          categoryLabel.textContent = category;
+          categoryLabel.style.fontSize = '14px';
+          categoryLabel.style.fontWeight = '600';
+          categoryLabel.style.color = '#000';
+
+          categoryOption.appendChild(categoryCheckbox);
+          categoryOption.appendChild(categoryLabel);
+
+          // Toggle all child scopes when category is clicked
+          categoryOption.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isChecked = categoryCheckbox.classList.toggle('checked');
+
+            // Toggle all child checkboxes
+            const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+            childCheckboxes.forEach(cb => {
+              if (isChecked) {
+                cb.classList.add('checked');
+              } else {
+                cb.classList.remove('checked');
+              }
+            });
+          });
+
+          container.appendChild(categoryOption);
+        }
+
+        // Scope options (children)
+        categoryScopes.forEach((scope, index) => {
+          const option = document.createElement('div');
+          option.className = 'scope-option';
+          option.style.display = 'flex';
+          option.style.alignItems = 'center';
+          option.style.gap = '8px';
+          option.style.marginBottom = '8px';
+          option.style.cursor = 'pointer';
+
+          // Add top margin for first item if category has only one scope
+          if (!hasMultipleScopes && index === 0) {
+            option.style.marginTop = category === categories[0] ? '0' : '16px';
+          }
+
+          // Add indent for subcategories only if there's a parent category checkbox
+          if (hasMultipleScopes && scope.subcategory && hasSubcategories) {
+            option.style.paddingLeft = '16px';
+          }
+
+          const checkbox = document.createElement('div');
+          checkbox.className = 'scope-option-checkbox';
+          checkbox.dataset.value = scope.value;
+
+          // Only set parent link if category has multiple scopes
+          if (hasMultipleScopes) {
+            checkbox.dataset.categoryParent = category;
+          }
+
+          // Pre-check if this scope is common to all selected tokens
+          if (commonScopes.includes(scope.value)) {
+            checkbox.classList.add('checked');
+          }
+
+          const label = document.createElement('span');
+          label.textContent = scope.label;
+          label.style.fontSize = '14px';
+          label.style.color = '#000';
+
+          option.appendChild(checkbox);
+          option.appendChild(label);
+
+          // Toggle on click
+          option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            checkbox.classList.toggle('checked');
+
+            // Update parent category checkbox state only if it exists
+            if (hasMultipleScopes) {
+              updateCategoryCheckboxState(category, container);
+            }
+          });
+
+          container.appendChild(option);
+        });
+      });
+    }
+
+    /**
+     * Update the category checkbox state based on its children
+     * Single responsibility: Sync parent checkbox with children states
+     */
+    function updateCategoryCheckboxState(category, container) {
+      const categoryCheckbox = container.querySelector(`.scope-category-checkbox[data-category="${category}"]`);
+      const childCheckboxes = container.querySelectorAll(`.scope-option-checkbox[data-category-parent="${category}"]`);
+
+      if (childCheckboxes.length === 0) return;
+
+      // Check if all children are checked
+      const allChecked = Array.from(childCheckboxes).every(cb => cb.classList.contains('checked'));
+      const noneChecked = Array.from(childCheckboxes).every(cb => !cb.classList.contains('checked'));
+
+      if (allChecked) {
+        categoryCheckbox.classList.add('checked');
+      } else {
+        categoryCheckbox.classList.remove('checked');
+      }
+    }
+
+    /**
+     * Get scopes that are common to all selected tokens
+     * Single responsibility: Determine pre-checked state for scopes
+     */
+    function getCommonScopesFromSelection() {
+      if (selectedTokensForScopes.size === 0) return [];
+
+      const allTokenScopes = [];
+
+      // Get scopes for each selected token from Figma variables
+      selectedTokensForScopes.forEach(fullPath => {
+        const variableName = getVariableNameFromPath(fullPath);
+        const figmaVariable = figmaVariables[variableName];
+
+        if (figmaVariable && figmaVariable.scopes) {
+          allTokenScopes.push(figmaVariable.scopes);
+        } else {
+          // If variable doesn't exist or has no scopes, add empty array
+          allTokenScopes.push([]);
+        }
+      });
+
+      // If no tokens have scopes in Figma, return empty
+      if (allTokenScopes.length === 0) return [];
+
+      // Find intersection of all scope arrays
+      const intersection = allTokenScopes.reduce((acc, scopes) => {
+        if (acc === null) return scopes;
+        return acc.filter(scope => scopes.includes(scope));
+      }, null);
+
+      return intersection || [];
+    }
+
+    /**
+     * Convert full path to Figma variable name
+     * Single responsibility: Path to variable name mapping
+     */
+    function getVariableNameFromPath(fullPath) {
+      // fullPath format: "collectionName:variable/path"
+      // Extract variable path (after the colon)
+      const parts = fullPath.split(':');
+      if (parts.length === 2) {
+        // Return the variable path (already uses slashes)
+        return parts[1];
+      }
+      return fullPath;
+    }
+
+    /**
+     * Reset scope selection and return to default state
+     * Single responsibility: Clear selection state
+     */
+    function resetScopeSelection() {
+      selectedTokensForScopes.clear();
+
+      // Show file selection view
+      document.getElementById('scope-file-selection').style.display = 'block';
+      document.getElementById('scope-assignment-view').style.display = 'none';
+
+      // Uncheck all checkboxes and re-enable
+      document.querySelectorAll('.scope-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.disabled = false;
+        const item = cb.closest('.scope-item');
+        if (item) item.classList.remove('disabled');
+      });
+    }
+
+    /**
+     * Apply selected scopes directly to Figma variables
+     * Single responsibility: Send scope updates to Figma
+     */
+    function applyScopes() {
+      const selectedScopeCheckboxes = document.querySelectorAll('.scope-option-checkbox.checked');
+      const selectedScopes = Array.from(selectedScopeCheckboxes)
+        .filter(cb => cb.dataset.value) // Only include checkboxes with data-value (not category checkboxes)
+        .map(cb => cb.dataset.value);
+
+      // Build variable scopes object for backend
+      const variableScopes = {};
+
+      selectedTokensForScopes.forEach(fullPath => {
+        const variableName = getVariableNameFromPath(fullPath);
+        variableScopes[variableName] = selectedScopes;
+      });
+
+      console.log('Applying scopes to variables:', variableScopes);
+
+      // Send to backend to apply scopes directly to Figma variables
+      parent.postMessage({
+        pluginMessage: {
+          type: 'apply-variable-scopes',
+          data: { variableScopes }
+        }
+      }, '*');
+
+      // Reset selection (view will refresh after 'scopes-applied' message)
+      resetScopeSelection();
+    }
+
+    // Wire up event listeners
+    document.getElementById('apply-scopes-btn').addEventListener('click', applyScopes);
+
+    document.getElementById('reset-selection-btn').addEventListener('click', () => {
+      resetScopeSelection();
+
+      // Refresh the current view
+      const variableTree = buildVariableTreeFromFigma();
+      const activeTab = document.querySelector('#scope-file-tabs-list .file-tab.active');
+      if (activeTab && activeTab.dataset.collection) {
+        showScopeCollectionContent(activeTab.dataset.collection, variableTree);
+      }
+    });
+
+    // ==================== TOKEN PERSISTENCE ====================
+    async function saveTokens() {
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'save-tokens',
+            data: {
+              files: tokenFiles,
+              source: tokenSource,
+              githubConfig: tokenSource === 'github' ? githubConfig : null
+            }
+          }
+        }, '*');
+      } catch (error) {
+        console.error('Error saving tokens:', error);
+      }
+    }
+
+    async function loadTokens() {
+      try {
+        parent.postMessage({ pluginMessage: { type: 'load-tokens' } }, '*');
+      } catch (error) {
+        console.error('Error loading tokens:', error);
+      }
+    }
+
+    // ==================== NOTIFICATIONS ====================
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      const messageEl = document.getElementById('notification-message');
+
+      messageEl.textContent = message;
+      notification.className = `notification active ${type}`;
+
+      setTimeout(() => {
+        notification.classList.remove('active');
+      }, 3000);
+    }
+
+    // ==================== MESSAGE HANDLER ====================
+    window.addEventListener('message', (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      console.log('Received message:', msg.type);
+
+      switch (msg.type) {
+        case 'github-files-fetched':
+          document.getElementById('github-loading').classList.remove('active');
+          fetchFilesBtn.disabled = false;
+          displayGitHubFiles(msg.data.files);
+          break;
+
+        case 'github-files-imported':
+          document.getElementById('github-loading').classList.remove('active');
+          tokenSource = 'github';
+
+          // Store token data
+          window.githubTokenData = msg.data;
+
+          // Convert to tokenFiles format
+          tokenFiles = {};
+          if (msg.data.primitives) {
+            Object.entries(msg.data.primitives).forEach(([name, content]) => {
+              tokenFiles[`github_${name}`] = {
+                name: name,
+                content: content,
+                source: 'GitHub'
+              };
+            });
+          }
+          if (msg.data.semantics) {
+            Object.entries(msg.data.semantics).forEach(([name, content]) => {
+              tokenFiles[`github_${name}`] = {
+                name: name,
+                content: content,
+                source: 'GitHub'
+              };
+            });
+          }
+
+          showTokenScreen();
+          showNotification('Tokens imported from GitHub successfully', 'success');
+          break;
+
+        case 'github-config-loaded':
+          if (msg.data) {
+            const config = msg.data;
+            githubToken.value = config.token || '';
+            repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
+            branchName.value = config.branch || 'main';
+            githubConfig = config;
+          }
+          break;
+
+        case 'tokens-loaded':
+          if (msg.data) {
+            tokenFiles = msg.data.files || {};
+            tokenSource = msg.data.source || null;
+            githubConfig = msg.data.githubConfig || null;
+
+            // Reconstruct the token data for syncing
+            if (Object.keys(tokenFiles).length > 0) {
+              const reconstructedData = { primitives: {}, semantics: {} };
+
+              for (const [key, file] of Object.entries(tokenFiles)) {
+                const fileName = file.name.toLowerCase();
+                if (fileName.includes('primitive')) {
+                  reconstructedData.primitives[file.name] = file.content;
+                } else if (fileName.includes('semantic')) {
+                  reconstructedData.semantics[file.name] = file.content;
+                } else {
+                  // Default to primitives if unclear
+                  reconstructedData.primitives[file.name] = file.content;
+                }
+              }
+
+              // Set the appropriate token data based on source
+              if (tokenSource === 'github') {
+                window.githubTokenData = reconstructedData;
+              } else {
+                window.localTokenData = reconstructedData;
+              }
+
+              showTokenScreen();
+            }
+          }
+          break;
+
+        case 'import-success':
+          showNotification(msg.message, 'success');
+          break;
+
+        case 'figma-variables-loaded':
+          console.log('Figma variables loaded:', msg.data);
+          console.log('Number of variables:', Object.keys(msg.data.variables).length);
+          figmaVariables = msg.data.variables;
+          figmaVariablesLoaded = true;
+
+          // Debug: Log first few variables
+          const varNames = Object.keys(figmaVariables).slice(0, 3);
+          varNames.forEach(name => {
+            console.log('Variable example:', name, figmaVariables[name]);
+          });
+
+          initializeScopeView();
+          break;
+
+        case 'scopes-applied':
+          showNotification(msg.message, 'success');
+          // Reload variables to get updated scopes
+          loadFigmaVariables();
+          break;
+
+        case 'error':
+          document.getElementById('github-loading').classList.remove('active');
+          document.getElementById('local-loading').classList.remove('active');
+          fetchFilesBtn.disabled = false;
+          syncTokensBtn.disabled = false;
+          showNotification(msg.message, 'error');
+          break;
+      }
+    });
+
+    // Load persisted tokens on startup
+    loadTokens();
+  </script>
+</body>
+</html>

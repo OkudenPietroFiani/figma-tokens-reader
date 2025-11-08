@@ -1,0 +1,262 @@
+// ====================================================================================
+// BACKEND MAIN ENTRY POINT
+// W3C Design Tokens Importer for Figma
+// ====================================================================================
+
+import { UI_CONFIG } from '../shared/constants';
+import { PluginMessage } from '../shared/types';
+import { ErrorHandler } from './utils/ErrorHandler';
+
+// Services
+import { VariableManager } from '../services/variableManager';
+import { GitHubService } from '../services/githubService';
+import { StorageService } from './services/StorageService';
+
+// Controllers
+import { TokenController } from './controllers/TokenController';
+import { GitHubController } from './controllers/GitHubController';
+import { ScopeController } from './controllers/ScopeController';
+
+/**
+ * Main backend class for plugin
+ *
+ * Principles:
+ * - Dependency Injection: Services injected into controllers
+ * - Controller Pattern: Business logic delegated to controllers
+ * - Clean Architecture: Clear separation of concerns
+ * - Error Handling: Centralized error handling via ErrorHandler
+ */
+class PluginBackend {
+  // Services
+  private variableManager: VariableManager;
+  private githubService: GitHubService;
+  private storage: StorageService;
+
+  // Controllers
+  private tokenController: TokenController;
+  private githubController: GitHubController;
+  private scopeController: ScopeController;
+
+  constructor() {
+    // Initialize services
+    this.variableManager = new VariableManager();
+    this.githubService = new GitHubService();
+    this.storage = new StorageService();
+
+    // Initialize controllers with dependency injection
+    this.tokenController = new TokenController(this.variableManager, this.storage);
+    this.githubController = new GitHubController(this.githubService, this.storage);
+    this.scopeController = new ScopeController();
+
+    ErrorHandler.info('Plugin backend initialized', 'PluginBackend');
+  }
+
+  /**
+   * Initialize the plugin
+   * Shows UI and sets up message handler
+   */
+  init(): void {
+    // Show UI
+    figma.showUI(__html__, {
+      width: UI_CONFIG.width,
+      height: UI_CONFIG.height
+    });
+
+    // Set up message handler
+    figma.ui.onmessage = this.handleMessage.bind(this);
+
+    ErrorHandler.info('Plugin UI shown', 'PluginBackend');
+  }
+
+  /**
+   * Handle messages from UI
+   * Routes messages to appropriate controllers
+   */
+  private async handleMessage(msg: PluginMessage): Promise<void> {
+    try {
+      ErrorHandler.info(`Received message: ${msg.type}`, 'PluginBackend');
+
+      switch (msg.type) {
+        // ==================== TOKEN OPERATIONS ====================
+        case 'import-tokens':
+          await this.handleImportTokens(msg);
+          break;
+
+        case 'save-tokens':
+          await this.handleSaveTokens(msg);
+          break;
+
+        case 'load-tokens':
+          await this.handleLoadTokens();
+          break;
+
+        // ==================== GITHUB OPERATIONS ====================
+        case 'github-fetch-files':
+          await this.handleGitHubFetchFiles(msg);
+          break;
+
+        case 'github-import-files':
+          await this.handleGitHubImportFiles(msg);
+          break;
+
+        case 'load-github-config':
+          await this.handleLoadGitHubConfig();
+          break;
+
+        case 'save-github-config':
+          await this.handleSaveGitHubConfig(msg);
+          break;
+
+        // ==================== SCOPE OPERATIONS ====================
+        case 'get-figma-variables':
+          await this.handleGetFigmaVariables();
+          break;
+
+        case 'apply-variable-scopes':
+          await this.handleApplyVariableScopes(msg);
+          break;
+
+        // ==================== PLUGIN CONTROL ====================
+        case 'cancel':
+          figma.closePlugin();
+          break;
+
+        default:
+          ErrorHandler.warn(`Unknown message type: ${msg.type}`, 'PluginBackend');
+      }
+    } catch (error) {
+      const errorMessage = ErrorHandler.formatError(error);
+      console.error('[PluginBackend] Unhandled error:', errorMessage);
+
+      // Send error to UI
+      figma.ui.postMessage({
+        type: 'error',
+        message: errorMessage
+      });
+    }
+  }
+
+  // ==================== TOKEN HANDLERS ====================
+
+  private async handleImportTokens(msg: PluginMessage): Promise<void> {
+    const result = await this.tokenController.importTokens({
+      primitives: msg.data.primitives,
+      semantics: msg.data.semantics,
+      source: msg.data.source || 'local'
+    });
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'import-success',
+        message: ` Tokens imported: ${result.data!.added} added, ${result.data!.updated} updated, ${result.data!.skipped} skipped`
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+
+  private async handleSaveTokens(msg: PluginMessage): Promise<void> {
+    const result = await this.tokenController.saveTokens(msg.data);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+  }
+
+  private async handleLoadTokens(): Promise<void> {
+    const result = await this.tokenController.loadTokens();
+
+    if (result.success && result.data) {
+      figma.ui.postMessage({
+        type: 'tokens-loaded',
+        data: result.data
+      });
+    } else if (!result.success) {
+      throw new Error(result.error);
+    }
+    // If result.data is null, just don't send anything (no saved state)
+  }
+
+  // ==================== GITHUB HANDLERS ====================
+
+  private async handleGitHubFetchFiles(msg: PluginMessage): Promise<void> {
+    const result = await this.githubController.fetchFiles(msg.data);
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'github-files-fetched',
+        data: { files: result.data }
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+
+  private async handleGitHubImportFiles(msg: PluginMessage): Promise<void> {
+    const result = await this.githubController.importFiles(msg.data);
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'github-files-imported',
+        data: result.data
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+
+  private async handleLoadGitHubConfig(): Promise<void> {
+    const result = await this.githubController.loadConfig();
+
+    if (result.success && result.data) {
+      figma.ui.postMessage({
+        type: 'github-config-loaded',
+        data: result.data
+      });
+    } else if (!result.success) {
+      throw new Error(result.error);
+    }
+    // If result.data is null, just don't send anything (no saved config)
+  }
+
+  private async handleSaveGitHubConfig(msg: PluginMessage): Promise<void> {
+    const result = await this.githubController.saveConfig(msg.data);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+  }
+
+  // ==================== SCOPE HANDLERS ====================
+
+  private async handleGetFigmaVariables(): Promise<void> {
+    const result = await this.scopeController.getFigmaVariables();
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'figma-variables-loaded',
+        data: { variables: result.data }
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+
+  private async handleApplyVariableScopes(msg: PluginMessage): Promise<void> {
+    const result = await this.scopeController.applyScopes(msg.data.variableScopes);
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'scopes-applied',
+        message: `Scopes updated for ${result.data} variable(s)`
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+}
+
+// ==================== PLUGIN INITIALIZATION ====================
+// Create and initialize the plugin backend
+const backend = new PluginBackend();
+backend.init();

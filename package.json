@@ -4,10 +4,12 @@
   "description": "Your Figma Plugin",
   "main": "code.js",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --outfile=code.js --target=es2017",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "esbuild src/backend/main.ts --bundle --outfile=code.js --target=es2017",
+    "build:frontend": "esbuild src/frontend/index.ts --bundle --outfile=ui.js --target=es2017",
+    "watch": "npm run build -- --watch",
     "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
-    "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix .",
-    "watch": "esbuild src/main.ts --bundle --outfile=code.js --target=es2017 --watch"
+    "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix ."
   },
   "author": "",
   "license": "",
