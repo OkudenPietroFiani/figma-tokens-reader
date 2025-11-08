@@ -1249,13 +1249,22 @@
   };
 
   // src/frontend/index.ts
+  console.log("[Frontend] Script loading...");
+  console.log("[Frontend] All imports loaded");
   var FrontendApp = class {
     constructor() {
+      console.log("[FrontendApp] Constructor starting...");
+      console.log("[FrontendApp] Creating AppState...");
       this.state = new AppState();
+      console.log("[FrontendApp] Creating PluginBridge...");
       this.bridge = new PluginBridge();
+      console.log("[FrontendApp] Creating WelcomeScreen...");
       this.welcomeScreen = new WelcomeScreen(this.state);
+      console.log("[FrontendApp] Creating ImportScreen...");
       this.importScreen = new ImportScreen(this.state, this.bridge);
+      console.log("[FrontendApp] Creating TokenScreen...");
       this.tokenScreen = new TokenScreen(this.state, this.bridge);
+      console.log("[FrontendApp] Creating ScopeScreen...");
       this.scopeScreen = new ScopeScreen(this.state, this.bridge);
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],

@@ -3,6 +3,8 @@
 // Initializes and manages all UI components
 // ====================================================================================
 
+console.log('[Frontend] Script loading...');
+
 import { AppState } from './state/AppState';
 import { PluginBridge } from './services/PluginBridge';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -10,6 +12,8 @@ import { ImportScreen } from './components/ImportScreen';
 import { TokenScreen } from './components/TokenScreen';
 import { ScopeScreen } from './components/ScopeScreen';
 import { ScreenType } from '../shared/types';
+
+console.log('[Frontend] All imports loaded');
 
 /**
  * Frontend application class
@@ -29,14 +33,22 @@ class FrontendApp {
   private screens: Map<ScreenType, any>;
 
   constructor() {
+    console.log('[FrontendApp] Constructor starting...');
+
     // Initialize state and bridge
+    console.log('[FrontendApp] Creating AppState...');
     this.state = new AppState();
+    console.log('[FrontendApp] Creating PluginBridge...');
     this.bridge = new PluginBridge();
 
     // Create components (pass both state and bridge)
+    console.log('[FrontendApp] Creating WelcomeScreen...');
     this.welcomeScreen = new WelcomeScreen(this.state);
+    console.log('[FrontendApp] Creating ImportScreen...');
     this.importScreen = new ImportScreen(this.state, this.bridge);
+    console.log('[FrontendApp] Creating TokenScreen...');
     this.tokenScreen = new TokenScreen(this.state, this.bridge);
+    console.log('[FrontendApp] Creating ScopeScreen...');
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
 
     // Register screens
