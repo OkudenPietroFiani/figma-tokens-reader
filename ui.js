@@ -523,6 +523,12 @@
       this.eventCleanupFunctions = [];
       this.state = state;
       this.element = this.createElement();
+    }
+    /**
+     * Initialize the component (call after construction)
+     * This ensures all properties are set before binding events
+     */
+    init() {
       this.bindEvents();
     }
     /**
@@ -1266,6 +1272,11 @@
       this.tokenScreen = new TokenScreen(this.state, this.bridge);
       console.log("[FrontendApp] Creating ScopeScreen...");
       this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+      console.log("[FrontendApp] Initializing components...");
+      this.welcomeScreen.init();
+      this.importScreen.init();
+      this.tokenScreen.init();
+      this.scopeScreen.init();
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],
         ["import", this.importScreen],
