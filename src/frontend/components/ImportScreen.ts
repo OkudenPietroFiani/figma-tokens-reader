@@ -326,9 +326,8 @@ export class ImportScreen extends BaseComponent {
     this.state.setGitHubConfig(config);
 
     console.log('[ImportScreen] Saving GitHub config...');
-    // Save config
-    await this.bridge.send('save-github-config', config);
-    console.log('[ImportScreen] Config saved');
+    // Save config (fire-and-forget - notification comes via 'info' message)
+    this.bridge.sendAsync('save-github-config', config);
 
     // Show loading
     this.setLoading(this.githubLoading, true);

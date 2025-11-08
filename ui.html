@@ -1582,8 +1582,7 @@
       config.files = selectedFiles;
       this.state.setGitHubConfig(config);
       console.log("[ImportScreen] Saving GitHub config...");
-      await this.bridge.send("save-github-config", config);
-      console.log("[ImportScreen] Config saved");
+      this.bridge.sendAsync("save-github-config", config);
       this.setLoading(this.githubLoading, true);
       this.setEnabled(this.syncTokensBtn, false);
       console.log("[ImportScreen] Sending import request...");
