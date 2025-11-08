@@ -1530,15 +1530,24 @@
       return ErrorHandler.handle(async () => {
         ErrorHandler.info("Fetching all Figma variables...", "ScopeController");
         const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        console.log("[ScopeController] Found collections:", collections.length);
+        console.log("[ScopeController] Collection details:", collections.map((c) => ({
+          name: c.name,
+          id: c.id,
+          variableCount: c.variableIds.length
+        })));
         const variables = {};
         for (const collection of collections) {
           ErrorHandler.info(`Processing collection: ${collection.name}`, "ScopeController");
+          console.log(`[ScopeController] Collection "${collection.name}" has ${collection.variableIds.length} variables`);
           const variablePromises = collection.variableIds.map(
             (id) => figma.variables.getVariableByIdAsync(id)
           );
           const collectionVariables = await Promise.all(variablePromises);
+          console.log(`[ScopeController] Loaded ${collectionVariables.length} variables for collection "${collection.name}"`);
           for (const variable of collectionVariables) {
             if (variable) {
+              console.log(`[ScopeController] Variable: ${variable.name}, type: ${variable.resolvedType}, scopes: ${variable.scopes.length}`);
               variables[variable.name] = {
                 id: variable.id,
                 name: variable.name,
@@ -1551,6 +1560,8 @@
           }
         }
         const count = Object.keys(variables).length;
+        console.log("[ScopeController] Total variables collected:", count);
+        console.log("[ScopeController] Variable names:", Object.keys(variables));
         ErrorHandler.info(`Found ${count} variables across ${collections.length} collections`, "ScopeController");
         if (count === 0) {
           ErrorHandler.warn("No Figma variables found. Import tokens first.", "ScopeController");
@@ -1755,6 +1766,7 @@
      * Routes messages to appropriate controllers
      */
     async handleMessage(msg) {
+      const requestId = msg.requestId;
       try {
         ErrorHandler.info(`Received message: ${msg.type}`, "PluginBackend");
         switch (msg.type) {
@@ -1766,7 +1778,7 @@
             await this.handleSaveTokens(msg);
             break;
           case "load-tokens":
-            await this.handleLoadTokens();
+            await this.handleLoadTokens(msg);
             break;
           // ==================== GITHUB OPERATIONS ====================
           case "github-fetch-files":
@@ -1776,14 +1788,14 @@
             await this.handleGitHubImportFiles(msg);
             break;
           case "load-github-config":
-            await this.handleLoadGitHubConfig();
+            await this.handleLoadGitHubConfig(msg);
             break;
           case "save-github-config":
             await this.handleSaveGitHubConfig(msg);
             break;
           // ==================== SCOPE OPERATIONS ====================
           case "get-figma-variables":
-            await this.handleGetFigmaVariables();
+            await this.handleGetFigmaVariables(msg);
             break;
           case "apply-variable-scopes":
             await this.handleApplyVariableScopes(msg);
@@ -1800,7 +1812,8 @@
         console.error("[PluginBackend] Unhandled error:", errorMessage);
         figma.ui.postMessage({
           type: "error",
-          message: errorMessage
+          message: errorMessage,
+          requestId
         });
       }
     }
@@ -1814,7 +1827,8 @@
       if (result.success) {
         figma.ui.postMessage({
           type: "import-success",
-          message: ` Tokens imported: ${result.data.added} added, ${result.data.updated} updated, ${result.data.skipped} skipped`
+          message: ` Tokens imported: ${result.data.added} added, ${result.data.updated} updated, ${result.data.skipped} skipped`,
+          requestId: msg.requestId
         });
       } else {
         throw new Error(result.error);
@@ -1826,12 +1840,13 @@
         throw new Error(result.error);
       }
     }
-    async handleLoadTokens() {
+    async handleLoadTokens(msg) {
       const result = await this.tokenController.loadTokens();
       if (result.success && result.data) {
         figma.ui.postMessage({
           type: "tokens-loaded",
-          data: result.data
+          data: result.data,
+          requestId: msg.requestId
         });
       } else if (!result.success) {
         throw new Error(result.error);
@@ -1843,7 +1858,8 @@
       if (result.success) {
         figma.ui.postMessage({
           type: "github-files-fetched",
-          data: { files: result.data }
+          data: { files: result.data },
+          requestId: msg.requestId
         });
       } else {
         throw new Error(result.error);
@@ -1854,18 +1870,20 @@
       if (result.success) {
         figma.ui.postMessage({
           type: "github-files-imported",
-          data: result.data
+          data: result.data,
+          requestId: msg.requestId
         });
       } else {
         throw new Error(result.error);
       }
     }
-    async handleLoadGitHubConfig() {
+    async handleLoadGitHubConfig(msg) {
       const result = await this.githubController.loadConfig();
       if (result.success && result.data) {
         figma.ui.postMessage({
           type: "github-config-loaded",
-          data: result.data
+          data: result.data,
+          requestId: msg.requestId
         });
       } else if (!result.success) {
         throw new Error(result.error);
@@ -1878,12 +1896,13 @@
       }
     }
     // ==================== SCOPE HANDLERS ====================
-    async handleGetFigmaVariables() {
+    async handleGetFigmaVariables(msg) {
       const result = await this.scopeController.getFigmaVariables();
       if (result.success) {
         figma.ui.postMessage({
           type: "figma-variables-loaded",
-          data: { variables: result.data }
+          data: { variables: result.data },
+          requestId: msg.requestId
         });
       } else {
         throw new Error(result.error);
@@ -1894,7 +1913,8 @@
       if (result.success) {
         figma.ui.postMessage({
           type: "scopes-applied",
-          message: `Scopes updated for ${result.data} variable(s)`
+          message: `Scopes updated for ${result.data} variable(s)`,
+          requestId: msg.requestId
         });
       } else {
         throw new Error(result.error);

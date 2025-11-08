@@ -55,12 +55,12 @@
 
     /* Primary button */
     .btn-primary {
-      background: #18a0fb;
+      background: #1a1a1a;
       color: white;
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #1590e8;
+      background: #2a2a2a;
     }
 
     /* Secondary button */
@@ -134,10 +134,43 @@
 
     .welcome-actions {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 12px;
-      max-width: 300px;
+      justify-content: center;
       margin: 0 auto;
+    }
+
+    .welcome-actions .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+    }
+
+    .welcome-actions .btn svg {
+      flex-shrink: 0;
+    }
+
+    .welcome-actions .btn-primary {
+      background: #1a1a1a;
+      color: white;
+    }
+
+    .welcome-actions .btn-primary:hover {
+      background: #2a2a2a;
+    }
+
+    .welcome-actions .btn-secondary {
+      background: white;
+      color: #1a1a1a;
+      border: 1px solid #d4d4d4;
+    }
+
+    .welcome-actions .btn-secondary:hover {
+      background: #f5f5f5;
     }
 
     .welcome-btn {
@@ -179,18 +212,32 @@
     }
 
     .import-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e4e4e4;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      display: inline-block;
+      font-size: 13px;
+      color: #333;
+      text-decoration: none;
+      margin-bottom: 16px;
+    }
+
+    .back-link:hover {
+      color: #000;
     }
 
     .import-title {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
       color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+
+    .import-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 24px;
     }
 
     .back-btn {
@@ -243,15 +290,37 @@
       color: #1a1a1a;
     }
 
-    .form-group {
-      margin-bottom: 16px;
+    .form-group,
+    .input-group {
+      margin-bottom: 20px;
     }
 
-    .form-label {
+    .form-label,
+    .input-group label {
       display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #333;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #1a1a1a;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d4d4d4;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #18a0fb;
+    }
+
+    .input-group input::placeholder {
+      color: #999;
     }
 
     .help-text {
@@ -266,6 +335,35 @@
       background: #18a0fb;
       color: white;
       margin-top: 8px;
+    }
+
+    .btn-full {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-full svg {
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+    }
+
+    .file-selector-section {
+      margin-bottom: 24px;
+    }
+
+    .file-list-items {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     /* Local file import section */
@@ -310,6 +408,13 @@
     /* File list */
     .file-list {
       margin-top: 20px;
+    }
+
+    .file-list-header {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1a1a1a;
     }
 
     .file-list-title {
@@ -402,8 +507,8 @@
       color: #1a1a1a;
     }
 
-    /* File tabs */
-    .file-tabs {
+    /* File tabs - old horizontal layout (deprecated) */
+    .old-file-tabs-horizontal {
       display: flex;
       gap: 6px;
       overflow-x: auto;
@@ -411,26 +516,30 @@
     }
 
     .file-tab {
-      padding: 6px 12px;
-      background: #f0f0f0;
-      color: #666;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'Courier New', monospace;
-      white-space: nowrap;
-      border: 1px solid transparent;
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      background: transparent;
+      color: #333;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      text-align: left;
+      border: none;
       transition: all 0.2s ease;
+      cursor: pointer;
+      margin-bottom: 4px;
     }
 
     .file-tab:hover {
-      background: #e4e4e4;
+      background: #f5f5f5;
       transform: none;
     }
 
     .file-tab.active {
-      background: white;
-      color: #18a0fb;
-      border-color: #18a0fb;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      font-weight: 500;
     }
 
     /* Token content area */
@@ -463,9 +572,22 @@
 
     /* Token actions */
     .token-actions {
+      display: flex;
+      gap: 12px;
       padding: 16px 20px;
       border-top: 1px solid #e4e4e4;
       background: white;
+      flex-shrink: 0;
+    }
+
+    .token-actions .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .token-actions .btn svg {
       flex-shrink: 0;
     }
 
@@ -511,13 +633,323 @@
       letter-spacing: 0.5px;
     }
 
+    /* Token top bar */
+    .token-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid #e4e4e4;
+      background: white;
+      position: relative;
+    }
+
+    .token-top-bar-tabs {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+
+    .token-tab {
+      padding: 8px 0;
+      background: transparent;
+      color: #999;
+      border: none;
+      cursor: pointer;
+      font-weight: 400;
+      transition: all 0.2s ease;
+      outline: none;
+      position: relative;
+    }
+
+    .token-tab:hover {
+      color: #333;
+      transform: none;
+    }
+
+    .token-tab:active,
+    .token-tab:focus {
+      outline: none;
+    }
+
+    .token-tab.active {
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    .token-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -13px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #1a1a1a;
+    }
+
+    .btn-switch-source {
+      padding: 8px 16px;
+      font-size: 12px;
+      background: white;
+      color: #333;
+      border: 1px solid #e4e4e4;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .btn-switch-source:hover {
+      border-color: #d4d4d4;
+      background: #fafafa;
+    }
+
+    /* Token layout */
+    .token-layout {
+      display: flex;
+      height: calc(100vh - 120px);
+      overflow: hidden;
+    }
+
+    .token-view {
+      display: none;
+      flex: 1;
+    }
+
+    .token-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* File tabs sidebar - redefine for new layout */
+    .file-tabs {
+      width: 250px;
+      border-right: 1px solid #e4e4e4;
+      background: white;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .file-tabs-header {
+      padding: 16px;
+      border-bottom: 1px solid #e4e4e4;
+      background: white;
+    }
+
+    .file-tabs-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+      text-transform: capitalize;
+    }
+
+    /* Scope selector */
+    .scope-selector {
+      background: white;
+    }
+
+    .scope-selector-header {
+      margin-bottom: 16px;
+    }
+
+    .scope-selector-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .scope-selector-count {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .scope-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .scope-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .scope-option input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
+    .scope-option:hover {
+      color: #1a1a1a;
+    }
+
+    .scope-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-text {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 8px;
+      text-align: center;
+      transition: color 0.2s ease;
+    }
+
+    .btn-text:hover {
+      color: #1a1a1a;
+      transform: none;
+    }
+
+    /* Token tree view area */
+    .token-tree-view {
+      flex: 1;
+      overflow: auto;
+      background: white;
+    }
+
+    #token-tree-content {
+      padding: 16px;
+    }
+
+    .tree-group {
+      margin-bottom: 4px;
+    }
+
+    .tree-group.collapsed .tree-children {
+      display: none;
+    }
+
+    .tree-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .tree-header:hover {
+      background: transparent;
+    }
+
+    .tree-toggle {
+      font-size: 10px;
+      color: #666;
+      user-select: none;
+      width: 12px;
+      display: inline-block;
+    }
+
+    .tree-toggle::before {
+      content: '▶';
+    }
+
+    .tree-group:not(.collapsed) .tree-toggle::before {
+      content: '▼';
+    }
+
+    .tree-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+
+    .tree-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 4px;
+    }
+
+    .tree-item:hover {
+      background: #f5f5f5;
+    }
+
+    .token-name {
+      font-size: 13px;
+      color: #333;
+    }
+
+    .token-value {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+    }
+
     /* ====================================================================================
        SCOPE SCREEN STYLES (Placeholder)
        ==================================================================================== */
 
     .scope-screen {
-      padding: 20px;
-      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scope-tree {
+      padding: 16px;
+    }
+
+    .scope-item {
+      padding: 4px 0;
+    }
+
+    .scope-item-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scope-item:hover {
+      background: transparent;
+    }
+
+    .scope-var-name {
+      font-size: 12px;
+      color: #333;
+      font-family: 'Courier New', monospace;
+      flex: 1;
+    }
+
+    .scope-type {
+      font-size: 11px;
+      color: #666;
+      margin-left: auto;
+      padding-left: 8px;
+    }
+
+    .scope-checkbox {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .group-checkbox {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
     }
 
     .scope-title {

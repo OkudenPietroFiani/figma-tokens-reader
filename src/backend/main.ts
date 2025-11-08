@@ -73,6 +73,7 @@ class PluginBackend {
    * Routes messages to appropriate controllers
    */
   private async handleMessage(msg: PluginMessage): Promise<void> {
+    const requestId = msg.requestId; // Capture requestId for error handling
     try {
       ErrorHandler.info(`Received message: ${msg.type}`, 'PluginBackend');
 
@@ -87,7 +88,7 @@ class PluginBackend {
           break;
 
         case 'load-tokens':
-          await this.handleLoadTokens();
+          await this.handleLoadTokens(msg);
           break;
 
         // ==================== GITHUB OPERATIONS ====================
@@ -100,7 +101,7 @@ class PluginBackend {
           break;
 
         case 'load-github-config':
-          await this.handleLoadGitHubConfig();
+          await this.handleLoadGitHubConfig(msg);
           break;
 
         case 'save-github-config':
@@ -109,7 +110,7 @@ class PluginBackend {
 
         // ==================== SCOPE OPERATIONS ====================
         case 'get-figma-variables':
-          await this.handleGetFigmaVariables();
+          await this.handleGetFigmaVariables(msg);
           break;
 
         case 'apply-variable-scopes':
@@ -128,10 +129,11 @@ class PluginBackend {
       const errorMessage = ErrorHandler.formatError(error);
       console.error('[PluginBackend] Unhandled error:', errorMessage);
 
-      // Send error to UI
+      // Send error to UI (include requestId if present)
       figma.ui.postMessage({
         type: 'error',
-        message: errorMessage
+        message: errorMessage,
+        requestId: requestId
       });
     }
   }
@@ -148,7 +150,8 @@ class PluginBackend {
     if (result.success) {
       figma.ui.postMessage({
         type: 'import-success',
-        message: ` Tokens imported: ${result.data!.added} added, ${result.data!.updated} updated, ${result.data!.skipped} skipped`
+        message: ` Tokens imported: ${result.data!.added} added, ${result.data!.updated} updated, ${result.data!.skipped} skipped`,
+        requestId: msg.requestId
       });
     } else {
       throw new Error(result.error);
@@ -163,13 +166,14 @@ class PluginBackend {
     }
   }
 
-  private async handleLoadTokens(): Promise<void> {
+  private async handleLoadTokens(msg: PluginMessage): Promise<void> {
     const result = await this.tokenController.loadTokens();
 
     if (result.success && result.data) {
       figma.ui.postMessage({
         type: 'tokens-loaded',
-        data: result.data
+        data: result.data,
+        requestId: msg.requestId
       });
     } else if (!result.success) {
       throw new Error(result.error);
@@ -185,7 +189,8 @@ class PluginBackend {
     if (result.success) {
       figma.ui.postMessage({
         type: 'github-files-fetched',
-        data: { files: result.data }
+        data: { files: result.data },
+        requestId: msg.requestId
       });
     } else {
       throw new Error(result.error);
@@ -198,20 +203,22 @@ class PluginBackend {
     if (result.success) {
       figma.ui.postMessage({
         type: 'github-files-imported',
-        data: result.data
+        data: result.data,
+        requestId: msg.requestId
       });
     } else {
       throw new Error(result.error);
     }
   }
 
-  private async handleLoadGitHubConfig(): Promise<void> {
+  private async handleLoadGitHubConfig(msg: PluginMessage): Promise<void> {
     const result = await this.githubController.loadConfig();
 
     if (result.success && result.data) {
       figma.ui.postMessage({
         type: 'github-config-loaded',
-        data: result.data
+        data: result.data,
+        requestId: msg.requestId
       });
     } else if (!result.success) {
       throw new Error(result.error);
@@ -229,13 +236,14 @@ class PluginBackend {
 
   // ==================== SCOPE HANDLERS ====================
 
-  private async handleGetFigmaVariables(): Promise<void> {
+  private async handleGetFigmaVariables(msg: PluginMessage): Promise<void> {
     const result = await this.scopeController.getFigmaVariables();
 
     if (result.success) {
       figma.ui.postMessage({
         type: 'figma-variables-loaded',
-        data: { variables: result.data }
+        data: { variables: result.data },
+        requestId: msg.requestId
       });
     } else {
       throw new Error(result.error);
@@ -248,7 +256,8 @@ class PluginBackend {
     if (result.success) {
       figma.ui.postMessage({
         type: 'scopes-applied',
-        message: `Scopes updated for ${result.data} variable(s)`
+        message: `Scopes updated for ${result.data} variable(s)`,
+        requestId: msg.requestId
       });
     } else {
       throw new Error(result.error);

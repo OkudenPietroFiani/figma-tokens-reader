@@ -55,12 +55,12 @@
 
     /* Primary button */
     .btn-primary {
-      background: #18a0fb;
+      background: #1a1a1a;
       color: white;
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #1590e8;
+      background: #2a2a2a;
     }
 
     /* Secondary button */
@@ -134,10 +134,43 @@
 
     .welcome-actions {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 12px;
-      max-width: 300px;
+      justify-content: center;
       margin: 0 auto;
+    }
+
+    .welcome-actions .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+    }
+
+    .welcome-actions .btn svg {
+      flex-shrink: 0;
+    }
+
+    .welcome-actions .btn-primary {
+      background: #1a1a1a;
+      color: white;
+    }
+
+    .welcome-actions .btn-primary:hover {
+      background: #2a2a2a;
+    }
+
+    .welcome-actions .btn-secondary {
+      background: white;
+      color: #1a1a1a;
+      border: 1px solid #d4d4d4;
+    }
+
+    .welcome-actions .btn-secondary:hover {
+      background: #f5f5f5;
     }
 
     .welcome-btn {
@@ -179,18 +212,32 @@
     }
 
     .import-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e4e4e4;
+      margin-bottom: 24px;
+    }
+
+    .back-link {
+      display: inline-block;
+      font-size: 13px;
+      color: #333;
+      text-decoration: none;
+      margin-bottom: 16px;
+    }
+
+    .back-link:hover {
+      color: #000;
     }
 
     .import-title {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
       color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+
+    .import-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 24px;
     }
 
     .back-btn {
@@ -243,15 +290,37 @@
       color: #1a1a1a;
     }
 
-    .form-group {
-      margin-bottom: 16px;
+    .form-group,
+    .input-group {
+      margin-bottom: 20px;
     }
 
-    .form-label {
+    .form-label,
+    .input-group label {
       display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #333;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #1a1a1a;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d4d4d4;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #18a0fb;
+    }
+
+    .input-group input::placeholder {
+      color: #999;
     }
 
     .help-text {
@@ -266,6 +335,35 @@
       background: #18a0fb;
       color: white;
       margin-top: 8px;
+    }
+
+    .btn-full {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-full svg {
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+    }
+
+    .file-selector-section {
+      margin-bottom: 24px;
+    }
+
+    .file-list-items {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     /* Local file import section */
@@ -310,6 +408,13 @@
     /* File list */
     .file-list {
       margin-top: 20px;
+    }
+
+    .file-list-header {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1a1a1a;
     }
 
     .file-list-title {
@@ -402,8 +507,8 @@
       color: #1a1a1a;
     }
 
-    /* File tabs */
-    .file-tabs {
+    /* File tabs - old horizontal layout (deprecated) */
+    .old-file-tabs-horizontal {
       display: flex;
       gap: 6px;
       overflow-x: auto;
@@ -411,26 +516,30 @@
     }
 
     .file-tab {
-      padding: 6px 12px;
-      background: #f0f0f0;
-      color: #666;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'Courier New', monospace;
-      white-space: nowrap;
-      border: 1px solid transparent;
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      background: transparent;
+      color: #333;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      text-align: left;
+      border: none;
       transition: all 0.2s ease;
+      cursor: pointer;
+      margin-bottom: 4px;
     }
 
     .file-tab:hover {
-      background: #e4e4e4;
+      background: #f5f5f5;
       transform: none;
     }
 
     .file-tab.active {
-      background: white;
-      color: #18a0fb;
-      border-color: #18a0fb;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      font-weight: 500;
     }
 
     /* Token content area */
@@ -463,9 +572,22 @@
 
     /* Token actions */
     .token-actions {
+      display: flex;
+      gap: 12px;
       padding: 16px 20px;
       border-top: 1px solid #e4e4e4;
       background: white;
+      flex-shrink: 0;
+    }
+
+    .token-actions .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .token-actions .btn svg {
       flex-shrink: 0;
     }
 
@@ -511,13 +633,323 @@
       letter-spacing: 0.5px;
     }
 
+    /* Token top bar */
+    .token-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid #e4e4e4;
+      background: white;
+      position: relative;
+    }
+
+    .token-top-bar-tabs {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+
+    .token-tab {
+      padding: 8px 0;
+      background: transparent;
+      color: #999;
+      border: none;
+      cursor: pointer;
+      font-weight: 400;
+      transition: all 0.2s ease;
+      outline: none;
+      position: relative;
+    }
+
+    .token-tab:hover {
+      color: #333;
+      transform: none;
+    }
+
+    .token-tab:active,
+    .token-tab:focus {
+      outline: none;
+    }
+
+    .token-tab.active {
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    .token-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -13px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #1a1a1a;
+    }
+
+    .btn-switch-source {
+      padding: 8px 16px;
+      font-size: 12px;
+      background: white;
+      color: #333;
+      border: 1px solid #e4e4e4;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .btn-switch-source:hover {
+      border-color: #d4d4d4;
+      background: #fafafa;
+    }
+
+    /* Token layout */
+    .token-layout {
+      display: flex;
+      height: calc(100vh - 120px);
+      overflow: hidden;
+    }
+
+    .token-view {
+      display: none;
+      flex: 1;
+    }
+
+    .token-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* File tabs sidebar - redefine for new layout */
+    .file-tabs {
+      width: 250px;
+      border-right: 1px solid #e4e4e4;
+      background: white;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .file-tabs-header {
+      padding: 16px;
+      border-bottom: 1px solid #e4e4e4;
+      background: white;
+    }
+
+    .file-tabs-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+      text-transform: capitalize;
+    }
+
+    /* Scope selector */
+    .scope-selector {
+      background: white;
+    }
+
+    .scope-selector-header {
+      margin-bottom: 16px;
+    }
+
+    .scope-selector-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .scope-selector-count {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .scope-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .scope-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .scope-option input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
+    .scope-option:hover {
+      color: #1a1a1a;
+    }
+
+    .scope-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-text {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 8px;
+      text-align: center;
+      transition: color 0.2s ease;
+    }
+
+    .btn-text:hover {
+      color: #1a1a1a;
+      transform: none;
+    }
+
+    /* Token tree view area */
+    .token-tree-view {
+      flex: 1;
+      overflow: auto;
+      background: white;
+    }
+
+    #token-tree-content {
+      padding: 16px;
+    }
+
+    .tree-group {
+      margin-bottom: 4px;
+    }
+
+    .tree-group.collapsed .tree-children {
+      display: none;
+    }
+
+    .tree-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .tree-header:hover {
+      background: transparent;
+    }
+
+    .tree-toggle {
+      font-size: 10px;
+      color: #666;
+      user-select: none;
+      width: 12px;
+      display: inline-block;
+    }
+
+    .tree-toggle::before {
+      content: '▶';
+    }
+
+    .tree-group:not(.collapsed) .tree-toggle::before {
+      content: '▼';
+    }
+
+    .tree-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+
+    .tree-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 4px;
+    }
+
+    .tree-item:hover {
+      background: #f5f5f5;
+    }
+
+    .token-name {
+      font-size: 13px;
+      color: #333;
+    }
+
+    .token-value {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+    }
+
     /* ====================================================================================
        SCOPE SCREEN STYLES (Placeholder)
        ==================================================================================== */
 
     .scope-screen {
-      padding: 20px;
-      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scope-tree {
+      padding: 16px;
+    }
+
+    .scope-item {
+      padding: 4px 0;
+    }
+
+    .scope-item-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scope-item:hover {
+      background: transparent;
+    }
+
+    .scope-var-name {
+      font-size: 12px;
+      color: #333;
+      font-family: 'Courier New', monospace;
+      flex: 1;
+    }
+
+    .scope-type {
+      font-size: 11px;
+      color: #666;
+      margin-left: auto;
+      padding-left: 8px;
+    }
+
+    .scope-checkbox {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .group-checkbox {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
     }
 
     .scope-title {
@@ -1255,15 +1687,24 @@
       screen.id = SCREEN_IDS.WELCOME;
       screen.className = "screen welcome-screen";
       screen.innerHTML = `
-      <div class="welcome-logo"><\uFFFD</div>
-      <h1 class="welcome-title">W3C Design Tokens Importer</h1>
+      <h1 class="welcome-title">W3C Token manager</h1>
       <p class="welcome-subtitle">
-        Import and sync design tokens from GitHub repositories or local files to Figma Variables
+        Token manager helps you synchronise your W3C tokens with Figma variables and styles
       </p>
 
-      <div class="welcome-buttons">
-        <button class="btn-pill primary" id="connect-github-btn">Connect to GitHub</button>
-        <button class="btn-pill secondary" id="import-local-btn">Import Local Files</button>
+      <div class="welcome-actions">
+        <button class="btn btn-primary" id="connect-github-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" fill="currentColor"/>
+          </svg>
+          Connect to Github
+        </button>
+        <button class="btn btn-secondary" id="import-local-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Import a file
+        </button>
       </div>
 
       <button class="welcome-back-btn hidden" id="back-to-tokens-btn">
@@ -1350,7 +1791,7 @@
       screen.className = "screen import-screen";
       screen.innerHTML = `
       <div class="import-header">
-        <a class="back-link" id="back-to-welcome">\u2190 Back to Welcome</a>
+        <a class="back-link" id="back-to-welcome">\u2190 Back</a>
         <h1 class="import-title" id="import-title">Import Tokens</h1>
         <p class="import-subtitle" id="import-subtitle">Configure your token source</p>
       </div>
@@ -1358,31 +1799,35 @@
       <!-- GitHub Import Content -->
       <div class="import-content active" id="github-import-content">
         <div class="input-group">
-          <label for="github-token">GitHub Personal Access Token</label>
-          <input type="password" id="github-token" placeholder="ghp_...">
-          <div class="input-hint">Required for private repositories</div>
+          <label for="github-token">Github access key</label>
+          <input type="password" id="github-token" placeholder="example">
         </div>
 
         <div class="input-group">
-          <label for="repo-url">Repository URL</label>
-          <input type="text" id="repo-url" placeholder="https://github.com/owner/repo">
+          <label for="repo-url">Repository url</label>
+          <input type="text" id="repo-url" placeholder="example">
         </div>
 
         <div class="input-group">
-          <label for="branch-name">Branch</label>
+          <label for="branch-name">Branch (optional)</label>
           <input type="text" id="branch-name" placeholder="main" value="main">
         </div>
 
-        <button class="btn btn-primary btn-full" id="fetch-files-btn">Connect to Repository</button>
+        <button class="btn btn-primary btn-full" id="fetch-files-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" fill="currentColor"/>
+          </svg>
+          Connect repository
+        </button>
 
-        <div class="loading" id="github-loading">
+        <div class="loading hidden" id="github-loading">
           <span>Fetching files from GitHub...</span>
         </div>
 
         <div id="github-files-container"></div>
 
         <div class="action-buttons hidden" id="github-action-buttons">
-          <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Sync Tokens</button>
+          <button class="btn btn-primary btn-full" id="sync-tokens-btn" disabled>Synchronise files</button>
         </div>
       </div>
 
@@ -1390,10 +1835,8 @@
       <div class="import-content" id="local-import-content">
         <input type="file" id="file-input" multiple accept=".json,.zip" style="display: none;">
 
-        <div class="drop-zone" id="drop-zone">
-          <div class="drop-zone-icon">\u{1F4C1}</div>
-          <div class="drop-zone-text">Click to select token files or drag & drop</div>
-          <div class="drop-zone-hint">Supports .json and .zip files</div>
+        <div class="file-selector-section">
+          <div id="local-files-list" class="file-list-items"></div>
         </div>
       </div>
     `;
@@ -1411,7 +1854,7 @@
       this.syncTokensBtn = screen.querySelector("#sync-tokens-btn");
       this.localContent = screen.querySelector("#local-import-content");
       this.fileInput = screen.querySelector("#file-input");
-      this.dropZone = screen.querySelector("#drop-zone");
+      this.localFilesList = screen.querySelector("#local-files-list");
       return screen;
     }
     bindEvents() {
@@ -1431,28 +1874,6 @@
           this.handleLocalFiles(Array.from(target.files));
         }
       });
-      this.addEventListener(this.dropZone, "click", () => {
-        this.fileInput.click();
-      });
-      this.addEventListener(this.dropZone, "dragover", (e) => {
-        e.preventDefault();
-        this.dropZone.style.borderColor = "#0d99ff";
-        this.dropZone.style.background = "#f8fcff";
-      });
-      this.addEventListener(this.dropZone, "dragleave", (e) => {
-        e.preventDefault();
-        this.dropZone.style.borderColor = "#e0e0e0";
-        this.dropZone.style.background = "";
-      });
-      this.addEventListener(this.dropZone, "drop", (e) => {
-        var _a;
-        e.preventDefault();
-        this.dropZone.style.borderColor = "#e0e0e0";
-        this.dropZone.style.background = "";
-        if ((_a = e.dataTransfer) == null ? void 0 : _a.files) {
-          this.handleLocalFiles(Array.from(e.dataTransfer.files));
-        }
-      });
       this.subscribeToState("import-mode-changed", (mode) => {
         this.updateMode(mode);
       });
@@ -1462,9 +1883,6 @@
      * Setup backend event listeners
      */
     setupBackendListeners() {
-      this.bridge.on("github-files-fetched", (data) => {
-        this.handleFilesFetched(data.files);
-      });
       this.bridge.on("github-files-imported", (data) => {
         this.handleFilesImported(data);
       });
@@ -1473,7 +1891,7 @@
       });
       this.bridge.on("error", (message) => {
         this.showNotification(message, "error");
-        this.setLoading(this.githubLoading, false);
+        this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
         this.setEnabled(this.fetchFilesBtn, true);
       });
     }
@@ -1501,13 +1919,14 @@
         branch
       };
       this.state.setGitHubConfig(githubConfig);
-      this.setLoading(this.githubLoading, true);
+      this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.fetchFilesBtn, false);
       try {
-        await this.bridge.send("github-fetch-files", githubConfig);
+        const response = await this.bridge.send("github-fetch-files", githubConfig);
+        this.handleFilesFetched(response.files);
       } catch (error) {
         console.error("Error fetching files:", error);
-        this.setLoading(this.githubLoading, false);
+        this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
         this.setEnabled(this.fetchFilesBtn, true);
       }
     }
@@ -1515,7 +1934,7 @@
      * Handle files fetched from GitHub
      */
     handleFilesFetched(files) {
-      this.setLoading(this.githubLoading, false);
+      this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.fetchFilesBtn, true);
       if (files.length === 0) {
         this.githubFilesContainer.innerHTML = '<div class="empty-state">No JSON files found in repository</div>';
@@ -1563,7 +1982,7 @@
       this.state.setGitHubConfig(config);
       console.log("[ImportScreen] Saving GitHub config...");
       this.bridge.sendAsync("save-github-config", config);
-      this.setLoading(this.githubLoading, true);
+      this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.syncTokensBtn, false);
       console.log("[ImportScreen] Sending import request...");
       this.bridge.sendAsync("github-import-files", config);
@@ -1574,7 +1993,7 @@
      */
     handleFilesImported(data) {
       console.log("[ImportScreen] Files imported from GitHub:", data);
-      this.setLoading(this.githubLoading, false);
+      this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
       const tokenFiles = [];
       if (data.primitives) {
         tokenFiles.push({
@@ -1655,14 +2074,14 @@
      */
     updateMode(mode) {
       if (mode === "github") {
-        this.importTitle.textContent = "Connect to GitHub";
-        this.importSubtitle.textContent = "Import tokens from a GitHub repository";
+        this.importTitle.textContent = "Connect to github";
+        this.importSubtitle.textContent = "Connect to a GitHub repository to import and synchronize design tokens.";
         this.githubContent.classList.add(CSS_CLASSES.ACTIVE);
         this.localContent.classList.remove(CSS_CLASSES.ACTIVE);
         this.bridge.sendAsync("load-github-config");
       } else {
-        this.importTitle.textContent = "Import Local Files";
-        this.importSubtitle.textContent = "Select token files from your computer";
+        this.importTitle.textContent = "Import from local";
+        this.importSubtitle.textContent = "Import local design tokens from your files.";
         this.localContent.classList.add(CSS_CLASSES.ACTIVE);
         this.githubContent.classList.remove(CSS_CLASSES.ACTIVE);
       }
@@ -1692,6 +2111,7 @@
       <div class="token-top-bar">
         <div class="token-top-bar-tabs">
           <button class="token-tab active" id="tokens-tab">Tokens</button>
+          <button class="token-tab" id="scope-tab">Scopes</button>
         </div>
         <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
       </div>
@@ -1709,9 +2129,9 @@
             </div>
           </div>
 
-          <!-- Right Column: JSON Preview -->
-          <div class="json-preview">
-            <div class="json-content" id="json-content">
+          <!-- Right Column: Token Tree View -->
+          <div class="token-tree-view">
+            <div id="token-tree-content">
               <div class="empty-state">Select a token file from the left to preview its contents</div>
             </div>
           </div>
@@ -1721,29 +2141,45 @@
       <!-- Action Footer -->
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
+        <button class="btn btn-secondary hidden" id="pull-changes-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+            <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Pull changes</span>
+        </button>
       </div>
     `;
       this.syncBtn = screen.querySelector("#sync-to-figma-btn");
+      this.pullChangesBtn = screen.querySelector("#pull-changes-btn");
       this.switchSourceBtn = screen.querySelector("#switch-source-btn");
       this.fileTabsList = screen.querySelector("#file-tabs-list");
-      this.jsonContent = screen.querySelector("#json-content");
+      this.tokenTreeContent = screen.querySelector("#token-tree-content");
       return screen;
     }
     bindEvents() {
       this.addEventListener(this.syncBtn, "click", () => {
         this.handleSyncToFigma();
       });
+      this.addEventListener(this.pullChangesBtn, "click", () => {
+        this.handlePullChanges();
+      });
       this.addEventListener(this.switchSourceBtn, "click", () => {
         this.state.setCurrentScreen("welcome");
       });
+      const scopeTab = this.element.querySelector("#scope-tab");
+      if (scopeTab) {
+        this.addEventListener(scopeTab, "click", () => {
+          this.state.setCurrentScreen("scope");
+        });
+      }
       this.subscribeToState("files-loaded", () => {
         this.renderFileList();
+        this.updatePullChangesButton();
       });
       this.subscribeToState("file-selected", (fileName) => {
         this.renderFilePreview(fileName);
-      });
-      this.bridge.on("import-success", (message) => {
-        this.showNotification(message, "success");
       });
     }
     /**
@@ -1773,20 +2209,92 @@
       }
     }
     /**
-     * Render file preview
+     * Render file preview as tree view
      */
     renderFilePreview(fileName) {
       if (!fileName) {
-        this.jsonContent.innerHTML = '<div class="empty-state">Select a file to preview</div>';
+        this.tokenTreeContent.innerHTML = '<div class="empty-state">Select a file to preview</div>';
         return;
       }
       const file = this.state.tokenFiles.get(fileName);
       if (!file) {
-        this.jsonContent.innerHTML = '<div class="empty-state">File not found</div>';
+        this.tokenTreeContent.innerHTML = '<div class="empty-state">File not found</div>';
         return;
       }
-      const jsonStr = JSON.stringify(file.content, null, 2);
-      this.jsonContent.innerHTML = "<pre>" + jsonStr + "</pre>";
+      this.tokenTreeContent.innerHTML = this.renderTokenTree(file.content);
+      const toggleBtns = this.tokenTreeContent.querySelectorAll(".tree-toggle");
+      toggleBtns.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const target = e.currentTarget;
+          const parent2 = target.closest(".tree-group");
+          parent2 == null ? void 0 : parent2.classList.toggle("collapsed");
+        });
+      });
+    }
+    /**
+     * Render token tree recursively
+     */
+    renderTokenTree(obj, level = 0) {
+      if (typeof obj !== "object" || obj === null) {
+        return `<div class="tree-value">${this.escapeHtml(JSON.stringify(obj))}</div>`;
+      }
+      let html = "";
+      for (const [key, value] of Object.entries(obj)) {
+        const isGroup = typeof value === "object" && value !== null && !value.$value;
+        if (isGroup) {
+          html += `
+          <div class="tree-group" style="padding-left: ${level * 12}px;">
+            <div class="tree-header">
+              <span class="tree-toggle"></span>
+              <span class="tree-label">${this.escapeHtml(key)}</span>
+            </div>
+            <div class="tree-children">
+              ${this.renderTokenTree(value, level + 1)}
+            </div>
+          </div>
+        `;
+        } else {
+          let displayValue = "";
+          if (value && typeof value === "object" && value.$value !== void 0) {
+            displayValue = this.formatTokenValue(value.$value);
+          } else {
+            displayValue = this.formatTokenValue(value);
+          }
+          html += `
+          <div class="tree-item" style="padding-left: ${level * 12 + 16}px;">
+            <span class="token-name">${this.escapeHtml(key)}</span>
+            <span class="token-value">${displayValue}</span>
+          </div>
+        `;
+        }
+      }
+      return html;
+    }
+    /**
+     * Format token value for display
+     */
+    formatTokenValue(value) {
+      if (value === null || value === void 0) {
+        return "";
+      }
+      if (typeof value === "string") {
+        return this.escapeHtml(value);
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+      }
+      if (typeof value === "object") {
+        return this.escapeHtml(JSON.stringify(value));
+      }
+      return this.escapeHtml(String(value));
+    }
+    /**
+     * Escape HTML special characters
+     */
+    escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
     }
     /**
      * Handle sync to Figma
@@ -1811,11 +2319,12 @@
       }
       try {
         this.setEnabled(this.syncBtn, false);
-        await this.bridge.send("import-tokens", {
+        const message = await this.bridge.send("import-tokens", {
           primitives,
           semantics,
           source: this.state.tokenSource
         });
+        this.showNotification(message, "success");
         this.setEnabled(this.syncBtn, true);
       } catch (error) {
         console.error("Error syncing to Figma:", error);
@@ -1824,11 +2333,70 @@
       }
     }
     /**
+     * Update pull changes button visibility
+     */
+    updatePullChangesButton() {
+      if (this.state.tokenSource === "github") {
+        this.pullChangesBtn.classList.remove("hidden");
+      } else {
+        this.pullChangesBtn.classList.add("hidden");
+      }
+    }
+    /**
+     * Handle pull changes from GitHub
+     */
+    async handlePullChanges() {
+      const githubConfig = this.state.githubConfig;
+      if (!githubConfig) {
+        this.showNotification("GitHub configuration not found", "error");
+        return;
+      }
+      try {
+        this.showNotification("Pulling latest changes from GitHub...", "info");
+        this.setEnabled(this.pullChangesBtn, false);
+        const response = await this.bridge.send("github-import-files", githubConfig);
+        this.handleFilesImported(response);
+        this.setEnabled(this.pullChangesBtn, true);
+      } catch (error) {
+        console.error("Error pulling changes:", error);
+        this.showNotification("Failed to pull changes", "error");
+        this.setEnabled(this.pullChangesBtn, true);
+      }
+    }
+    /**
+     * Handle files imported from GitHub
+     */
+    handleFilesImported(data) {
+      console.log("[TokenScreen] Files imported from GitHub:", data);
+      const tokenFiles = [];
+      if (data.primitives) {
+        tokenFiles.push({
+          name: "primitives",
+          path: "github://primitives",
+          content: data.primitives,
+          source: "github"
+        });
+      }
+      if (data.semantics) {
+        tokenFiles.push({
+          name: "semantics",
+          path: "github://semantics",
+          content: data.semantics,
+          source: "github"
+        });
+      }
+      if (tokenFiles.length > 0) {
+        this.state.setTokenFiles(tokenFiles);
+        this.showNotification("Successfully pulled latest changes", "success");
+      }
+    }
+    /**
      * Show this screen
      */
     show() {
       super.show();
       this.renderFileList();
+      this.updatePullChangesButton();
       console.log("[TokenScreen] Screen shown");
     }
   };
@@ -1837,25 +2405,563 @@
   var ScopeScreen = class extends BaseComponent {
     constructor(state, bridge) {
       super(state);
+      this.variables = [];
+      this.selectedCollection = null;
+      this.selectedVariables = /* @__PURE__ */ new Set();
+      this.lastSelectedIndex = -1;
       this.bridge = bridge;
     }
     createElement() {
       const div = document.createElement("div");
-      div.className = "scope-screen";
+      div.className = "screen scope-screen";
       div.innerHTML = `
-      <div style="padding: 40px; text-align: center;">
-        <h2>Scope Management</h2>
-        <p style="color: #666; margin-top: 16px;">
-          Scope management interface will be added in a future update.
-        </p>
-        <p style="color: #999; margin-top: 8px; font-size: 12px;">
-          For now, variables are created with default scopes.
-        </p>
+      <div class="token-top-bar">
+        <div class="token-top-bar-tabs">
+          <button class="token-tab" id="back-to-tokens-tab">Tokens</button>
+          <button class="token-tab active" id="scope-tab-active">Scopes</button>
+        </div>
+        <button class="btn-switch-source" id="scope-switch-source-btn">Switch source</button>
+      </div>
+
+      <!-- Scope View -->
+      <div class="token-view active">
+        <div class="token-layout">
+          <!-- Left Column: Collections -->
+          <div class="file-tabs">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title">Collections</div>
+            </div>
+            <div id="collections-list" style="padding: 16px 16px 0 16px;">
+              <!-- Collection tabs will be dynamically added here -->
+            </div>
+
+            <!-- Scope Selector (replaces collections when variables selected) -->
+            <div id="scope-selector" class="scope-selector hidden" style="padding: 16px;">
+              <div class="scope-selector-header">
+                <h3 class="scope-selector-title" id="scope-title">Color scopes</h3>
+                <div class="scope-selector-count" id="selected-count">0 tokens selected</div>
+              </div>
+              <div class="scope-options" id="scope-options">
+                <!-- Scope options will be dynamically rendered based on variable type -->
+              </div>
+              <div class="scope-actions">
+                <button class="btn btn-primary btn-full" id="apply-scopes-btn">Apply scopes</button>
+                <button class="btn-text" id="reset-selection-btn">Reset selection</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Scope Tree View -->
+          <div class="token-tree-view">
+            <div id="scope-content">
+              <div class="empty-state">Loading variables...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="token-actions">
+        <button class="btn btn-primary" id="sync-to-figma-btn-scope">Sync in Figma</button>
+        <button class="btn btn-secondary hidden" id="pull-changes-btn-scope">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+            <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Pull changes</span>
+        </button>
       </div>
     `;
+      this.syncBtn = div.querySelector("#sync-to-figma-btn-scope");
+      this.pullChangesBtn = div.querySelector("#pull-changes-btn-scope");
+      this.switchSourceBtn = div.querySelector("#scope-switch-source-btn");
+      this.collectionsList = div.querySelector("#collections-list");
+      this.scopeContent = div.querySelector("#scope-content");
+      this.scopeSelector = div.querySelector("#scope-selector");
+      this.selectedCountEl = div.querySelector("#selected-count");
+      this.scopeTitle = div.querySelector("#scope-title");
+      this.applyScopesBtn = div.querySelector("#apply-scopes-btn");
+      this.resetSelectionBtn = div.querySelector("#reset-selection-btn");
       return div;
     }
     bindEvents() {
+      const backToTokensTab = this.element.querySelector("#back-to-tokens-tab");
+      if (backToTokensTab) {
+        this.addEventListener(backToTokensTab, "click", () => {
+          this.state.setCurrentScreen("token");
+        });
+      }
+      this.addEventListener(this.switchSourceBtn, "click", () => {
+        this.state.setCurrentScreen("welcome");
+      });
+      this.addEventListener(this.syncBtn, "click", () => {
+        this.handleSyncScopes();
+      });
+      this.addEventListener(this.pullChangesBtn, "click", () => {
+        this.handlePullChanges();
+      });
+      this.addEventListener(this.applyScopesBtn, "click", () => {
+        this.handleApplyScopes();
+      });
+      this.addEventListener(this.resetSelectionBtn, "click", () => {
+        this.handleResetSelection();
+      });
+    }
+    /**
+     * Show this screen
+     */
+    show() {
+      super.show();
+      this.loadVariables();
+    }
+    /**
+     * Load Figma variables
+     */
+    async loadVariables() {
+      try {
+        this.scopeContent.innerHTML = '<div class="empty-state">Loading variables...</div>';
+        console.log("[ScopeScreen] Requesting Figma variables...");
+        const response = await this.bridge.send("get-figma-variables", {});
+        console.log("[ScopeScreen] Raw response:", response);
+        const variablesObj = response.variables || {};
+        console.log("[ScopeScreen] Variables object:", variablesObj);
+        console.log("[ScopeScreen] Variables object keys:", Object.keys(variablesObj));
+        this.variables = Object.values(variablesObj);
+        console.log("[ScopeScreen] Loaded variables array:", this.variables);
+        console.log("[ScopeScreen] Variables count:", this.variables.length);
+        if (this.variables.length === 0) {
+          console.warn("[ScopeScreen] No variables found in response");
+        }
+        this.renderVariables();
+        this.renderCollections();
+      } catch (error) {
+        console.error("[ScopeScreen] Error loading variables:", error);
+        this.scopeContent.innerHTML = `<div class="empty-state">Failed to load variables: ${error instanceof Error ? error.message : "Unknown error"}</div>`;
+      }
+    }
+    /**
+     * Render collections list
+     */
+    renderCollections() {
+      const collections = /* @__PURE__ */ new Set();
+      this.variables.forEach((v) => {
+        if (v.collection) {
+          collections.add(v.collection);
+        }
+      });
+      const collectionNames = Array.from(collections);
+      console.log("[ScopeScreen] Found Figma collections:", collectionNames);
+      if (collectionNames.length === 0) {
+        this.collectionsList.innerHTML = '<div style="color: #999; font-size: 12px;">No collections found</div>';
+        return;
+      }
+      if (!this.selectedCollection && collectionNames.length > 0) {
+        this.selectedCollection = collectionNames[0];
+      }
+      this.collectionsList.innerHTML = collectionNames.map((collectionName) => `
+      <button class="file-tab ${collectionName === this.selectedCollection ? "active" : ""}" data-collection="${collectionName}">${collectionName}</button>
+    `).join("");
+      const collectionButtons = this.collectionsList.querySelectorAll(".file-tab");
+      collectionButtons.forEach((btn) => {
+        this.addEventListener(btn, "click", () => {
+          const collectionName = btn.getAttribute("data-collection");
+          console.log("[ScopeScreen] Switching to collection:", collectionName);
+          this.selectedCollection = collectionName;
+          this.renderCollections();
+          this.filterVariablesByCollection();
+        });
+      });
+    }
+    /**
+     * Filter variables by selected collection
+     */
+    filterVariablesByCollection() {
+      console.log("[ScopeScreen] Filtering by collection:", this.selectedCollection);
+      console.log("[ScopeScreen] Total variables before filter:", this.variables.length);
+      if (!this.selectedCollection) {
+        this.renderVariables();
+        return;
+      }
+      const filteredVars = this.variables.filter((v) => {
+        const matches = v.collection === this.selectedCollection;
+        if (!matches) {
+          console.log(`[ScopeScreen] Variable ${v.name} collection "${v.collection}" doesn't match "${this.selectedCollection}"`);
+        }
+        return matches;
+      });
+      console.log("[ScopeScreen] Filtered variables count:", filteredVars.length);
+      console.log("[ScopeScreen] Filtered variables:", filteredVars.map((v) => v.name));
+      const tree = this.buildVariableTree(filteredVars);
+      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      if (filteredVars.length === 0) {
+        this.scopeContent.innerHTML = '<div class="empty-state">No variables found in this collection.</div>';
+      } else {
+        this.scopeContent.innerHTML = html;
+        this.attachVariableEventHandlers();
+      }
+    }
+    /**
+     * Render variables with scope options
+     */
+    renderVariables() {
+      if (this.variables.length === 0) {
+        this.scopeContent.innerHTML = '<div class="empty-state">No variables found. Please import tokens first.</div>';
+        return;
+      }
+      const tree = this.buildVariableTree(this.variables);
+      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      this.scopeContent.innerHTML = html;
+      this.attachVariableEventHandlers();
+    }
+    /**
+     * Attach event handlers to rendered variables
+     */
+    attachVariableEventHandlers() {
+      const toggleBtns = this.scopeContent.querySelectorAll(".tree-toggle");
+      toggleBtns.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const target = e.currentTarget;
+          const parent2 = target.closest(".tree-group");
+          parent2 == null ? void 0 : parent2.classList.toggle("collapsed");
+        });
+      });
+      const groupCheckboxes = this.scopeContent.querySelectorAll(".group-checkbox");
+      groupCheckboxes.forEach((groupCb) => {
+        this.addEventListener(groupCb, "change", (e) => {
+          const cb = groupCb;
+          const groupId = cb.getAttribute("data-group-id");
+          const checked = cb.checked;
+          const groupContainer = this.scopeContent.querySelector(`.tree-children[data-group-id="${groupId}"]`);
+          if (groupContainer) {
+            const childCheckboxes = groupContainer.querySelectorAll(".scope-checkbox");
+            childCheckboxes.forEach((childCb) => {
+              childCb.checked = checked;
+              const varId = childCb.getAttribute("data-var-id");
+              if (checked) {
+                this.selectedVariables.add(varId);
+              } else {
+                this.selectedVariables.delete(varId);
+              }
+            });
+          }
+          this.updateScopeSelector();
+        });
+      });
+      const checkboxes = this.scopeContent.querySelectorAll(".scope-checkbox");
+      checkboxes.forEach((checkbox, index) => {
+        this.addEventListener(checkbox, "click", (e) => {
+          const event = e;
+          const cb = checkbox;
+          const varId = cb.getAttribute("data-var-id");
+          if (event.shiftKey && this.lastSelectedIndex >= 0) {
+            const start = Math.min(this.lastSelectedIndex, index);
+            const end = Math.max(this.lastSelectedIndex, index);
+            const checked = cb.checked;
+            for (let i = start; i <= end; i++) {
+              const currentCb = checkboxes[i];
+              currentCb.checked = checked;
+              const currentVarId = currentCb.getAttribute("data-var-id");
+              if (checked) {
+                this.selectedVariables.add(currentVarId);
+              } else {
+                this.selectedVariables.delete(currentVarId);
+              }
+            }
+          } else {
+            if (cb.checked) {
+              this.selectedVariables.add(varId);
+            } else {
+              this.selectedVariables.delete(varId);
+            }
+          }
+          this.lastSelectedIndex = index;
+          this.updateScopeSelector();
+        });
+      });
+    }
+    /**
+     * Update scope selector visibility and count
+     */
+    updateScopeSelector() {
+      const count = this.selectedVariables.size;
+      this.selectedCountEl.textContent = `${count} tokens selected`;
+      if (count > 0) {
+        const scopeType = this.determineScopeType();
+        this.scopeTitle.textContent = scopeType;
+        this.renderScopeOptions();
+        this.scopeSelector.classList.remove("hidden");
+        this.collectionsList.parentElement.querySelector(".file-tabs-header").classList.add("hidden");
+        this.collectionsList.classList.add("hidden");
+      } else {
+        this.scopeSelector.classList.add("hidden");
+        this.collectionsList.parentElement.querySelector(".file-tabs-header").classList.remove("hidden");
+        this.collectionsList.classList.remove("hidden");
+      }
+    }
+    /**
+     * Determine scope type from selected variables
+     */
+    determineScopeType() {
+      const types = /* @__PURE__ */ new Set();
+      this.selectedVariables.forEach((varId) => {
+        const variable = this.variables.find((v) => v.id === varId);
+        if (variable) {
+          types.add(variable.type);
+        }
+      });
+      if (types.size === 1) {
+        const type = Array.from(types)[0];
+        switch (type) {
+          case "COLOR":
+            return "Color scopes";
+          case "FLOAT":
+            return "Number scopes";
+          case "STRING":
+            return "String scopes";
+          case "BOOLEAN":
+            return "Boolean scopes";
+          default:
+            return "Scopes";
+        }
+      } else {
+        return "Multiple scopes";
+      }
+    }
+    /**
+     * Render scope options based on selected variable types
+     */
+    renderScopeOptions() {
+      const types = /* @__PURE__ */ new Set();
+      this.selectedVariables.forEach((varId) => {
+        const variable = this.variables.find((v) => v.id === varId);
+        if (variable) {
+          types.add(variable.type);
+        }
+      });
+      const scopeOptionsContainer = this.scopeSelector.querySelector("#scope-options");
+      if (!scopeOptionsContainer) return;
+      const scopesByType = {
+        "COLOR": [
+          { label: "All fills", value: "ALL_FILLS" },
+          { label: "Frame fill", value: "FRAME_FILL" },
+          { label: "Shape fill", value: "SHAPE_FILL" },
+          { label: "Text fill", value: "TEXT_FILL" },
+          { label: "All strokes", value: "ALL_STROKES" },
+          { label: "Frame stroke", value: "FRAME_STROKE" },
+          { label: "Shape stroke", value: "SHAPE_STROKE" },
+          { label: "Text stroke", value: "TEXT_STROKE" },
+          { label: "Effect color", value: "EFFECT_COLOR" }
+        ],
+        "FLOAT": [
+          { label: "Corner radius", value: "CORNER_RADIUS" },
+          { label: "Width & height", value: "WIDTH_HEIGHT" },
+          { label: "Gap", value: "GAP" },
+          { label: "Opacity", value: "OPACITY" },
+          { label: "Font size", value: "FONT_SIZE" },
+          { label: "Line height", value: "LINE_HEIGHT" },
+          { label: "Letter spacing", value: "LETTER_SPACING" },
+          { label: "Paragraph spacing", value: "PARAGRAPH_SPACING" },
+          { label: "Paragraph indent", value: "PARAGRAPH_INDENT" }
+        ],
+        "STRING": [
+          { label: "Text content", value: "TEXT_CONTENT" },
+          { label: "Font family", value: "FONT_FAMILY" },
+          { label: "Font style", value: "FONT_STYLE" },
+          { label: "Font weight", value: "FONT_WEIGHT" }
+        ],
+        "BOOLEAN": []
+      };
+      if (types.size > 1) {
+        scopeOptionsContainer.innerHTML = '<div class="empty-state">Select variables of the same type to assign scopes</div>';
+        return;
+      }
+      const type = Array.from(types)[0];
+      const scopes = scopesByType[type] || [];
+      if (scopes.length === 0) {
+        scopeOptionsContainer.innerHTML = '<div class="empty-state">No scopes available for this type</div>';
+        return;
+      }
+      scopeOptionsContainer.innerHTML = scopes.map((scope) => `
+      <label class="scope-option">
+        <span>${scope.label}</span>
+        <input type="checkbox" value="${scope.value}" data-scope="${scope.value}">
+      </label>
+    `).join("");
+    }
+    /**
+     * Build tree structure from variable names
+     */
+    buildVariableTree(variables) {
+      const tree = {};
+      variables.forEach((variable) => {
+        const parts = variable.name.split("/");
+        let current = tree;
+        parts.forEach((part, index) => {
+          if (index === parts.length - 1) {
+            current[part] = {
+              _isVariable: true,
+              _data: variable
+            };
+          } else {
+            if (!current[part]) {
+              current[part] = {};
+            }
+            current = current[part];
+          }
+        });
+      });
+      return tree;
+    }
+    /**
+     * Render variable tree recursively
+     */
+    renderVariableTree(tree, level) {
+      let html = "";
+      for (const [key, value] of Object.entries(tree)) {
+        if (value._isVariable) {
+          const v = value._data;
+          const typeText = this.formatTypeText(v.type);
+          html += `
+          <div class="scope-item" style="padding-left: ${level * 12}px;">
+            <div class="scope-item-content">
+              <input type="checkbox" class="scope-checkbox" data-var-id="${v.id}">
+              <span class="scope-var-name">${key}</span>
+              <span class="scope-type">${typeText}</span>
+            </div>
+          </div>
+        `;
+        } else {
+          const groupId = `group-${level}-${key}`;
+          html += `
+          <div class="tree-group" style="padding-left: ${level * 12}px;">
+            <div class="tree-header">
+              <input type="checkbox" class="group-checkbox" data-group-id="${groupId}">
+              <span class="tree-toggle"></span>
+              <span class="tree-label">${key}</span>
+            </div>
+            <div class="tree-children" data-group-id="${groupId}">
+              ${this.renderVariableTree(value, level + 1)}
+            </div>
+          </div>
+        `;
+        }
+      }
+      return html;
+    }
+    /**
+     * Format scope text from Figma scopes array
+     */
+    formatScopeText(scopes) {
+      if (!scopes || scopes.length === 0) {
+        return "No scopes";
+      }
+      const scopeMap = {
+        "ALL_SCOPES": "All scopes",
+        "ALL_FILLS": "All fills",
+        "FRAME_FILL": "Frame fill",
+        "SHAPE_FILL": "Shape fill",
+        "TEXT_FILL": "Text fill",
+        "ALL_STROKES": "All strokes",
+        "FRAME_STROKE": "Frame stroke",
+        "SHAPE_STROKE": "Shape stroke",
+        "TEXT_STROKE": "Text stroke",
+        "EFFECT_COLOR": "Effect color",
+        "TEXT_CONTENT": "Text content",
+        "CORNER_RADIUS": "Corner radius",
+        "WIDTH_HEIGHT": "Width & height",
+        "GAP": "Gap",
+        "OPACITY": "Opacity",
+        "FONT_FAMILY": "Font family",
+        "FONT_STYLE": "Font style",
+        "FONT_WEIGHT": "Font weight",
+        "FONT_SIZE": "Font size",
+        "LINE_HEIGHT": "Line height",
+        "LETTER_SPACING": "Letter spacing",
+        "PARAGRAPH_SPACING": "Paragraph spacing",
+        "PARAGRAPH_INDENT": "Paragraph indent"
+      };
+      const displayScopes = scopes.map((s) => scopeMap[s] || s);
+      if (displayScopes.length === 1) {
+        return displayScopes[0];
+      } else if (displayScopes.length <= 3) {
+        return displayScopes.join(", ");
+      } else {
+        return `${displayScopes.length} scopes`;
+      }
+    }
+    /**
+     * Format variable type to display text
+     */
+    formatTypeText(type) {
+      const typeMap = {
+        "COLOR": "Color",
+        "FLOAT": "Number",
+        "STRING": "String",
+        "BOOLEAN": "Boolean"
+      };
+      return typeMap[type] || type;
+    }
+    /**
+     * Handle apply scopes button click
+     */
+    async handleApplyScopes() {
+      if (this.selectedVariables.size === 0) {
+        this.showNotification("No variables selected", "error");
+        return;
+      }
+      try {
+        this.setEnabled(this.applyScopesBtn, false);
+        const scopeCheckboxes = this.scopeSelector.querySelectorAll('input[type="checkbox"]:checked');
+        const selectedScopes = Array.from(scopeCheckboxes).map((cb) => cb.value);
+        if (selectedScopes.length === 0) {
+          this.showNotification("Please select at least one scope to apply", "error");
+          this.setEnabled(this.applyScopesBtn, true);
+          return;
+        }
+        const scopeAssignments = {};
+        this.selectedVariables.forEach((varId) => {
+          const variable = this.variables.find((v) => v.id === varId);
+          if (variable) {
+            scopeAssignments[variable.name] = selectedScopes;
+          }
+        });
+        console.log("[ScopeScreen] Applying scopes:", scopeAssignments);
+        const response = await this.bridge.send("apply-variable-scopes", { variableScopes: scopeAssignments });
+        this.showNotification(response.message || "Scopes applied successfully", "success");
+        this.selectedVariables.clear();
+        this.updateScopeSelector();
+        await this.loadVariables();
+        this.setEnabled(this.applyScopesBtn, true);
+      } catch (error) {
+        console.error("Error applying scopes:", error);
+        this.showNotification("Failed to apply scopes", "error");
+        this.setEnabled(this.applyScopesBtn, true);
+      }
+    }
+    /**
+     * Handle reset selection button click
+     */
+    handleResetSelection() {
+      const checkboxes = this.scopeContent.querySelectorAll(".scope-checkbox");
+      checkboxes.forEach((cb) => {
+        cb.checked = false;
+      });
+      this.selectedVariables.clear();
+      this.lastSelectedIndex = -1;
+      this.updateScopeSelector();
+    }
+    /**
+     * Handle sync scopes (legacy - keeping for backward compatibility)
+     */
+    async handleSyncScopes() {
+      await this.handleApplyScopes();
+    }
+    /**
+     * Handle pull changes
+     */
+    async handlePullChanges() {
+      this.showNotification("Pull changes from scope screen", "info");
     }
   };
 
