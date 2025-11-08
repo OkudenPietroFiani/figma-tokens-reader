@@ -1970,7 +1970,7 @@
     /**
      * Initialize and start the application
      */
-    init() {
+    async init() {
       const body = document.body;
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
@@ -1980,12 +1980,58 @@
       this.importScreen.hide();
       this.tokenScreen.hide();
       this.scopeScreen.hide();
-      this.welcomeScreen.show();
       this.state.subscribe("screen-changed", (screen) => {
         this.handleScreenChange(screen);
       });
+      this.state.subscribe("files-loaded", () => {
+        this.saveTokenState();
+      });
       this.setupBackendHandlers();
+      await this.loadSavedTokens();
       console.log("[Frontend] Application started");
+    }
+    /**
+     * Load saved tokens from storage
+     */
+    async loadSavedTokens() {
+      try {
+        const response = await this.bridge.send("load-tokens");
+        if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
+          const files = Object.values(response.tokenFiles);
+          this.state.setTokenFiles(files);
+          this.state.setTokenSource(response.tokenSource || "local");
+          if (response.githubConfig) {
+            this.state.setGitHubConfig(response.githubConfig);
+          }
+          this.state.setCurrentScreen("token");
+          console.log("[Frontend] Restored saved tokens:", files.length, "files");
+        } else {
+          this.welcomeScreen.show();
+        }
+      } catch (error) {
+        console.warn("[Frontend] Failed to load saved tokens:", error);
+        this.welcomeScreen.show();
+      }
+    }
+    /**
+     * Save current token state to storage
+     */
+    saveTokenState() {
+      const files = Array.from(this.state.tokenFiles.values());
+      if (files.length === 0) {
+        return;
+      }
+      const tokenFiles = {};
+      files.forEach((file) => {
+        tokenFiles[file.name] = file;
+      });
+      const tokenState = {
+        tokenFiles,
+        tokenSource: this.state.tokenSource,
+        githubConfig: this.state.githubConfig
+      };
+      this.bridge.sendAsync("save-tokens", tokenState);
+      console.log("[Frontend] Saved token state:", files.length, "files");
     }
     /**
      * Handle screen navigation

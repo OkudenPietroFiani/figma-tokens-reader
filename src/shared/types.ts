@@ -96,7 +96,7 @@ export interface FigmaVariableData {
 
 // ==================== STORAGE TYPES ====================
 export interface TokenState {
-  tokenFiles: { [fileName: string]: TokenData };
+  tokenFiles: { [fileName: string]: TokenFile };
   tokenSource: 'github' | 'local' | null;
   githubConfig?: GitHubConfig;
 }
