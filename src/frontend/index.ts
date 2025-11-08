@@ -63,6 +63,11 @@ class FrontendApp {
     this.importScreen.mount(body);
     this.tokenScreen.mount(body);
 
+    // Hide all screens initially
+    this.welcomeScreen.hide();
+    this.importScreen.hide();
+    this.tokenScreen.hide();
+
     // Show welcome screen by default
     this.welcomeScreen.show();
 
