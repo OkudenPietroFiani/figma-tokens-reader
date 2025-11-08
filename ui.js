@@ -1779,6 +1779,21 @@
       return tree;
     }
     /**
+     * Get all variable types within a tree node (for checking compatibility)
+     */
+    getGroupVariableTypes(tree) {
+      const types = /* @__PURE__ */ new Set();
+      for (const value of Object.values(tree)) {
+        if (value._isVariable) {
+          types.add(value._data.type);
+        } else {
+          const childTypes = this.getGroupVariableTypes(value);
+          childTypes.forEach((type) => types.add(type));
+        }
+      }
+      return types;
+    }
+    /**
      * Render variable tree recursively
      */
     renderVariableTree(tree, level) {
@@ -1797,11 +1812,13 @@
           </div>
         `;
         } else {
+          const groupTypes = this.getGroupVariableTypes(value);
+          const hasCompatibleTypes = groupTypes.size === 1;
           const groupId = `group-${level}-${key}`;
           html += `
           <div class="tree-group" style="padding-left: ${level * 12}px;">
             <div class="tree-header">
-              <input type="checkbox" class="group-checkbox" data-group-id="${groupId}">
+              ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle"></span>
               <span class="tree-label">${key}</span>
             </div>
