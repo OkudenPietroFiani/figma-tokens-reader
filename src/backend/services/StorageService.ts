@@ -65,6 +65,12 @@ export class StorageService {
   /**
    * Save GitHub configuration to storage
    * Allows resuming GitHub sync without re-entering credentials
+   *
+   * SECURITY WARNING: GitHub Personal Access Tokens are stored in plain text
+   * in Figma's clientStorage. This is a known limitation. Users should:
+   * - Use tokens with minimal required scopes (read-only repository access)
+   * - Be aware tokens persist until explicitly cleared
+   * - Consider using the "Clear Credentials" feature when done
    */
   async saveGitHubConfig(config: GitHubConfig): Promise<Result<void>> {
     return ErrorHandler.handle(async () => {
@@ -84,6 +90,9 @@ export class StorageService {
   /**
    * Load GitHub configuration from storage
    * Returns null if no config exists
+   *
+   * SECURITY NOTE: Retrieved tokens are in plain text and should be handled
+   * securely. Do not log or expose tokens in error messages.
    */
   async getGitHubConfig(): Promise<Result<GitHubConfig | null>> {
     return ErrorHandler.handle(async () => {

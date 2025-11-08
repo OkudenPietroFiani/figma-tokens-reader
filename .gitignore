@@ -30,3 +30,16 @@ coverage/
 *.tmp
 .tmp/
 temp/
+
+# Secrets and credentials (Security)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+credentials.json
+secrets.json
+.secret
+.secrets/
+config/secrets.*
