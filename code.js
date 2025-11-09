@@ -567,7 +567,7 @@
   }
   function resolveReference(reference, variableMap) {
     console.log(`[Resolve] Attempting to resolve: "${reference}"`);
-    console.log(`[Resolve] Available variables in map:`, Array.from(variableMap.keys()).slice(0, 10));
+    console.log(`[Resolve] Available variables (first 10):`, Array.from(variableMap.keys()).slice(0, 10));
     let cleanRef = reference.replace(/^(primitive|semantic)\./, "");
     console.log(`[Resolve] After removing prefix: "${cleanRef}"`);
     let variable = variableMap.get(cleanRef);
@@ -575,12 +575,26 @@
       console.log(`[Resolve] \u2713 Found via direct lookup: "${cleanRef}"`);
       return variable;
     }
-    cleanRef = cleanRef.replace(/\./g, "/");
-    console.log(`[Resolve] Trying with slashes: "${cleanRef}"`);
-    variable = variableMap.get(cleanRef);
+    let slashRef = cleanRef.replace(/\./g, "/");
+    console.log(`[Resolve] Trying with slashes: "${slashRef}"`);
+    variable = variableMap.get(slashRef);
     if (variable) {
-      console.log(`[Resolve] \u2713 Found via slash conversion: "${cleanRef}"`);
+      console.log(`[Resolve] \u2713 Found via slash conversion: "${slashRef}"`);
       return variable;
+    }
+    const parts = cleanRef.split(".");
+    if (parts.length >= 2) {
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const pathPart = parts.slice(0, i).join("/");
+        const namePart = parts.slice(i).join("-");
+        const dottedRef = pathPart ? `${pathPart}/${namePart}` : namePart;
+        console.log(`[Resolve] Trying with dotted name: "${dottedRef}"`);
+        variable = variableMap.get(dottedRef);
+        if (variable) {
+          console.log(`[Resolve] \u2713 Found via dotted name: "${dottedRef}"`);
+          return variable;
+        }
+      }
     }
     console.log(`[Resolve] Trying fuzzy match...`);
     for (const [key, val] of variableMap.entries()) {
@@ -590,6 +604,11 @@
       }
     }
     console.warn(`[Resolve] \u2717 Could not resolve reference: "${reference}"`);
+    console.warn(`[Resolve] \u2717 Tried:`, {
+      direct: cleanRef,
+      slashes: slashRef,
+      variations: "multiple dotted name variations"
+    });
     return null;
   }
 
