@@ -933,13 +933,29 @@
       }
       if (effectsData.length > 0) {
         effectStyle.effects = effectsData.map((ed) => ed.effect);
+        console.log(`[SHADOW] Created effect style with ${effectsData.length} effects`);
         effectsData.forEach((effectData, index) => {
           if (effectData.colorVariable) {
-            try {
-              effectStyle.setBoundVariable(`effects[${index}].color`, effectData.colorVariable);
-              console.log(`[SHADOW] Bound effect ${index} color to variable: ${effectData.colorVariable.name}`);
-            } catch (error) {
-              console.error(`[SHADOW] Failed to bind color variable for effect ${index}:`, error);
+            const fieldPaths = [
+              `effects/${index}/color`,
+              `effects[${index}].color`,
+              `effects.${index}.color`
+            ];
+            let bound = false;
+            for (const fieldPath of fieldPaths) {
+              try {
+                effectStyle.setBoundVariable(fieldPath, effectData.colorVariable);
+                console.log(`[SHADOW] \u2713 Successfully bound effect ${index} color to variable: ${effectData.colorVariable.name} (path: ${fieldPath})`);
+                bound = true;
+                break;
+              } catch (error) {
+              }
+            }
+            if (!bound) {
+              console.error(`[SHADOW] \u2717 Failed to bind color variable for effect ${index}`);
+              console.error(`[SHADOW]   Variable: ${effectData.colorVariable.name}`);
+              console.error(`[SHADOW]   Tried paths: ${fieldPaths.join(", ")}`);
+              console.error(`[SHADOW]   Note: Figma may not support variable binding for effect style colors`);
             }
           }
         });
