@@ -446,9 +446,9 @@ export class ScopeScreen extends BaseComponent {
 
     // Render scope checkboxes
     scopeOptionsContainer.innerHTML = scopes.map(scope => `
-      <label class="scope-option">
-        <span>${scope.label}</span>
-        <input type="checkbox" value="${scope.value}" data-scope="${scope.value}">
+      <label class="scope-option-item">
+        <input type="checkbox" class="scope-option-checkbox" value="${scope.value}" data-scope="${scope.value}">
+        <span class="scope-option-label">${scope.label}</span>
       </label>
     `).join('');
   }
@@ -535,7 +535,7 @@ export class ScopeScreen extends BaseComponent {
         const groupId = `group-${level}-${escapedKey}`;
 
         html += `
-          <div class="tree-group tree-indent-${cappedLevel}">
+          <div class="tree-group tree-indent-${cappedLevel} collapsed">
             <div class="tree-header">
               ${hasCompatibleTypes
                 ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">`
@@ -678,9 +678,15 @@ export class ScopeScreen extends BaseComponent {
    * Handle reset selection button click
    */
   private handleResetSelection(): void {
-    // Clear all checkboxes
+    // Clear all variable checkboxes
     const checkboxes = this.scopeContent.querySelectorAll<HTMLInputElement>('.scope-checkbox');
     checkboxes.forEach(cb => {
+      cb.checked = false;
+    });
+
+    // Clear all group checkboxes
+    const groupCheckboxes = this.scopeContent.querySelectorAll<HTMLInputElement>('.group-checkbox');
+    groupCheckboxes.forEach(cb => {
       cb.checked = false;
     });
 
