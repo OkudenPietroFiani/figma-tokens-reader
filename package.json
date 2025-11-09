@@ -8,6 +8,9 @@
     "build:backend": "esbuild src/backend/main.ts --bundle --outfile=code.js --target=es2017",
     "build:frontend": "esbuild src/frontend/index.ts --bundle --outfile=ui.js --target=es2017 && node build-ui.js",
     "watch": "npm run build -- --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
     "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix ."
   },
@@ -16,10 +19,13 @@
   "devDependencies": {
     "@figma/eslint-plugin-figma-plugins": "*",
     "@figma/plugin-typings": "*",
+    "@types/jest": "^29.5.0",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "esbuild": "^0.25.11",
     "eslint": "^8.54.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
     "typescript": "^5.3.2"
   },
   "eslintConfig": {

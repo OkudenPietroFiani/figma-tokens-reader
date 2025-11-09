@@ -34,6 +34,25 @@ export const TYPE_MAPPING: { [key: string]: VariableResolvedDataType } = {
 // ==================== CONVERSION RATIOS ====================
 export const REM_TO_PX_RATIO = 16;
 
+// ==================== FEATURE FLAGS ====================
+// Controls for new architecture features - toggle safely without breaking changes
+export const FEATURE_FLAGS = {
+  // Use new interface-based architecture (Phase 1)
+  USE_NEW_ARCHITECTURE: false,
+
+  // Use parallel file fetching (Phase 3)
+  ENABLE_PARALLEL_FETCHING: false,
+
+  // Maximum concurrent file fetches when parallel fetching enabled
+  PARALLEL_BATCH_SIZE: 10,
+
+  // Delay between batches (ms) to respect API rate limits
+  BATCH_DELAY_MS: 100,
+
+  // Auto-detect token format instead of assuming W3C (Phase 4)
+  AUTO_DETECT_FORMAT: false,
+} as const;
+
 // ==================== STORAGE KEYS ====================
 // Keys used in figma.clientStorage
 export const STORAGE_KEYS = {
