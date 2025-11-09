@@ -112,26 +112,18 @@ export class VariableManager {
    * Clean code principle: Single responsibility - only prepares tokens
    */
   private prepareAndValidateTokens(data: TokenData, collectionType: 'primitive' | 'semantic'): TokenData {
-    console.log(`\n[PREPARE] Input structure for ${collectionType}:`, this.getStructureSummary(data));
-
-    // Step 1: Check if file-keyed structure (multiple files)
     const isFileKeyed = this.isFileKeyedStructure(data);
-    console.log(`[PREPARE] Is file-keyed: ${isFileKeyed}`);
 
     let processed: TokenData;
 
     if (isFileKeyed) {
-      // Multiple files - process each and merge
       processed = this.processMultipleFiles(data, collectionType);
     } else {
-      // Single structure - just clean it
       processed = this.removeAllCollectionWrappers(data, collectionType);
     }
 
-    // Final validation: ensure no collection-name keys remain
     this.validateNoCollectionWrappers(processed, collectionType);
 
-    console.log(`[PREPARE] Final structure for ${collectionType}:`, this.getStructureSummary(processed));
     return processed;
   }
 
@@ -152,30 +144,16 @@ export class VariableManager {
    * Clean code: Separated concerns - file processing vs merging
    */
   private processMultipleFiles(filesData: TokenData, collectionType: 'primitive' | 'semantic'): TokenData {
-    console.log(`[MULTI-FILE] Processing ${Object.keys(filesData).length} files`);
-
     const cleanedFiles: TokenData[] = [];
 
-    // Process each file individually
     for (const [fileName, fileContent] of Object.entries(filesData)) {
       if (!fileContent || typeof fileContent !== 'object') continue;
 
-      console.log(`\n[FILE] Processing: ${fileName}`);
-      console.log(`[FILE] Before clean:`, this.getStructureSummary(fileContent));
-
-      // Remove ALL collection wrappers from this file
       const cleaned = this.removeAllCollectionWrappers(fileContent, collectionType);
-
-      console.log(`[FILE] After clean:`, this.getStructureSummary(cleaned));
-
       cleanedFiles.push(cleaned);
     }
 
-    // Merge all cleaned files
-    const merged = this.deepMergeAll(cleanedFiles);
-    console.log(`[MULTI-FILE] After merge:`, this.getStructureSummary(merged));
-
-    return merged;
+    return this.deepMergeAll(cleanedFiles);
   }
 
   /**
@@ -195,25 +173,20 @@ export class VariableManager {
       const keys = Object.keys(current);
       let didUnwrap = false;
 
-      // Look for any key that matches collection name
       for (const key of keys) {
         if (this.isCollectionNameKey(key, collectionType)) {
           const value = current[key];
 
           // Check if it's a wrapper (not a token)
           if (value && typeof value === 'object' && !('$value' in value)) {
-            console.log(`[UNWRAP] Found collection wrapper '${key}' with ${Object.keys(value).length} children`);
-
             // If this is the ONLY key, replace entire structure
             if (keys.length === 1) {
-              console.log(`[UNWRAP] Single key - replacing entire structure`);
               current = value as TokenData;
               didUnwrap = true;
               break;
             }
             // If there are other keys, extract wrapper contents to parent level
             else {
-              console.log(`[UNWRAP] Multiple keys - extracting wrapper contents`);
               const newStructure: TokenData = {};
 
               // Copy all keys except the wrapper
@@ -236,19 +209,15 @@ export class VariableManager {
         }
       }
 
-      if (!didUnwrap) {
-        // No more wrappers found
-        break;
-      }
+      if (!didUnwrap) break;
 
       iterations++;
     }
 
     if (iterations >= maxIterations) {
-      console.warn(`[UNWRAP] Warning: Max iterations reached. Possible circular structure.`);
+      console.error(`[UNWRAP] Max iterations reached - circular structure in ${collectionType}`);
     }
 
-    console.log(`[UNWRAP] Completed after ${iterations} iteration(s)`);
     return current;
   }
 
@@ -277,14 +246,10 @@ export class VariableManager {
         const value = data[key];
         // Check if it's a wrapper (object with nested structure, not a token)
         if (value && typeof value === 'object' && !('$value' in value)) {
-          console.error(`[VALIDATION] Found collection wrapper that should have been removed: '${key}'`);
-          console.error(`[VALIDATION] This will create duplicate levels in Figma!`);
           throw new Error(`Validation failed: Collection wrapper '${key}' still exists in ${collectionType} data`);
         }
       }
     }
-
-    console.log(`[VALIDATION] ✓ No collection wrappers found in ${collectionType}`);
   }
 
   /**
@@ -342,17 +307,11 @@ export class VariableManager {
       // Check if this is a token (has $value) or a group
       if (value && typeof value === 'object') {
         if ('$value' in value) {
-          // Skip composite typography tokens - they'll be handled as text styles
-          if (this.isCompositeTypographyToken(value)) {
-            console.log(`[SKIP] Skipping typography token ${currentPath.join('/')} - will be created as text style`);
-            continue;
-          }
+          // Skip composite typography tokens - handled as text styles
+          if (this.isCompositeTypographyToken(value)) continue;
 
-          // Skip shadow tokens - they'll be handled as effect styles
-          if (this.isShadowToken(value)) {
-            console.log(`[SKIP] Skipping shadow token ${currentPath.join('/')} - will be created as effect style`);
-            continue;
-          }
+          // Skip shadow tokens - handled as effect styles
+          if (this.isShadowToken(value)) continue;
 
           // This is a simple token - create variable
           await this.createVariable(value, currentPath, collection, collectionName);
@@ -382,17 +341,11 @@ export class VariableManager {
    * These will be created as effect styles instead of variables
    */
   private isShadowToken(token: any): boolean {
-    const isShadow = (
+    return (
       (token.$type === 'boxShadow' || token.$type === 'shadow') &&
       token.$value &&
       (typeof token.$value === 'object' || Array.isArray(token.$value))
     );
-
-    if (isShadow) {
-      console.log(`[SHADOW TOKEN] Detected shadow token with $type: ${token.$type}`);
-    }
-
-    return isShadow;
   }
 
   private async createVariable(
@@ -432,22 +385,11 @@ export class VariableManager {
       // Get the default mode
       const modeId = collection.modes[0].modeId;
 
-      // Debug log for color variables with alpha
-      if (tokenType === 'color' && processedValue.value && typeof processedValue.value === 'object' && 'a' in processedValue.value) {
-        console.log(`[CREATE VAR] ${variableName} - Color with alpha:`, processedValue.value);
-      }
-
       // Set the value
       if (processedValue.isAlias && processedValue.aliasVariable) {
         variable.setValueForMode(modeId, { type: 'VARIABLE_ALIAS', id: processedValue.aliasVariable.id });
       } else {
         variable.setValueForMode(modeId, processedValue.value);
-
-        // Verify the value was set correctly for colors with alpha
-        if (tokenType === 'color' && processedValue.value && typeof processedValue.value === 'object' && 'a' in processedValue.value) {
-          const setValue = variable.valuesByMode[modeId];
-          console.log(`[CREATE VAR] ${variableName} - Value after setting:`, setValue);
-        }
       }
 
       // Scopes are managed independently via the Scopes tab
@@ -497,14 +439,10 @@ export class VariableManager {
       const cssVarName = `--${collection}-${tokenPath}`;
 
       // Use Figma's setVariableCodeSyntax() API
-      // Format: variable.setVariableCodeSyntax(platform, value)
       variable.setVariableCodeSyntax('WEB', `var(${cssVarName})`);
       variable.setVariableCodeSyntax('ANDROID', `@dimen/${collection}_${path.join('_').replace(/[^a-z0-9_]/g, '_')}`);
       variable.setVariableCodeSyntax('iOS', `${collection}.${path.join('.')}`);
-
-      console.log(`✓ Code syntax set for ${variable.name}: var(${cssVarName})`);
     } catch (error) {
-      console.warn(`Could not set code syntax for ${path.join('/')}: ${error}`);
       // Non-fatal - continue import
     }
   }

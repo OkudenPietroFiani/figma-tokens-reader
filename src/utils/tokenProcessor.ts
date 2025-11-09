@@ -34,18 +34,13 @@ export async function processTokenValue(
   switch (tokenType) {
     case 'color':
       // Handle color object format with alpha reference
-      // Format: { colorSpace: "hsl", components: [0,0,0], alpha: "{primitive.color.transparency.75}" }
       if (typeof value === 'object' && value !== null && 'alpha' in value) {
         const alphaValue = value.alpha;
 
         // If alpha is a reference, resolve it
         if (typeof alphaValue === 'string' && alphaValue.includes('{') && alphaValue.includes('}')) {
-          console.log(`[Color Alpha] Resolving alpha reference: ${alphaValue}`);
-          console.log(`[Color Alpha] VariableMap size: ${variableMap.size}`);
-
           const alphaRef = extractReference(alphaValue);
           if (alphaRef) {
-            console.log(`[Color Alpha] Extracted reference: ${alphaRef}`);
             const alphaVariable = resolveReference(alphaRef, variableMap);
 
             if (alphaVariable) {
@@ -53,24 +48,18 @@ export async function processTokenValue(
               const modeId = Object.keys(alphaVariable.valuesByMode)[0];
               const resolvedAlpha = alphaVariable.valuesByMode[modeId];
 
-              console.log(`[Color Alpha] Resolved to value: ${resolvedAlpha} (type: ${typeof resolvedAlpha})`);
-
               // Create a new value object with resolved alpha
               const resolvedValue = {
                 ...value,
                 alpha: typeof resolvedAlpha === 'number' ? resolvedAlpha : 1
               };
 
-              const finalColor = parseColor(resolvedValue);
-              console.log(`[Color Alpha] Final color with alpha:`, finalColor);
-              return { value: finalColor, isAlias: false };
-            } else {
-              console.warn(`[Color Alpha] Could not find variable for reference: ${alphaRef}`);
+              return { value: parseColor(resolvedValue), isAlias: false };
             }
           }
 
-          // If reference couldn't be resolved, default to full opacity
-          console.warn(`[Color Alpha] Failed to resolve alpha reference: ${alphaValue}, using alpha=1`);
+          // Resolution failed - log error and default to full opacity
+          console.error(`[ALPHA FAILED] Cannot resolve: ${alphaValue}`);
           return { value: parseColor({ ...value, alpha: 1 }), isAlias: false };
         }
       }
@@ -110,64 +99,42 @@ export function resolveReference(
   reference: string,
   variableMap: Map<string, Variable>
 ): Variable | null {
-  console.log(`[Resolve] Attempting to resolve: "${reference}"`);
-  console.log(`[Resolve] Available variables (first 10):`, Array.from(variableMap.keys()).slice(0, 10));
-
   // Clean up the reference (remove "primitive." or "semantic." prefix if present)
-  let cleanRef = reference.replace(/^(primitive|semantic)\./, '');
-  console.log(`[Resolve] After removing prefix: "${cleanRef}"`);
+  const cleanRef = reference.replace(/^(primitive|semantic)\./, '');
 
-  // Strategy 1: Try direct lookup
+  // Strategy 1: Direct lookup
   let variable = variableMap.get(cleanRef);
-  if (variable) {
-    console.log(`[Resolve] ✓ Found via direct lookup: "${cleanRef}"`);
-    return variable;
-  }
+  if (variable) return variable;
 
-  // Strategy 2: Replace ALL dots with slashes (assumes dots = hierarchy)
-  // Example: "color.transparency.75" -> "color/transparency/75"
-  let slashRef = cleanRef.replace(/\./g, '/');
-  console.log(`[Resolve] Trying with slashes: "${slashRef}"`);
+  // Strategy 2: Replace dots with slashes
+  const slashRef = cleanRef.replace(/\./g, '/');
   variable = variableMap.get(slashRef);
-  if (variable) {
-    console.log(`[Resolve] ✓ Found via slash conversion: "${slashRef}"`);
-    return variable;
-  }
+  if (variable) return variable;
 
-  // Strategy 3: Try treating last segment as having dots in the name
-  // Example: "color.transparency.75" -> "color/transparency-75"
-  // This handles cases where "transparency.75" is a single token name
+  // Strategy 3: Handle dotted token names (e.g., "transparency.75")
+  // Try progressively: "color.transparency.75" -> "color/transparency-75"
   const parts = cleanRef.split('.');
   if (parts.length >= 2) {
-    // Try progressively: last 2 segments joined, last 3 segments joined, etc.
     for (let i = parts.length - 1; i >= 1; i--) {
       const pathPart = parts.slice(0, i).join('/');
-      const namePart = parts.slice(i).join('-'); // Join with dash (sanitized)
+      const namePart = parts.slice(i).join('-');
       const dottedRef = pathPart ? `${pathPart}/${namePart}` : namePart;
 
-      console.log(`[Resolve] Trying with dotted name: "${dottedRef}"`);
       variable = variableMap.get(dottedRef);
-      if (variable) {
-        console.log(`[Resolve] ✓ Found via dotted name: "${dottedRef}"`);
-        return variable;
-      }
+      if (variable) return variable;
     }
   }
 
-  // Strategy 4: Fuzzy match (last resort)
-  console.log(`[Resolve] Trying fuzzy match...`);
+  // Strategy 4: Fuzzy match
   for (const [key, val] of variableMap.entries()) {
     if (key.endsWith(cleanRef) || key.includes(cleanRef)) {
-      console.log(`[Resolve] ✓ Found via fuzzy match: "${key}" matches "${cleanRef}"`);
       return val;
     }
   }
 
-  console.warn(`[Resolve] ✗ Could not resolve reference: "${reference}"`);
-  console.warn(`[Resolve] ✗ Tried:`, {
-    direct: cleanRef,
-    slashes: slashRef,
-    variations: 'multiple dotted name variations'
-  });
+  // Only log if resolution fails
+  console.error(`[RESOLVE FAILED] Cannot find variable: "${reference}"`);
+  console.error(`  Tried: ${cleanRef}, ${slashRef}, and ${parts.length - 1} dotted variations`);
+  console.error(`  Map has ${variableMap.size} variables`);
   return null;
 }
