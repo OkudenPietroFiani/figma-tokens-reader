@@ -38,10 +38,10 @@ export const REM_TO_PX_RATIO = 16;
 // Controls for new architecture features - toggle safely without breaking changes
 export const FEATURE_FLAGS = {
   // Use new interface-based architecture (Phase 1)
-  USE_NEW_ARCHITECTURE: false,
+  USE_NEW_ARCHITECTURE: true,
 
   // Use parallel file fetching (Phase 3)
-  ENABLE_PARALLEL_FETCHING: false,
+  ENABLE_PARALLEL_FETCHING: true,
 
   // Maximum concurrent file fetches when parallel fetching enabled
   PARALLEL_BATCH_SIZE: 10,
@@ -50,7 +50,7 @@ export const FEATURE_FLAGS = {
   BATCH_DELAY_MS: 100,
 
   // Auto-detect token format instead of assuming W3C (Phase 4)
-  AUTO_DETECT_FORMAT: false,
+  AUTO_DETECT_FORMAT: true,
 } as const;
 
 // ==================== STORAGE KEYS ====================

@@ -17,6 +17,12 @@ import { TokenController } from './controllers/TokenController';
 import { GitHubController } from './controllers/GitHubController';
 import { ScopeController } from './controllers/ScopeController';
 
+// New Architecture (Phases 1-4)
+import { FileSourceRegistry } from '../core/registries/FileSourceRegistry';
+import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
+import { GitHubFileSource } from '../core/adapters/GitHubFileSource';
+import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
+
 /**
  * Main backend class for plugin
  *
@@ -38,6 +44,9 @@ class PluginBackend {
   private scopeController: ScopeController;
 
   constructor() {
+    // Register new architecture components (Phases 1-4)
+    this.registerArchitectureComponents();
+
     // Initialize services
     this.variableManager = new VariableManager();
     this.githubService = new GitHubService();
@@ -49,6 +58,23 @@ class PluginBackend {
     this.scopeController = new ScopeController();
 
     ErrorHandler.info('Plugin backend initialized', 'PluginBackend');
+  }
+
+  /**
+   * Register new architecture components
+   * Phase 1: File sources and token formats
+   * Phase 3: Parallel processing (enabled via FEATURE_FLAGS)
+   * Phase 4: Format auto-detection (enabled via FEATURE_FLAGS)
+   * @private
+   */
+  private registerArchitectureComponents(): void {
+    // Register file sources (GitHub, GitLab, etc.)
+    FileSourceRegistry.register(new GitHubFileSource());
+
+    // Register token format strategies (W3C, Style Dictionary, etc.)
+    TokenFormatRegistry.register(new W3CTokenFormatStrategy());
+
+    ErrorHandler.info('Architecture components registered', 'PluginBackend');
   }
 
   /**
