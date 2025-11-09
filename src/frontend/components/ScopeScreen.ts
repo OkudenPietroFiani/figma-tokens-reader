@@ -519,12 +519,10 @@ export class ScopeScreen extends BaseComponent {
         const escapedId = this.escapeHtml(v.id);
 
         html += `
-          <div class="scope-item tree-indent-${cappedLevel}">
-            <div class="scope-item-content">
-              <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
-              <span class="scope-var-name">${escapedKey}</span>
-              <span class="scope-type">${typeText}</span>
-            </div>
+          <div class="tree-item tree-item-indent-${cappedLevel}">
+            <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
+            <span class="tree-item-label">${escapedKey}</span>
+            <span class="tree-item-meta">${typeText}</span>
           </div>
         `;
       } else {
