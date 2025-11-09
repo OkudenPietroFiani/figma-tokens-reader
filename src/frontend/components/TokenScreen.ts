@@ -436,23 +436,53 @@ export class TokenScreen extends BaseComponent {
     console.log('[TokenScreen] Files imported from GitHub:', data);
 
     const tokenFiles = [];
+    const githubConfig = this.state.githubConfig;
+    const repoPath = githubConfig ? `${githubConfig.owner}/${githubConfig.repo}/${githubConfig.branch}` : 'github';
 
+    // Extract primitives files (if it's an object with multiple files)
     if (data.primitives) {
-      tokenFiles.push({
-        name: 'primitives',
-        path: 'github://primitives',
-        content: data.primitives,
-        source: 'github' as const
-      });
+      if (typeof data.primitives === 'object' && Object.keys(data.primitives).some(k => k.endsWith('.json'))) {
+        // Multiple files stored with their filenames as keys
+        for (const [filename, content] of Object.entries(data.primitives)) {
+          tokenFiles.push({
+            name: filename.replace('.json', ''),
+            path: `${repoPath}/${filename}`,
+            content: content,
+            source: 'github' as const
+          });
+        }
+      } else {
+        // Single primitives file
+        tokenFiles.push({
+          name: 'primitives',
+          path: `${repoPath}/primitives`,
+          content: data.primitives,
+          source: 'github' as const
+        });
+      }
     }
 
+    // Extract semantics files (if it's an object with multiple files)
     if (data.semantics) {
-      tokenFiles.push({
-        name: 'semantics',
-        path: 'github://semantics',
-        content: data.semantics,
-        source: 'github' as const
-      });
+      if (typeof data.semantics === 'object' && Object.keys(data.semantics).some(k => k.endsWith('.json'))) {
+        // Multiple files stored with their filenames as keys
+        for (const [filename, content] of Object.entries(data.semantics)) {
+          tokenFiles.push({
+            name: filename.replace('.json', ''),
+            path: `${repoPath}/${filename}`,
+            content: content,
+            source: 'github' as const
+          });
+        }
+      } else {
+        // Single semantics file
+        tokenFiles.push({
+          name: 'semantics',
+          path: `${repoPath}/semantics`,
+          content: data.semantics,
+          source: 'github' as const
+        });
+      }
     }
 
     if (tokenFiles.length > 0) {
@@ -464,8 +494,10 @@ export class TokenScreen extends BaseComponent {
         const changeMessage = this.compareTokenFiles(oldFiles, tokenFiles);
         this.showNotification(changeMessage, 'success');
       } else {
-        this.showNotification('Successfully pulled latest changes', 'success');
+        this.showNotification(`✓ Successfully pulled ${tokenFiles.length} file${tokenFiles.length === 1 ? '' : 's'}`, 'success');
       }
+    } else {
+      this.showNotification('No token files found in response', 'error');
     }
   }
 

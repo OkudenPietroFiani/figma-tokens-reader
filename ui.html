@@ -2485,21 +2485,45 @@
     handleFilesImported(data, oldFiles) {
       console.log("[TokenScreen] Files imported from GitHub:", data);
       const tokenFiles = [];
+      const githubConfig = this.state.githubConfig;
+      const repoPath = githubConfig ? `${githubConfig.owner}/${githubConfig.repo}/${githubConfig.branch}` : "github";
       if (data.primitives) {
-        tokenFiles.push({
-          name: "primitives",
-          path: "github://primitives",
-          content: data.primitives,
-          source: "github"
-        });
+        if (typeof data.primitives === "object" && Object.keys(data.primitives).some((k) => k.endsWith(".json"))) {
+          for (const [filename, content] of Object.entries(data.primitives)) {
+            tokenFiles.push({
+              name: filename.replace(".json", ""),
+              path: `${repoPath}/${filename}`,
+              content,
+              source: "github"
+            });
+          }
+        } else {
+          tokenFiles.push({
+            name: "primitives",
+            path: `${repoPath}/primitives`,
+            content: data.primitives,
+            source: "github"
+          });
+        }
       }
       if (data.semantics) {
-        tokenFiles.push({
-          name: "semantics",
-          path: "github://semantics",
-          content: data.semantics,
-          source: "github"
-        });
+        if (typeof data.semantics === "object" && Object.keys(data.semantics).some((k) => k.endsWith(".json"))) {
+          for (const [filename, content] of Object.entries(data.semantics)) {
+            tokenFiles.push({
+              name: filename.replace(".json", ""),
+              path: `${repoPath}/${filename}`,
+              content,
+              source: "github"
+            });
+          }
+        } else {
+          tokenFiles.push({
+            name: "semantics",
+            path: `${repoPath}/semantics`,
+            content: data.semantics,
+            source: "github"
+          });
+        }
       }
       if (tokenFiles.length > 0) {
         this.state.setTokenFiles(tokenFiles);
@@ -2508,8 +2532,10 @@
           const changeMessage = this.compareTokenFiles(oldFiles, tokenFiles);
           this.showNotification(changeMessage, "success");
         } else {
-          this.showNotification("Successfully pulled latest changes", "success");
+          this.showNotification(`\u2713 Successfully pulled ${tokenFiles.length} file${tokenFiles.length === 1 ? "" : "s"}`, "success");
         }
+      } else {
+        this.showNotification("No token files found in response", "error");
       }
     }
     /**
@@ -3218,6 +3244,7 @@
         this.saveTokenState();
       });
       this.setupBackendHandlers();
+      this.setupNotificationSystem();
       await this.loadSavedTokens();
       console.log("[Frontend] Application started");
     }
@@ -3232,11 +3259,18 @@
         if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
           const files = Object.values(response.tokenFiles);
           console.log("[Frontend] Found saved tokens:", files.length, "files");
-          this.state.setTokenFiles(files);
+          files.forEach((file) => {
+            this.state.addTokenFile(file);
+          });
           this.state.setTokenSource(response.tokenSource || "local");
           if (response.githubConfig) {
             console.log("[Frontend] Restoring GitHub config:", response.githubConfig);
             this.state.setGitHubConfig(response.githubConfig);
+          }
+          if (response.lastUpdated) {
+            const snapshot = this.state.getSnapshot();
+            snapshot.lastUpdated = response.lastUpdated;
+            this.state.restoreSnapshot(snapshot);
           }
           console.log("[Frontend] Navigating to token screen");
           this.state.setCurrentScreen("token");
@@ -3265,7 +3299,8 @@
       const tokenState = {
         tokenFiles,
         tokenSource: this.state.tokenSource,
-        githubConfig: this.state.githubConfig
+        githubConfig: this.state.githubConfig,
+        lastUpdated: this.state.lastUpdated
       };
       this.bridge.sendAsync("save-tokens", tokenState);
       console.log("[Frontend] Saved token state:", files.length, "files");
@@ -3299,6 +3334,88 @@
       this.bridge.on("tokens-loaded", (data) => {
         console.log("[Frontend] Tokens loaded:", data);
       });
+    }
+    /**
+     * Setup notification system
+     */
+    setupNotificationSystem() {
+      const container = document.createElement("div");
+      container.id = "notification-container";
+      container.style.cssText = `
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    `;
+      document.body.appendChild(container);
+      window.addEventListener("notification", ((event) => {
+        const { message, type } = event.detail;
+        this.displayNotification(message, type);
+      }));
+    }
+    /**
+     * Display a notification
+     */
+    displayNotification(message, type) {
+      const container = document.getElementById("notification-container");
+      if (!container) return;
+      const notification = document.createElement("div");
+      notification.style.cssText = `
+      background: ${type === "success" ? "#0ACF83" : type === "error" ? "#F24822" : "#0066FF"};
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      max-width: 300px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      pointer-events: auto;
+      cursor: pointer;
+      animation: slideIn 0.2s ease-out;
+    `;
+      notification.textContent = message;
+      if (!document.getElementById("notification-styles")) {
+        const style = document.createElement("style");
+        style.id = "notification-styles";
+        style.textContent = `
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes slideOut {
+          from {
+            opacity: 1;
+            transform: translateX(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+        }
+      `;
+        document.head.appendChild(style);
+      }
+      container.appendChild(notification);
+      const removeNotification = () => {
+        notification.style.animation = "slideOut 0.2s ease-in";
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 200);
+      };
+      notification.addEventListener("click", removeNotification);
+      setTimeout(removeNotification, 4e3);
     }
   };
   try {
