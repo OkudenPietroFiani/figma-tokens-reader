@@ -42,7 +42,7 @@ export class ScopeScreen extends BaseComponent {
             <div class="file-tabs-header">
               <div class="file-tabs-title">Collections</div>
             </div>
-            <div id="collections-list" class="collections-list">
+            <div id="collections-list" class="file-tabs-content">
               <!-- Collection tabs will be dynamically added here -->
             </div>
           </div>

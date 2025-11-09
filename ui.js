@@ -1130,7 +1130,7 @@
               <div class="file-tabs-title">Files</div>
               <div id="last-updated-text" class="last-updated-text"></div>
             </div>
-            <div id="file-tabs-list" class="file-tabs-list">
+            <div id="file-tabs-list" class="file-tabs-content">
               <!-- Tabs will be dynamically added here -->
             </div>
           </div>
@@ -1548,7 +1548,7 @@
             <div class="file-tabs-header">
               <div class="file-tabs-title">Collections</div>
             </div>
-            <div id="collections-list" class="collections-list">
+            <div id="collections-list" class="file-tabs-content">
               <!-- Collection tabs will be dynamically added here -->
             </div>
           </div>
