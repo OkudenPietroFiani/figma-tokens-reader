@@ -850,13 +850,23 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: var(--space-lg);
   background: var(--color-background);
+}
+
+#token-tree-content,
+#scope-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
 }
 
 /* Tree structure components */
 .tree-group {
   margin-bottom: var(--space-xs);
+}
+
+.tree-group.collapsed > .tree-children {
+  display: none;
 }
 
 .tree-header {
@@ -877,6 +887,19 @@ body {
   height: 16px;
   flex-shrink: 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-base);
+}
+
+.tree-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tree-group.collapsed > .tree-header > .tree-toggle {
+  transform: rotate(-90deg);
 }
 
 .tree-label {
@@ -2540,7 +2563,11 @@ body {
           html += `
           <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
-              <span class="tree-toggle"></span>
+              <span class="tree-toggle">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <span class="tree-label">${this.escapeHtml(key)}</span>
             </div>
             <div class="tree-children">
@@ -3299,7 +3326,11 @@ body {
           <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
               ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
-              <span class="tree-toggle"></span>
+              <span class="tree-toggle">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <span class="tree-label">${escapedKey}</span>
             </div>
             <div class="tree-children" data-group-id="${groupId}">

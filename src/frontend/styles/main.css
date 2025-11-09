@@ -844,13 +844,23 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: var(--space-lg);
   background: var(--color-background);
+}
+
+#token-tree-content,
+#scope-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
 }
 
 /* Tree structure components */
 .tree-group {
   margin-bottom: var(--space-xs);
+}
+
+.tree-group.collapsed > .tree-children {
+  display: none;
 }
 
 .tree-header {
@@ -871,6 +881,19 @@ body {
   height: 16px;
   flex-shrink: 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-base);
+}
+
+.tree-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tree-group.collapsed > .tree-header > .tree-toggle {
+  transform: rotate(-90deg);
 }
 
 .tree-label {
