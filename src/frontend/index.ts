@@ -84,6 +84,9 @@ class FrontendApp {
     // Setup backend message handlers
     this.setupBackendHandlers();
 
+    // Setup notification system
+    this.setupNotificationSystem();
+
     // Load saved tokens if any
     await this.loadSavedTokens();
 
@@ -104,13 +107,24 @@ class FrontendApp {
         const files = Object.values(response.tokenFiles);
         console.log('[Frontend] Found saved tokens:', files.length, 'files');
 
-        this.state.setTokenFiles(files);
+        // Manually set token files without updating lastUpdated
+        files.forEach((file: any) => {
+          this.state.addTokenFile(file);
+        });
         this.state.setTokenSource(response.tokenSource || 'local');
 
         // Restore GitHub config if present
         if (response.githubConfig) {
           console.log('[Frontend] Restoring GitHub config:', response.githubConfig);
           this.state.setGitHubConfig(response.githubConfig);
+        }
+
+        // Restore lastUpdated timestamp if present
+        if (response.lastUpdated) {
+          // Access private property through snapshot
+          const snapshot = this.state.getSnapshot();
+          snapshot.lastUpdated = response.lastUpdated;
+          this.state.restoreSnapshot(snapshot);
         }
 
         // Navigate to token screen
@@ -149,7 +163,8 @@ class FrontendApp {
     const tokenState = {
       tokenFiles,
       tokenSource: this.state.tokenSource,
-      githubConfig: this.state.githubConfig
+      githubConfig: this.state.githubConfig,
+      lastUpdated: this.state.lastUpdated
     };
 
     // Save asynchronously without waiting
@@ -198,6 +213,105 @@ class FrontendApp {
     this.bridge.on('tokens-loaded', (data: any) => {
       console.log('[Frontend] Tokens loaded:', data);
     });
+  }
+
+  /**
+   * Setup notification system
+   */
+  private setupNotificationSystem(): void {
+    // Create notification container
+    const container = document.createElement('div');
+    container.id = 'notification-container';
+    container.style.cssText = `
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    `;
+    document.body.appendChild(container);
+
+    // Listen for notification events
+    window.addEventListener('notification', ((event: CustomEvent) => {
+      const { message, type } = event.detail;
+      this.displayNotification(message, type);
+    }) as EventListener);
+  }
+
+  /**
+   * Display a notification
+   */
+  private displayNotification(message: string, type: 'success' | 'error' | 'info'): void {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      background: ${type === 'success' ? '#0ACF83' : type === 'error' ? '#F24822' : '#0066FF'};
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      max-width: 300px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      pointer-events: auto;
+      cursor: pointer;
+      animation: slideIn 0.2s ease-out;
+    `;
+    notification.textContent = message;
+
+    // Add animation keyframes
+    if (!document.getElementById('notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes slideOut {
+          from {
+            opacity: 1;
+            transform: translateX(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Add to container
+    container.appendChild(notification);
+
+    // Auto-remove after 4 seconds
+    const removeNotification = () => {
+      notification.style.animation = 'slideOut 0.2s ease-in';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 200);
+    };
+
+    // Click to dismiss
+    notification.addEventListener('click', removeNotification);
+
+    // Auto-dismiss
+    setTimeout(removeNotification, 4000);
   }
 }
 
