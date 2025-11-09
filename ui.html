@@ -1178,7 +1178,7 @@ body {
 .scope-option-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-sm);
   padding: var(--space-xs);
   cursor: pointer;
   user-select: none;
@@ -1193,6 +1193,8 @@ body {
   font-size: var(--text-lg);
   font-weight: var(--weight-normal);
   color: var(--color-text-strong);
+  flex: 1;
+  text-align: left;
 }
 
 .scope-option-checkbox {
@@ -1295,6 +1297,9 @@ body {
   flex: 1;
   overflow-y: auto;
   margin-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .scope-actions {
@@ -3189,9 +3194,9 @@ body {
         return;
       }
       scopeOptionsContainer.innerHTML = scopes.map((scope) => `
-      <label class="scope-option">
-        <span>${scope.label}</span>
-        <input type="checkbox" value="${scope.value}" data-scope="${scope.value}">
+      <label class="scope-option-item">
+        <input type="checkbox" class="scope-option-checkbox" value="${scope.value}" data-scope="${scope.value}">
+        <span class="scope-option-label">${scope.label}</span>
       </label>
     `).join("");
     }
@@ -3259,7 +3264,7 @@ body {
           const escapedKey = this.escapeHtml(key);
           const groupId = `group-${level}-${escapedKey}`;
           html += `
-          <div class="tree-group tree-indent-${cappedLevel}">
+          <div class="tree-group tree-indent-${cappedLevel} collapsed">
             <div class="tree-header">
               ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle">
@@ -3378,6 +3383,10 @@ body {
     handleResetSelection() {
       const checkboxes = this.scopeContent.querySelectorAll(".scope-checkbox");
       checkboxes.forEach((cb) => {
+        cb.checked = false;
+      });
+      const groupCheckboxes = this.scopeContent.querySelectorAll(".group-checkbox");
+      groupCheckboxes.forEach((cb) => {
         cb.checked = false;
       });
       this.selectedVariables.clear();
