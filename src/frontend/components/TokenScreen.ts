@@ -44,9 +44,9 @@ export class TokenScreen extends BaseComponent {
           <div class="file-tabs">
             <div class="file-tabs-header">
               <div class="file-tabs-title">Files</div>
-              <div id="last-updated-text" style="font-size: 12px; color: #787878; margin-top: 4px;"></div>
+              <div id="last-updated-text" class="last-updated-text"></div>
             </div>
-            <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
+            <div id="file-tabs-list" class="file-tabs-list">
               <!-- Tabs will be dynamically added here -->
             </div>
           </div>
@@ -64,13 +64,13 @@ export class TokenScreen extends BaseComponent {
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="pull-changes-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>Pull changes</span>
-          <span class="change-indicator hidden" id="change-indicator" style="width: 8px; height: 8px; background-color: #0066FF; border-radius: 50%; margin-left: 8px; display: inline-block;"></span>
+          <span class="badge badge-info hidden" id="change-indicator"></span>
         </button>
       </div>
     `;
@@ -203,6 +203,8 @@ export class TokenScreen extends BaseComponent {
     }
 
     let html = '';
+    // Cap level at 6 to match CSS classes
+    const cappedLevel = Math.min(level, 6);
 
     for (const [key, value] of Object.entries(obj)) {
       // Check if this is a token group or a token value
@@ -210,7 +212,7 @@ export class TokenScreen extends BaseComponent {
 
       if (isGroup) {
         html += `
-          <div class="tree-group" style="padding-left: ${level * 12}px;">
+          <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
               <span class="tree-toggle"></span>
               <span class="tree-label">${this.escapeHtml(key)}</span>
@@ -230,7 +232,7 @@ export class TokenScreen extends BaseComponent {
         }
 
         html += `
-          <div class="tree-item" style="padding-left: ${level * 12 + 16}px;">
+          <div class="tree-item tree-item-indent-${cappedLevel}">
             <span class="token-name">${this.escapeHtml(key)}</span>
             <span class="token-value">${displayValue}</span>
           </div>

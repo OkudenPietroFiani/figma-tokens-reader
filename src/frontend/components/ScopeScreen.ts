@@ -53,12 +53,12 @@ export class ScopeScreen extends BaseComponent {
             <div class="file-tabs-header">
               <div class="file-tabs-title">Collections</div>
             </div>
-            <div id="collections-list" style="padding: 16px 16px 0 16px;">
+            <div id="collections-list" class="collections-list">
               <!-- Collection tabs will be dynamically added here -->
             </div>
 
             <!-- Scope Selector (replaces collections when variables selected) -->
-            <div id="scope-selector" class="scope-selector hidden" style="padding: 16px;">
+            <div id="scope-selector" class="scope-selector hidden">
               <div class="scope-selector-header">
                 <h3 class="scope-selector-title" id="scope-title">Color scopes</h3>
                 <div class="scope-selector-count" id="selected-count">0 tokens selected</div>
@@ -86,7 +86,7 @@ export class ScopeScreen extends BaseComponent {
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn-scope">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="pull-changes-btn-scope">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -202,7 +202,7 @@ export class ScopeScreen extends BaseComponent {
     console.log('[ScopeScreen] Found Figma collections:', collectionNames);
 
     if (collectionNames.length === 0) {
-      this.collectionsList.innerHTML = '<div style="color: #999; font-size: 12px;">No collections found</div>';
+      this.collectionsList.innerHTML = '<div class="empty-collections">No collections found</div>';
       return;
     }
 
@@ -554,6 +554,8 @@ export class ScopeScreen extends BaseComponent {
    */
   private renderVariableTree(tree: any, level: number): string {
     let html = '';
+    // Cap level at 6 to match CSS classes
+    const cappedLevel = Math.min(level, 6);
 
     for (const [key, value] of Object.entries(tree)) {
       if (value._isVariable) {
@@ -564,7 +566,7 @@ export class ScopeScreen extends BaseComponent {
         const escapedId = this.escapeHtml(v.id);
 
         html += `
-          <div class="scope-item" style="padding-left: ${level * 12}px;">
+          <div class="scope-item tree-indent-${cappedLevel}">
             <div class="scope-item-content">
               <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
               <span class="scope-var-name">${escapedKey}</span>
@@ -582,7 +584,7 @@ export class ScopeScreen extends BaseComponent {
         const groupId = `group-${level}-${escapedKey}`;
 
         html += `
-          <div class="tree-group" style="padding-left: ${level * 12}px;">
+          <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
               ${hasCompatibleTypes
                 ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">`
