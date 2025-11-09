@@ -143,9 +143,9 @@ export class DocumentationGenerator {
       const metadata: TokenMetadata[] = [];
 
       for (const collection of collections) {
-        const variables = collection.variableIds.map(id => figma.variables.getVariableById(id)!);
-
-        for (const variable of variables) {
+        // Use async version to fetch variables
+        for (const variableId of collection.variableIds) {
+          const variable = await figma.variables.getVariableByIdAsync(variableId);
           if (!variable) continue;
 
           // Get the default mode value
