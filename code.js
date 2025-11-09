@@ -640,6 +640,11 @@
               await this.createEffectStyle(value, currentPath);
             } else if (!("$value" in value)) {
               await this.processTokenGroup(value, currentPath, styleType);
+            } else {
+              const token = value;
+              if (token.$type) {
+                console.log(`[EFFECT SKIP] Token at ${currentPath.join("/")} has $type="${token.$type}" but not shadow type`);
+              }
             }
           }
         }
@@ -683,6 +688,7 @@
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
         const typography = token.$value;
+        console.log(`[TEXT STYLE] Original path: ${path.join("/")} \u2192 Cleaned: ${styleName}`);
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
         if (!textStyle) {
@@ -708,6 +714,8 @@
       try {
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
+        console.log(`[EFFECT STYLE] Original path: ${path.join("/")} \u2192 Cleaned: ${styleName}`);
+        console.log(`[EFFECT STYLE] Token $type: ${token.$type}, $value:`, token.$value);
         const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
         if (!effectStyle) {
@@ -784,13 +792,13 @@
       if (!match) {
         return value;
       }
-      const path = match[1];
-      const variableName = path.replace(/\./g, "/");
-      const variable = this.variableMap.get(variableName);
+      const reference = match[1];
+      const variable = resolveReference(reference, this.variableMap);
       if (variable) {
-        return String(variable.name);
+        const modeId = Object.keys(variable.valuesByMode)[0];
+        const value2 = variable.valuesByMode[modeId];
+        return String(value2);
       }
-      console.warn(`[STYLE] Could not resolve reference: ${value}`);
       return null;
     }
     /**
