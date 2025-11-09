@@ -51,11 +51,6 @@ export class DocumentationGenerator {
     options: DocumentationOptions
   ): Promise<Result<DocumentationResult>> {
     try {
-      // Validate options
-      if (options.fileNames.length === 0) {
-        return Failure('No files selected for documentation');
-      }
-
       // Set font family
       if (options.fontFamily) {
         this.fontFamily = options.fontFamily;

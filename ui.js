@@ -2162,7 +2162,8 @@
     renderFileSelection() {
       const files = Array.from(this.state.tokenFiles.values());
       if (files.length === 0) {
-        this.fileSelectionList.innerHTML = '<div class="empty-state">No token files loaded. Import tokens first.</div>';
+        this.fileSelectionList.innerHTML = '<div class="empty-state">No token files loaded. Will use all Figma variable collections.</div>';
+        this.selectedFiles.clear();
         this.updateGenerateButtonState();
         return;
       }
@@ -2195,9 +2196,10 @@
      * Update generate button state based on form validity
      */
     updateGenerateButtonState() {
-      const hasFiles = this.selectedFiles.size > 0;
+      const tokenFilesLoaded = this.state.tokenFiles.size > 0;
+      const hasValidSelection = !tokenFilesLoaded || this.selectedFiles.size > 0;
       const hasFont = this.fontFamilyInput.value.trim().length > 0;
-      const isValid = hasFiles && hasFont;
+      const isValid = hasValidSelection && hasFont;
       this.generateBtn.disabled = !isValid;
       if (this.onButtonUpdate) {
         this.onButtonUpdate(isValid);
@@ -2207,7 +2209,8 @@
      * Handle documentation generation
      */
     async handleGenerateDocumentation() {
-      if (this.selectedFiles.size === 0) {
+      const tokenFilesLoaded = this.state.tokenFiles.size > 0;
+      if (tokenFilesLoaded && this.selectedFiles.size === 0) {
         this.showNotification("Please select at least one token file", "error");
         return;
       }
@@ -2216,8 +2219,9 @@
         this.showNotification("Please enter a font family", "error");
         return;
       }
+      const fileNames = tokenFilesLoaded ? Array.from(this.selectedFiles) : [];
       const options = {
-        fileNames: Array.from(this.selectedFiles),
+        fileNames,
         fontFamily,
         includeDescriptions: this.includeDescriptionsCheckbox.checked
       };
