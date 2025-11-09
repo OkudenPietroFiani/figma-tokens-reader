@@ -1,5 +1,25 @@
 "use strict";
 (() => {
+  var __defProp = Object.defineProperty;
+  var __defProps = Object.defineProperties;
+  var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
+  var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+
   // src/shared/constants.ts
   var UI_CONFIG = {
     width: 800,
@@ -276,6 +296,29 @@
 
   // src/utils/parser.ts
   function parseColor(value) {
+    if (typeof value === "object" && value !== null && "colorSpace" in value && "components" in value) {
+      const { colorSpace, components, alpha } = value;
+      const alphaValue = typeof alpha === "number" ? alpha : 1;
+      if (colorSpace === "hsl" && Array.isArray(components) && components.length === 3) {
+        const h = components[0] / 360;
+        const s = components[1] / 100;
+        const l = components[2] / 100;
+        const rgb = hslToRgb(h, s, l);
+        return __spreadProps(__spreadValues({}, rgb), { a: alphaValue });
+      }
+      if (colorSpace === "rgb" && Array.isArray(components) && components.length === 3) {
+        return {
+          r: components[0] / 255,
+          g: components[1] / 255,
+          b: components[2] / 255,
+          a: alphaValue
+        };
+      }
+      if (value.hex) {
+        const rgb = hexToRgb(value.hex);
+        return __spreadProps(__spreadValues({}, rgb), { a: alphaValue });
+      }
+    }
     if (typeof value === "object" && value !== null && "value" in value) {
       return parseColor(value.value);
     }
@@ -293,7 +336,7 @@
     if (typeof value === "object" && value.hex) {
       return hexToRgb(value.hex);
     }
-    return { r: 0, g: 0, b: 0 };
+    return { r: 0, g: 0, b: 0, a: 1 };
   }
   function parseNumber(value) {
     if (typeof value === "object" && value !== null && "value" in value) {
@@ -356,41 +399,60 @@
   }
   function hexToRgb(hex) {
     const cleaned = hex.replace("#", "");
-    const bigint = parseInt(cleaned, 16);
-    if (cleaned.length === 6) {
+    if (cleaned.length === 8) {
+      const bigint = parseInt(cleaned.substring(0, 6), 16);
+      const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
       return {
         r: (bigint >> 16 & 255) / 255,
         g: (bigint >> 8 & 255) / 255,
-        b: (bigint & 255) / 255
+        b: (bigint & 255) / 255,
+        a: alpha
+      };
+    } else if (cleaned.length === 4) {
+      const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
+      const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
+      const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
+      const a = parseInt(cleaned[3] + cleaned[3], 16) / 255;
+      return { r, g, b, a };
+    } else if (cleaned.length === 6) {
+      const bigint = parseInt(cleaned, 16);
+      return {
+        r: (bigint >> 16 & 255) / 255,
+        g: (bigint >> 8 & 255) / 255,
+        b: (bigint & 255) / 255,
+        a: 1
+        // Full opacity by default
       };
     } else if (cleaned.length === 3) {
       const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
       const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
       const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
-      return { r, g, b };
+      return { r, g, b, a: 1 };
     }
-    return { r: 0, g: 0, b: 0 };
+    return { r: 0, g: 0, b: 0, a: 1 };
   }
   function rgbStringToRgb(rgbString) {
-    const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (match) {
-      return {
-        r: parseInt(match[1]) / 255,
-        g: parseInt(match[2]) / 255,
-        b: parseInt(match[3]) / 255
-      };
+    const rgbaMatch = rgbString.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
+    if (rgbaMatch) {
+      const r = parseInt(rgbaMatch[1]) / 255;
+      const g = parseInt(rgbaMatch[2]) / 255;
+      const b = parseInt(rgbaMatch[3]) / 255;
+      const a = rgbaMatch[4] !== void 0 ? parseFloat(rgbaMatch[4]) : 1;
+      return { r, g, b, a };
     }
-    return { r: 0, g: 0, b: 0 };
+    return { r: 0, g: 0, b: 0, a: 1 };
   }
   function hslStringToRgb(hslString) {
-    const match = hslString.match(/hsla?\((\d+),\s*(\d+)%,\s*(\d+)%/);
+    const match = hslString.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)/);
     if (match) {
       const h = parseInt(match[1]) / 360;
       const s = parseInt(match[2]) / 100;
       const l = parseInt(match[3]) / 100;
-      return hslToRgb(h, s, l);
+      const a = match[4] !== void 0 ? parseFloat(match[4]) : 1;
+      const rgb = hslToRgb(h, s, l);
+      return __spreadProps(__spreadValues({}, rgb), { a });
     }
-    return { r: 0, g: 0, b: 0 };
+    return { r: 0, g: 0, b: 0, a: 1 };
   }
   function hslToRgb(h, s, l) {
     let r, g, b;
@@ -453,6 +515,33 @@
     }
     switch (tokenType) {
       case "color":
+        if (typeof value === "object" && value !== null && "alpha" in value) {
+          const alphaValue = value.alpha;
+          if (typeof alphaValue === "string" && alphaValue.includes("{") && alphaValue.includes("}")) {
+            console.log(`[Color Alpha] Resolving alpha reference: ${alphaValue}`);
+            console.log(`[Color Alpha] VariableMap size: ${variableMap.size}`);
+            const alphaRef = extractReference(alphaValue);
+            if (alphaRef) {
+              console.log(`[Color Alpha] Extracted reference: ${alphaRef}`);
+              const alphaVariable = resolveReference(alphaRef, variableMap);
+              if (alphaVariable) {
+                const modeId = Object.keys(alphaVariable.valuesByMode)[0];
+                const resolvedAlpha = alphaVariable.valuesByMode[modeId];
+                console.log(`[Color Alpha] Resolved to value: ${resolvedAlpha} (type: ${typeof resolvedAlpha})`);
+                const resolvedValue = __spreadProps(__spreadValues({}, value), {
+                  alpha: typeof resolvedAlpha === "number" ? resolvedAlpha : 1
+                });
+                const finalColor = parseColor(resolvedValue);
+                console.log(`[Color Alpha] Final color with alpha:`, finalColor);
+                return { value: finalColor, isAlias: false };
+              } else {
+                console.warn(`[Color Alpha] Could not find variable for reference: ${alphaRef}`);
+              }
+            }
+            console.warn(`[Color Alpha] Failed to resolve alpha reference: ${alphaValue}, using alpha=1`);
+            return { value: parseColor(__spreadProps(__spreadValues({}, value), { alpha: 1 })), isAlias: false };
+          }
+        }
         return { value: parseColor(value), isAlias: false };
       case "dimension":
       case "spacing":
@@ -477,18 +566,30 @@
     return match ? match[1] : null;
   }
   function resolveReference(reference, variableMap) {
+    console.log(`[Resolve] Attempting to resolve: "${reference}"`);
+    console.log(`[Resolve] Available variables in map:`, Array.from(variableMap.keys()).slice(0, 10));
     let cleanRef = reference.replace(/^(primitive|semantic)\./, "");
+    console.log(`[Resolve] After removing prefix: "${cleanRef}"`);
     let variable = variableMap.get(cleanRef);
-    if (variable) return variable;
+    if (variable) {
+      console.log(`[Resolve] \u2713 Found via direct lookup: "${cleanRef}"`);
+      return variable;
+    }
     cleanRef = cleanRef.replace(/\./g, "/");
+    console.log(`[Resolve] Trying with slashes: "${cleanRef}"`);
     variable = variableMap.get(cleanRef);
-    if (variable) return variable;
+    if (variable) {
+      console.log(`[Resolve] \u2713 Found via slash conversion: "${cleanRef}"`);
+      return variable;
+    }
+    console.log(`[Resolve] Trying fuzzy match...`);
     for (const [key, val] of variableMap.entries()) {
       if (key.endsWith(cleanRef) || key.includes(cleanRef)) {
+        console.log(`[Resolve] \u2713 Found via fuzzy match: "${key}" matches "${cleanRef}"`);
         return val;
       }
     }
-    console.warn(`Could not resolve reference: ${reference}`);
+    console.warn(`[Resolve] \u2717 Could not resolve reference: "${reference}"`);
     return null;
   }
 
@@ -505,7 +606,7 @@
     async createTextStyles(tokens, pathPrefix = []) {
       console.log("\n=== CREATING TEXT STYLES ===");
       this.styleStats = { created: 0, updated: 0, skipped: 0 };
-      await this.processTokenGroup(tokens, pathPrefix);
+      await this.processTokenGroup(tokens, pathPrefix, "text");
       if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
         figma.notify(
           `\u2713 Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
@@ -515,16 +616,39 @@
       return this.styleStats;
     }
     /**
-     * Recursively process token groups to find typography tokens
+     * Process tokens and create effect styles for drop shadow tokens
      */
-    async processTokenGroup(tokens, pathPrefix) {
+    async createEffectStyles(tokens, pathPrefix = []) {
+      console.log("\n=== CREATING EFFECT STYLES ===");
+      this.styleStats = { created: 0, updated: 0, skipped: 0 };
+      await this.processTokenGroup(tokens, pathPrefix, "effect");
+      if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
+        figma.notify(
+          `\u2713 Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
+          { timeout: 3e3 }
+        );
+      }
+      return this.styleStats;
+    }
+    /**
+     * Recursively process token groups to find typography or effect tokens
+     */
+    async processTokenGroup(tokens, pathPrefix, styleType) {
       for (const [key, value] of Object.entries(tokens)) {
         const currentPath = [...pathPrefix, key];
         if (value && typeof value === "object") {
-          if (this.isTypographyToken(value)) {
-            await this.createTextStyle(value, currentPath);
-          } else if (!("$value" in value)) {
-            await this.processTokenGroup(value, currentPath);
+          if (styleType === "text") {
+            if (this.isTypographyToken(value)) {
+              await this.createTextStyle(value, currentPath);
+            } else if (!("$value" in value)) {
+              await this.processTokenGroup(value, currentPath, styleType);
+            }
+          } else if (styleType === "effect") {
+            if (this.isShadowToken(value)) {
+              await this.createEffectStyle(value, currentPath);
+            } else if (!("$value" in value)) {
+              await this.processTokenGroup(value, currentPath, styleType);
+            }
           }
         }
       }
@@ -536,14 +660,34 @@
       return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
     }
     /**
+     * Check if token is a shadow token (boxShadow or dropShadow)
+     */
+    isShadowToken(token) {
+      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
+    }
+    /**
+     * Remove collection prefix from style path
+     * Example: ['semantic', 'typography', 'display'] -> ['typography', 'display']
+     * Only removes the first level if it's 'primitive' or 'semantic'
+     */
+    cleanStylePath(path) {
+      if (path.length === 0) return path;
+      const firstLevel = path[0].toLowerCase();
+      if (firstLevel === "primitive" || firstLevel === "semantic") {
+        return path.slice(1);
+      }
+      return path;
+    }
+    /**
      * Create or update Figma text style from typography token
      * Clean code: Single purpose, clear error handling
      */
     async createTextStyle(token, path) {
       try {
-        const styleName = path.join("/");
+        const cleanedPath = this.cleanStylePath(path);
+        const styleName = cleanedPath.join("/");
         const typography = token.$value;
-        console.log(`[STYLE] Creating text style: ${styleName}`);
+        console.log(`[STYLE] Creating text style: ${styleName} (from path: ${path.join("/")})`);
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
         if (!textStyle) {
@@ -561,6 +705,34 @@
         await this.applyTypographyProperties(textStyle, typography);
       } catch (error) {
         console.error(`[STYLE] Error creating text style ${path.join("/")}: ${error}`);
+        this.styleStats.skipped++;
+      }
+    }
+    /**
+     * Create or update Figma effect style from shadow token
+     */
+    async createEffectStyle(token, path) {
+      try {
+        const cleanedPath = this.cleanStylePath(path);
+        const styleName = cleanedPath.join("/");
+        console.log(`[STYLE] Creating effect style: ${styleName} (from path: ${path.join("/")})`);
+        const existingStyles = await figma.getLocalEffectStylesAsync();
+        let effectStyle = existingStyles.find((s) => s.name === styleName);
+        if (!effectStyle) {
+          effectStyle = figma.createEffectStyle();
+          effectStyle.name = styleName;
+          this.styleStats.created++;
+          console.log(`[STYLE] \u2713 Created new effect style: ${styleName}`);
+        } else {
+          this.styleStats.updated++;
+          console.log(`[STYLE] \u2713 Updating existing effect style: ${styleName}`);
+        }
+        if (token.$description) {
+          effectStyle.description = token.$description;
+        }
+        await this.applyShadowEffects(effectStyle, token.$value);
+      } catch (error) {
+        console.error(`[STYLE] Error creating effect style ${path.join("/")}: ${error}`);
         this.styleStats.skipped++;
       }
     }
@@ -686,6 +858,128 @@
       }
       return null;
     }
+    /**
+     * Apply shadow effects to effect style
+     * Handles both single shadow and array of shadows
+     */
+    async applyShadowEffects(effectStyle, value) {
+      const effects = [];
+      if (Array.isArray(value)) {
+        for (const shadow of value) {
+          const effect = this.parseShadowEffect(shadow);
+          if (effect) {
+            effects.push(effect);
+          }
+        }
+      } else if (typeof value === "object" && value !== null) {
+        const effect = this.parseShadowEffect(value);
+        if (effect) {
+          effects.push(effect);
+        }
+      }
+      if (effects.length > 0) {
+        effectStyle.effects = effects;
+        console.log(`[STYLE] Applied ${effects.length} shadow effect(s)`);
+      }
+    }
+    /**
+     * Parse a single shadow object into a Figma Effect
+     * Format: { x, y, blur, spread, color, type }
+     */
+    parseShadowEffect(shadow) {
+      try {
+        const x = this.resolveNumericValue(shadow.x || shadow.offsetX || 0);
+        const y = this.resolveNumericValue(shadow.y || shadow.offsetY || 0);
+        const blur = this.resolveNumericValue(shadow.blur || shadow.blurRadius || 0);
+        const spread = this.resolveNumericValue(shadow.spread || shadow.spreadRadius || 0);
+        const colorValue = shadow.color || "#000000";
+        const color = this.parseColorValue(colorValue);
+        const type = shadow.type === "innerShadow" ? "INNER_SHADOW" : "DROP_SHADOW";
+        const effect = {
+          type,
+          color,
+          offset: { x: x || 0, y: y || 0 },
+          radius: blur || 0,
+          spread: spread || 0,
+          visible: true,
+          blendMode: "NORMAL"
+        };
+        return effect;
+      } catch (error) {
+        console.warn(`[STYLE] Failed to parse shadow effect:`, error);
+        return null;
+      }
+    }
+    /**
+     * Parse color value to RGBA format
+     * Handles hex, rgb/rgba strings, and references
+     */
+    parseColorValue(value) {
+      if (typeof value === "string" && value.includes("{") && value.includes("}")) {
+        const resolved = this.resolveTokenReference(value);
+        if (resolved) {
+          value = resolved;
+        }
+      }
+      if (typeof value === "string" && value.startsWith("#")) {
+        return this.hexToRgba(value);
+      }
+      if (typeof value === "string" && (value.startsWith("rgb") || value.startsWith("hsl"))) {
+        const rgbaMatch = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+          return {
+            r: parseInt(rgbaMatch[1]) / 255,
+            g: parseInt(rgbaMatch[2]) / 255,
+            b: parseInt(rgbaMatch[3]) / 255,
+            a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1
+          };
+        }
+      }
+      return { r: 0, g: 0, b: 0, a: 1 };
+    }
+    /**
+     * Convert hex color to RGBA
+     * Supports #RGB, #RRGGBB, #RGBA, #RRGGBBAA
+     */
+    hexToRgba(hex) {
+      const cleaned = hex.replace("#", "");
+      if (cleaned.length === 8) {
+        const bigint = parseInt(cleaned.substring(0, 6), 16);
+        const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
+        return {
+          r: (bigint >> 16 & 255) / 255,
+          g: (bigint >> 8 & 255) / 255,
+          b: (bigint & 255) / 255,
+          a: alpha
+        };
+      }
+      if (cleaned.length === 6) {
+        const bigint = parseInt(cleaned, 16);
+        return {
+          r: (bigint >> 16 & 255) / 255,
+          g: (bigint >> 8 & 255) / 255,
+          b: (bigint & 255) / 255,
+          a: 1
+        };
+      }
+      if (cleaned.length === 4) {
+        return {
+          r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
+          g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
+          b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
+          a: parseInt(cleaned[3] + cleaned[3], 16) / 255
+        };
+      }
+      if (cleaned.length === 3) {
+        return {
+          r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
+          g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
+          b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
+          a: 1
+        };
+      }
+      return { r: 0, g: 0, b: 0, a: 1 };
+    }
     getStats() {
       return this.styleStats;
     }
@@ -722,10 +1016,12 @@
         if (primitives) {
           const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
           await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+          await styleManager.createEffectStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
         }
         if (semantics) {
           const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
           await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
+          await styleManager.createEffectStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
         }
         figma.notify(
           `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
@@ -931,6 +1227,10 @@
               console.log(`[SKIP] Skipping typography token ${currentPath.join("/")} - will be created as text style`);
               continue;
             }
+            if (this.isShadowToken(value)) {
+              console.log(`[SKIP] Skipping shadow token ${currentPath.join("/")} - will be created as effect style`);
+              continue;
+            }
             await this.createVariable(value, currentPath, collection, collectionName);
           } else {
             await this.processTokenGroup(value, collectionName, collection, currentPath);
@@ -944,6 +1244,13 @@
      */
     isCompositeTypographyToken(token) {
       return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
+    }
+    /**
+     * Check if token is a shadow token (boxShadow or shadow)
+     * These will be created as effect styles instead of variables
+     */
+    isShadowToken(token) {
+      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
     }
     async createVariable(token, path, collection, collectionName) {
       try {
@@ -1193,6 +1500,12 @@
     /**
      * Save GitHub configuration to storage
      * Allows resuming GitHub sync without re-entering credentials
+     *
+     * SECURITY WARNING: GitHub Personal Access Tokens are stored in plain text
+     * in Figma's clientStorage. This is a known limitation. Users should:
+     * - Use tokens with minimal required scopes (read-only repository access)
+     * - Be aware tokens persist until explicitly cleared
+     * - Consider using the "Clear Credentials" feature when done
      */
     async saveGitHubConfig(config) {
       return ErrorHandler.handle(async () => {
@@ -1209,6 +1522,9 @@
     /**
      * Load GitHub configuration from storage
      * Returns null if no config exists
+     *
+     * SECURITY NOTE: Retrieved tokens are in plain text and should be handled
+     * securely. Do not log or expose tokens in error messages.
      */
     async getGitHubConfig() {
       return ErrorHandler.handle(async () => {
@@ -1308,7 +1624,7 @@
       return ErrorHandler.handle(async () => {
         ErrorHandler.validateRequired(
           state,
-          ["tokenFiles", "tokenSource"],
+          ["tokenFiles"],
           "Save Tokens"
         );
         const result = await this.storage.saveTokenState(state);

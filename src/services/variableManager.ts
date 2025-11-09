@@ -54,11 +54,13 @@ export class VariableManager {
       if (primitives) {
         const cleanedPrimitives = this.prepareAndValidateTokens(primitives, 'primitive');
         await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+        await styleManager.createEffectStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
       }
 
       if (semantics) {
         const cleanedSemantics = this.prepareAndValidateTokens(semantics, 'semantic');
         await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
+        await styleManager.createEffectStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
       }
 
       figma.notify(
@@ -346,6 +348,12 @@ export class VariableManager {
             continue;
           }
 
+          // Skip shadow tokens - they'll be handled as effect styles
+          if (this.isShadowToken(value)) {
+            console.log(`[SKIP] Skipping shadow token ${currentPath.join('/')} - will be created as effect style`);
+            continue;
+          }
+
           // This is a simple token - create variable
           await this.createVariable(value, currentPath, collection, collectionName);
         } else {
@@ -366,6 +374,18 @@ export class VariableManager {
       token.$value &&
       typeof token.$value === 'object' &&
       !Array.isArray(token.$value)
+    );
+  }
+
+  /**
+   * Check if token is a shadow token (boxShadow or shadow)
+   * These will be created as effect styles instead of variables
+   */
+  private isShadowToken(token: any): boolean {
+    return (
+      (token.$type === 'boxShadow' || token.$type === 'shadow') &&
+      token.$value &&
+      (typeof token.$value === 'object' || Array.isArray(token.$value))
     );
   }
 

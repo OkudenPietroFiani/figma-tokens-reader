@@ -34,7 +34,7 @@ export class StyleManager {
     console.log('\n=== CREATING TEXT STYLES ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
-    await this.processTokenGroup(tokens, pathPrefix);
+    await this.processTokenGroup(tokens, pathPrefix, 'text');
 
     if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
       figma.notify(
@@ -47,20 +47,50 @@ export class StyleManager {
   }
 
   /**
-   * Recursively process token groups to find typography tokens
+   * Process tokens and create effect styles for drop shadow tokens
    */
-  private async processTokenGroup(tokens: TokenData, pathPrefix: string[]): Promise<void> {
+  async createEffectStyles(tokens: TokenData, pathPrefix: string[] = []): Promise<StyleStats> {
+    console.log('\n=== CREATING EFFECT STYLES ===');
+    this.styleStats = { created: 0, updated: 0, skipped: 0 };
+
+    await this.processTokenGroup(tokens, pathPrefix, 'effect');
+
+    if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
+      figma.notify(
+        `✓ Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
+        { timeout: 3000 }
+      );
+    }
+
+    return this.styleStats;
+  }
+
+  /**
+   * Recursively process token groups to find typography or effect tokens
+   */
+  private async processTokenGroup(tokens: TokenData, pathPrefix: string[], styleType: 'text' | 'effect'): Promise<void> {
     for (const [key, value] of Object.entries(tokens)) {
       const currentPath = [...pathPrefix, key];
 
       if (value && typeof value === 'object') {
-        // Check if it's a typography token (has $type and $value with object)
-        if (this.isTypographyToken(value)) {
-          await this.createTextStyle(value as DesignToken, currentPath);
-        }
-        // Otherwise recurse into nested groups
-        else if (!('$value' in value)) {
-          await this.processTokenGroup(value as TokenData, currentPath);
+        if (styleType === 'text') {
+          // Check if it's a typography token (has $type and $value with object)
+          if (this.isTypographyToken(value)) {
+            await this.createTextStyle(value as DesignToken, currentPath);
+          }
+          // Otherwise recurse into nested groups
+          else if (!('$value' in value)) {
+            await this.processTokenGroup(value as TokenData, currentPath, styleType);
+          }
+        } else if (styleType === 'effect') {
+          // Check if it's a shadow token
+          if (this.isShadowToken(value)) {
+            await this.createEffectStyle(value as DesignToken, currentPath);
+          }
+          // Otherwise recurse into nested groups
+          else if (!('$value' in value)) {
+            await this.processTokenGroup(value as TokenData, currentPath, styleType);
+          }
         }
       }
     }
@@ -79,15 +109,44 @@ export class StyleManager {
   }
 
   /**
+   * Check if token is a shadow token (boxShadow or dropShadow)
+   */
+  private isShadowToken(token: any): boolean {
+    return (
+      (token.$type === 'boxShadow' || token.$type === 'shadow') &&
+      token.$value &&
+      (typeof token.$value === 'object' || Array.isArray(token.$value))
+    );
+  }
+
+  /**
+   * Remove collection prefix from style path
+   * Example: ['semantic', 'typography', 'display'] -> ['typography', 'display']
+   * Only removes the first level if it's 'primitive' or 'semantic'
+   */
+  private cleanStylePath(path: string[]): string[] {
+    if (path.length === 0) return path;
+
+    const firstLevel = path[0].toLowerCase();
+    if (firstLevel === 'primitive' || firstLevel === 'semantic') {
+      return path.slice(1);
+    }
+
+    return path;
+  }
+
+  /**
    * Create or update Figma text style from typography token
    * Clean code: Single purpose, clear error handling
    */
   private async createTextStyle(token: DesignToken, path: string[]): Promise<void> {
     try {
-      const styleName = path.join('/');
+      // Remove collection prefix (semantic/primitive) from path
+      const cleanedPath = this.cleanStylePath(path);
+      const styleName = cleanedPath.join('/');
       const typography = token.$value as TypographyToken;
 
-      console.log(`[STYLE] Creating text style: ${styleName}`);
+      console.log(`[STYLE] Creating text style: ${styleName} (from path: ${path.join('/')})`);
 
       // Find or create text style
       const existingStyles = await figma.getLocalTextStylesAsync();
@@ -113,6 +172,45 @@ export class StyleManager {
 
     } catch (error) {
       console.error(`[STYLE] Error creating text style ${path.join('/')}: ${error}`);
+      this.styleStats.skipped++;
+    }
+  }
+
+  /**
+   * Create or update Figma effect style from shadow token
+   */
+  private async createEffectStyle(token: DesignToken, path: string[]): Promise<void> {
+    try {
+      // Remove collection prefix (semantic/primitive) from path
+      const cleanedPath = this.cleanStylePath(path);
+      const styleName = cleanedPath.join('/');
+
+      console.log(`[STYLE] Creating effect style: ${styleName} (from path: ${path.join('/')})`);
+
+      // Find or create effect style
+      const existingStyles = await figma.getLocalEffectStylesAsync();
+      let effectStyle = existingStyles.find(s => s.name === styleName);
+
+      if (!effectStyle) {
+        effectStyle = figma.createEffectStyle();
+        effectStyle.name = styleName;
+        this.styleStats.created++;
+        console.log(`[STYLE] ✓ Created new effect style: ${styleName}`);
+      } else {
+        this.styleStats.updated++;
+        console.log(`[STYLE] ✓ Updating existing effect style: ${styleName}`);
+      }
+
+      // Set description
+      if (token.$description) {
+        effectStyle.description = token.$description;
+      }
+
+      // Apply shadow effects
+      await this.applyShadowEffects(effectStyle, token.$value);
+
+    } catch (error) {
+      console.error(`[STYLE] Error creating effect style ${path.join('/')}: ${error}`);
       this.styleStats.skipped++;
     }
   }
@@ -276,6 +374,162 @@ export class StyleManager {
     }
 
     return null;
+  }
+
+  /**
+   * Apply shadow effects to effect style
+   * Handles both single shadow and array of shadows
+   */
+  private async applyShadowEffects(effectStyle: EffectStyle, value: any): Promise<void> {
+    const effects: Effect[] = [];
+
+    // Handle array of shadows
+    if (Array.isArray(value)) {
+      for (const shadow of value) {
+        const effect = this.parseShadowEffect(shadow);
+        if (effect) {
+          effects.push(effect);
+        }
+      }
+    }
+    // Handle single shadow
+    else if (typeof value === 'object' && value !== null) {
+      const effect = this.parseShadowEffect(value);
+      if (effect) {
+        effects.push(effect);
+      }
+    }
+
+    if (effects.length > 0) {
+      effectStyle.effects = effects;
+      console.log(`[STYLE] Applied ${effects.length} shadow effect(s)`);
+    }
+  }
+
+  /**
+   * Parse a single shadow object into a Figma Effect
+   * Format: { x, y, blur, spread, color, type }
+   */
+  private parseShadowEffect(shadow: any): Effect | null {
+    try {
+      // Extract shadow properties
+      const x = this.resolveNumericValue(shadow.x || shadow.offsetX || 0);
+      const y = this.resolveNumericValue(shadow.y || shadow.offsetY || 0);
+      const blur = this.resolveNumericValue(shadow.blur || shadow.blurRadius || 0);
+      const spread = this.resolveNumericValue(shadow.spread || shadow.spreadRadius || 0);
+
+      // Parse color
+      const colorValue = shadow.color || '#000000';
+      const color = this.parseColorValue(colorValue);
+
+      // Determine effect type (DROP_SHADOW or INNER_SHADOW)
+      const type = shadow.type === 'innerShadow' ? 'INNER_SHADOW' : 'DROP_SHADOW';
+
+      const effect: Effect = {
+        type: type,
+        color: color,
+        offset: { x: x || 0, y: y || 0 },
+        radius: blur || 0,
+        spread: spread || 0,
+        visible: true,
+        blendMode: 'NORMAL'
+      };
+
+      return effect;
+    } catch (error) {
+      console.warn(`[STYLE] Failed to parse shadow effect:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Parse color value to RGBA format
+   * Handles hex, rgb/rgba strings, and references
+   */
+  private parseColorValue(value: any): RGBA {
+    // If it's a reference, try to resolve it
+    if (typeof value === 'string' && value.includes('{') && value.includes('}')) {
+      const resolved = this.resolveTokenReference(value);
+      if (resolved) {
+        value = resolved;
+      }
+    }
+
+    // Parse hex color
+    if (typeof value === 'string' && value.startsWith('#')) {
+      return this.hexToRgba(value);
+    }
+
+    // Parse rgba/rgb string
+    if (typeof value === 'string' && (value.startsWith('rgb') || value.startsWith('hsl'))) {
+      // For now, use a simple rgba parser
+      const rgbaMatch = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (rgbaMatch) {
+        return {
+          r: parseInt(rgbaMatch[1]) / 255,
+          g: parseInt(rgbaMatch[2]) / 255,
+          b: parseInt(rgbaMatch[3]) / 255,
+          a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1
+        };
+      }
+    }
+
+    // Default to black
+    return { r: 0, g: 0, b: 0, a: 1 };
+  }
+
+  /**
+   * Convert hex color to RGBA
+   * Supports #RGB, #RRGGBB, #RGBA, #RRGGBBAA
+   */
+  private hexToRgba(hex: string): RGBA {
+    const cleaned = hex.replace('#', '');
+
+    // 8-digit hex: #RRGGBBAA
+    if (cleaned.length === 8) {
+      const bigint = parseInt(cleaned.substring(0, 6), 16);
+      const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
+      return {
+        r: ((bigint >> 16) & 255) / 255,
+        g: ((bigint >> 8) & 255) / 255,
+        b: (bigint & 255) / 255,
+        a: alpha
+      };
+    }
+
+    // 6-digit hex: #RRGGBB
+    if (cleaned.length === 6) {
+      const bigint = parseInt(cleaned, 16);
+      return {
+        r: ((bigint >> 16) & 255) / 255,
+        g: ((bigint >> 8) & 255) / 255,
+        b: (bigint & 255) / 255,
+        a: 1
+      };
+    }
+
+    // 4-digit hex: #RGBA
+    if (cleaned.length === 4) {
+      return {
+        r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
+        g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
+        b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
+        a: parseInt(cleaned[3] + cleaned[3], 16) / 255
+      };
+    }
+
+    // 3-digit hex: #RGB
+    if (cleaned.length === 3) {
+      return {
+        r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
+        g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
+        b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
+        a: 1
+      };
+    }
+
+    // Default to black
+    return { r: 0, g: 0, b: 0, a: 1 };
   }
 
   getStats(): StyleStats {
