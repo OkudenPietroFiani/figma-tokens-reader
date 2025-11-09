@@ -6,6 +6,7 @@
 import { Result, Success, Failure, DocumentationOptions, DocumentationResult, DocumentationTokenRow, TokenFile, TokenMetadata } from '../../shared/types';
 import {
   getEnabledColumns,
+  getTableWidth,
   DOCUMENTATION_LAYOUT_CONFIG,
   extractCategoryFromPath,
   formatTokenValue,
@@ -222,8 +223,8 @@ export class DocumentationGenerator {
   private convertToRows(metadata: TokenMetadata[]): DocumentationTokenRow[] {
     return metadata.map(token => ({
       name: token.name,
-      value: formatTokenValue(token.originalValue || token.value, token.type),
-      resolvedValue: formatTokenValue(token.value, token.type),
+      value: this.formatValue(token.originalValue || token.value, token.type),
+      resolvedValue: this.formatResolvedValue(token.value, token.type),
       type: token.type,
       description: token.description || '',
       category: extractCategoryFromPath(token.fullPath),
@@ -233,19 +234,115 @@ export class DocumentationGenerator {
   }
 
   /**
-   * Group rows by category
+   * Group rows by collection (primitive, semantic, etc.)
    */
   private groupByCategory(rows: DocumentationTokenRow[]): Record<string, DocumentationTokenRow[]> {
     const grouped: Record<string, DocumentationTokenRow[]> = {};
 
     for (const row of rows) {
-      if (!grouped[row.category]) {
-        grouped[row.category] = [];
+      const collection = row.originalToken.collection;
+      if (!grouped[collection]) {
+        grouped[collection] = [];
       }
-      grouped[row.category].push(row);
+      grouped[collection].push(row);
     }
 
     return grouped;
+  }
+
+  /**
+   * Format token value for display
+   * Shows token reference if it's a reference, otherwise formatted value
+   */
+  private formatValue(value: any, type: string): string {
+    // Check if it's a token reference
+    if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
+      return value; // Return reference as-is
+    }
+
+    // Otherwise format the value
+    return this.formatResolvedValue(value, type);
+  }
+
+  /**
+   * Format resolved value for display
+   * Always shows the final computed value, never a reference
+   */
+  private formatResolvedValue(value: any, type: string): string {
+    if (value === null || value === undefined) {
+      return '—';
+    }
+
+    // Handle color values
+    if (type === 'color') {
+      return this.formatColorValue(value);
+    }
+
+    // Handle numeric values
+    if (typeof value === 'number') {
+      // Check if it should be in rem
+      if (type === 'fontSize' || type === 'lineHeight') {
+        return `${value / 16}rem`; // Assuming 16px base
+      }
+      // Otherwise show as px
+      if (type === 'dimension' || type === 'spacing') {
+        return `${value}px`;
+      }
+      return String(value);
+    }
+
+    // Handle string values
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    // Handle boolean values
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+
+    // Handle objects (shouldn't happen for resolved values)
+    if (typeof value === 'object') {
+      if ('r' in value && 'g' in value && 'b' in value) {
+        return this.rgbToHex(value as RGB);
+      }
+      return JSON.stringify(value);
+    }
+
+    return String(value);
+  }
+
+  /**
+   * Format color value to hex or other format
+   */
+  private formatColorValue(value: any): string {
+    // Already a string (hex, hsl, etc.)
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    // RGB object
+    if (typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+      return this.rgbToHex(value as RGB);
+    }
+
+    return formatTokenValue(value, 'color');
+  }
+
+  /**
+   * Convert RGB object to hex string
+   */
+  private rgbToHex(rgb: RGB): string {
+    const r = Math.round(rgb.r * 255);
+    const g = Math.round(rgb.g * 255);
+    const b = Math.round(rgb.b * 255);
+
+    const toHex = (n: number) => {
+      const hex = n.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
   }
 
   /**
@@ -269,29 +366,29 @@ export class DocumentationGenerator {
     mainFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
     mainFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
 
-    // Create a category section for each group
-    for (const [category, rows] of Object.entries(groupedRows)) {
-      const categoryFrame = await this.createCategorySection(
-        category,
+    // Create a collection section for each group
+    for (const [collection, rows] of Object.entries(groupedRows)) {
+      const collectionFrame = await this.createCollectionSection(
+        collection,
         rows,
         includeDescriptions
       );
-      mainFrame.appendChild(categoryFrame);
+      mainFrame.appendChild(collectionFrame);
     }
 
     return mainFrame;
   }
 
   /**
-   * Create a category section with table
+   * Create a collection section with table
    */
-  private async createCategorySection(
-    category: string,
+  private async createCollectionSection(
+    collection: string,
     rows: DocumentationTokenRow[],
     includeDescriptions: boolean
   ): Promise<FrameNode> {
     const sectionFrame = figma.createFrame();
-    sectionFrame.name = `Category: ${category}`;
+    sectionFrame.name = `Collection: ${collection}`;
     sectionFrame.fills = [];
 
     // Auto-layout vertical
@@ -303,7 +400,7 @@ export class DocumentationGenerator {
     // Title
     const title = figma.createText();
     title.name = 'Title';
-    title.characters = category.charAt(0).toUpperCase() + category.slice(1);
+    title.characters = collection.charAt(0).toUpperCase() + collection.slice(1);
     title.fontSize = DOCUMENTATION_LAYOUT_CONFIG.category.titleFontSize;
     title.fontName = { family: this.fontFamily, style: 'Bold' };
     title.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
@@ -327,27 +424,31 @@ export class DocumentationGenerator {
     tableFrame.name = 'Table';
     tableFrame.fills = [];
 
-    // Auto-layout vertical
-    tableFrame.layoutMode = 'VERTICAL';
-    tableFrame.primaryAxisSizingMode = 'AUTO';
-    tableFrame.counterAxisSizingMode = 'AUTO';
-    tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
-
     // Get columns (filter out description if not included)
     let columns = getEnabledColumns();
     if (!includeDescriptions) {
       columns = columns.filter(col => col.key !== 'description');
     }
 
+    // Calculate fixed table width
+    const tableWidth = getTableWidth(includeDescriptions);
+
+    // Auto-layout vertical with fixed width
+    tableFrame.layoutMode = 'VERTICAL';
+    tableFrame.primaryAxisSizingMode = 'AUTO';
+    tableFrame.counterAxisSizingMode = 'FIXED';
+    tableFrame.resize(tableWidth, 100); // Width fixed, height will grow
+    tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
+
     // Header row
-    const headerRow = this.createHeaderRow(columns);
+    const headerRow = this.createHeaderRow(columns, tableWidth);
     tableFrame.appendChild(headerRow);
 
     // Data rows
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const isAlternate = i % 2 === 1;
-      const dataRow = await this.createDataRow(row, columns, isAlternate);
+      const dataRow = await this.createDataRow(row, columns, isAlternate, tableWidth);
       tableFrame.appendChild(dataRow);
     }
 
@@ -357,16 +458,16 @@ export class DocumentationGenerator {
   /**
    * Create header row
    */
-  private createHeaderRow(columns: Array<{ key: string; label: string; width: number }>): FrameNode {
+  private createHeaderRow(columns: Array<{ key: string; label: string; width: number }>, tableWidth: number): FrameNode {
     const rowFrame = figma.createFrame();
     rowFrame.name = 'Header Row';
     rowFrame.fills = [{ type: 'SOLID', color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
 
-    // Auto-layout horizontal
+    // Auto-layout horizontal with fixed width
     rowFrame.layoutMode = 'HORIZONTAL';
-    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'FIXED';
-    rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
 
     for (const column of columns) {
       const cell = this.createHeaderCell(column.label, column.width);
@@ -408,7 +509,8 @@ export class DocumentationGenerator {
   private async createDataRow(
     row: DocumentationTokenRow,
     columns: Array<{ key: string; label: string; width: number }>,
-    isAlternate: boolean
+    isAlternate: boolean,
+    tableWidth: number
   ): Promise<FrameNode> {
     const rowFrame = figma.createFrame();
     rowFrame.name = `Row: ${row.name}`;
@@ -418,11 +520,11 @@ export class DocumentationGenerator {
       : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
     rowFrame.fills = [{ type: 'SOLID', color: bgColor }];
 
-    // Auto-layout horizontal
+    // Auto-layout horizontal with fixed width
     rowFrame.layoutMode = 'HORIZONTAL';
-    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'FIXED';
-    rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
 
     for (const column of columns) {
       let cell: FrameNode;
@@ -451,8 +553,6 @@ export class DocumentationGenerator {
         return row.value;
       case 'resolvedValue':
         return row.resolvedValue;
-      case 'collection':
-        return row.originalToken.collection || '—';
       case 'description':
         return row.description || '—';
       default:

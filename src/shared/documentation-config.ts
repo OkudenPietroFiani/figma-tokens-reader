@@ -19,16 +19,24 @@ export interface ColumnConfig {
 
 export const DOCUMENTATION_COLUMNS_CONFIG: readonly ColumnConfig[] = [
   { key: 'name', label: 'Name', width: 200, enabled: true },
-  { key: 'value', label: 'Value', width: 150, enabled: true },
-  { key: 'resolvedValue', label: 'Resolved Value', width: 150, enabled: true },
+  { key: 'value', label: 'Value', width: 200, enabled: true },
+  { key: 'resolvedValue', label: 'Resolved Value', width: 200, enabled: true },
   { key: 'visualization', label: 'Visualization', width: 100, enabled: true },
-  { key: 'collection', label: 'Collection', width: 120, enabled: true },  // ← 1 LIGNE ajoutée !
   { key: 'description', label: 'Description', width: 200, enabled: true },
 ] as const;
 
 // Get only enabled columns
 export const getEnabledColumns = (): ColumnConfig[] => {
   return DOCUMENTATION_COLUMNS_CONFIG.filter(col => col.enabled);
+};
+
+// Calculate total table width from enabled columns
+export const getTableWidth = (includeDescriptions: boolean): number => {
+  let columns = getEnabledColumns();
+  if (!includeDescriptions) {
+    columns = columns.filter(col => col.key !== 'description');
+  }
+  return columns.reduce((total, col) => total + col.width, 0);
 };
 
 // ==================== LAYOUT CONFIGURATION ====================
