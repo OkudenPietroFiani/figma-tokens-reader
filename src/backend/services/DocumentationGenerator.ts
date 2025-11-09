@@ -1,0 +1,441 @@
+// ====================================================================================
+// DOCUMENTATION GENERATOR
+// Generate visual documentation tables in Figma
+// ====================================================================================
+
+import { Result, Success, Failure, DocumentationOptions, DocumentationResult, DocumentationTokenRow, TokenFile, TokenMetadata } from '../../shared/types';
+import {
+  getEnabledColumns,
+  DOCUMENTATION_LAYOUT_CONFIG,
+  extractCategoryFromPath,
+  formatTokenValue,
+  DOCUMENTATION_TYPOGRAPHY,
+} from '../../shared/documentation-config';
+import { TokenVisualizerRegistry } from '../../core/registries/TokenVisualizerRegistry';
+import { DefaultVisualizer } from '../../core/visualizers/DefaultVisualizer';
+
+/**
+ * DocumentationGenerator
+ *
+ * Principles:
+ * - Single Responsibility: Generates Figma documentation tables
+ * - Configuration-Driven: Uses extensible column config
+ * - Strategy Pattern: Uses TokenVisualizerRegistry for visualizations
+ *
+ * Architecture:
+ * - Parses token files into rows
+ * - Groups tokens by category
+ * - Creates table structure with auto-layout
+ * - Delegates visualization to registered visualizers
+ */
+export class DocumentationGenerator {
+  private fontFamily: string;
+  private defaultVisualizer: DefaultVisualizer;
+
+  constructor() {
+    this.fontFamily = DOCUMENTATION_TYPOGRAPHY.defaultFontFamily;
+    this.defaultVisualizer = new DefaultVisualizer();
+  }
+
+  /**
+   * Generate documentation table in Figma
+   *
+   * @param tokenFiles - Map of token files to document
+   * @param tokenMetadata - Array of token metadata from VariableManager
+   * @param options - Generation options
+   * @returns Result with generation statistics
+   */
+  async generate(
+    tokenFiles: Map<string, TokenFile>,
+    tokenMetadata: TokenMetadata[],
+    options: DocumentationOptions
+  ): Promise<Result<DocumentationResult>> {
+    try {
+      // Validate options
+      if (options.fileNames.length === 0) {
+        return Failure('No files selected for documentation');
+      }
+
+      // Set font family
+      if (options.fontFamily) {
+        this.fontFamily = options.fontFamily;
+      }
+
+      // Load font
+      await this.loadFont();
+
+      // Filter tokens by selected files
+      const filteredMetadata = this.filterTokensByFiles(
+        tokenMetadata,
+        options.fileNames
+      );
+
+      if (filteredMetadata.length === 0) {
+        return Failure('No tokens found in selected files');
+      }
+
+      // Convert to rows
+      const rows = this.convertToRows(filteredMetadata);
+
+      // Group by category
+      const groupedRows = this.groupByCategory(rows);
+
+      // Create documentation frame
+      const docFrame = await this.createDocumentationFrame(
+        groupedRows,
+        options.includeDescriptions
+      );
+
+      // Select and zoom to the frame
+      figma.currentPage.selection = [docFrame];
+      figma.viewport.scrollAndZoomIntoView([docFrame]);
+
+      return Success({
+        frameId: docFrame.id,
+        tokenCount: rows.length,
+        categoryCount: Object.keys(groupedRows).length,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[DocumentationGenerator] Generation failed:', message);
+      return Failure(`Documentation generation failed: ${message}`);
+    }
+  }
+
+  /**
+   * Load font for documentation
+   */
+  private async loadFont(): Promise<void> {
+    try {
+      await figma.loadFontAsync({ family: this.fontFamily, style: 'Regular' });
+      await figma.loadFontAsync({ family: this.fontFamily, style: 'Bold' });
+    } catch (error) {
+      // Try fallback fonts
+      for (const fallback of DOCUMENTATION_TYPOGRAPHY.fallbackFonts) {
+        try {
+          await figma.loadFontAsync({ family: fallback, style: 'Regular' });
+          await figma.loadFontAsync({ family: fallback, style: 'Bold' });
+          this.fontFamily = fallback;
+          console.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
+          return;
+        } catch {
+          continue;
+        }
+      }
+      throw new Error('Failed to load any font');
+    }
+  }
+
+  /**
+   * Filter tokens by selected file names
+   */
+  private filterTokensByFiles(
+    metadata: TokenMetadata[],
+    fileNames: string[]
+  ): TokenMetadata[] {
+    // If no filtering needed, return all
+    if (fileNames.length === 0) {
+      return metadata;
+    }
+
+    // Filter by collection (file name)
+    return metadata.filter(token =>
+      fileNames.some(fileName =>
+        token.collection.toLowerCase().includes(fileName.toLowerCase())
+      )
+    );
+  }
+
+  /**
+   * Convert token metadata to documentation rows
+   */
+  private convertToRows(metadata: TokenMetadata[]): DocumentationTokenRow[] {
+    return metadata.map(token => ({
+      name: token.name,
+      value: formatTokenValue(token.originalValue || token.value, token.type),
+      resolvedValue: formatTokenValue(token.value, token.type),
+      type: token.type,
+      description: token.description || '',
+      category: extractCategoryFromPath(token.fullPath),
+      path: token.fullPath,
+      originalToken: token,
+    }));
+  }
+
+  /**
+   * Group rows by category
+   */
+  private groupByCategory(rows: DocumentationTokenRow[]): Record<string, DocumentationTokenRow[]> {
+    const grouped: Record<string, DocumentationTokenRow[]> = {};
+
+    for (const row of rows) {
+      if (!grouped[row.category]) {
+        grouped[row.category] = [];
+      }
+      grouped[row.category].push(row);
+    }
+
+    return grouped;
+  }
+
+  /**
+   * Create the main documentation frame
+   */
+  private async createDocumentationFrame(
+    groupedRows: Record<string, DocumentationTokenRow[]>,
+    includeDescriptions: boolean
+  ): FrameNode {
+    const mainFrame = figma.createFrame();
+    mainFrame.name = 'Token Documentation';
+    mainFrame.fills = [{ type: 'SOLID', color: DOCUMENTATION_LAYOUT_CONFIG.global.backgroundColor }];
+
+    // Auto-layout vertical
+    mainFrame.layoutMode = 'VERTICAL';
+    mainFrame.primaryAxisSizingMode = 'AUTO';
+    mainFrame.counterAxisSizingMode = 'AUTO';
+    mainFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.global.gap;
+    mainFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+    mainFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+    mainFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+    mainFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+
+    // Create a category section for each group
+    for (const [category, rows] of Object.entries(groupedRows)) {
+      const categoryFrame = await this.createCategorySection(
+        category,
+        rows,
+        includeDescriptions
+      );
+      mainFrame.appendChild(categoryFrame);
+    }
+
+    return mainFrame;
+  }
+
+  /**
+   * Create a category section with table
+   */
+  private async createCategorySection(
+    category: string,
+    rows: DocumentationTokenRow[],
+    includeDescriptions: boolean
+  ): Promise<FrameNode> {
+    const sectionFrame = figma.createFrame();
+    sectionFrame.name = `Category: ${category}`;
+    sectionFrame.fills = [];
+
+    // Auto-layout vertical
+    sectionFrame.layoutMode = 'VERTICAL';
+    sectionFrame.primaryAxisSizingMode = 'AUTO';
+    sectionFrame.counterAxisSizingMode = 'AUTO';
+    sectionFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.category.gap;
+
+    // Title
+    const title = figma.createText();
+    title.name = 'Title';
+    title.characters = category.charAt(0).toUpperCase() + category.slice(1);
+    title.fontSize = DOCUMENTATION_LAYOUT_CONFIG.category.titleFontSize;
+    title.fontName = { family: this.fontFamily, style: 'Bold' };
+    title.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
+    sectionFrame.appendChild(title);
+
+    // Table
+    const table = await this.createTable(rows, includeDescriptions);
+    sectionFrame.appendChild(table);
+
+    return sectionFrame;
+  }
+
+  /**
+   * Create table with header and rows
+   */
+  private async createTable(
+    rows: DocumentationTokenRow[],
+    includeDescriptions: boolean
+  ): Promise<FrameNode> {
+    const tableFrame = figma.createFrame();
+    tableFrame.name = 'Table';
+    tableFrame.fills = [];
+
+    // Auto-layout vertical
+    tableFrame.layoutMode = 'VERTICAL';
+    tableFrame.primaryAxisSizingMode = 'AUTO';
+    tableFrame.counterAxisSizingMode = 'AUTO';
+    tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
+
+    // Get columns (filter out description if not included)
+    let columns = getEnabledColumns();
+    if (!includeDescriptions) {
+      columns = columns.filter(col => col.key !== 'description');
+    }
+
+    // Header row
+    const headerRow = this.createHeaderRow(columns);
+    tableFrame.appendChild(headerRow);
+
+    // Data rows
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const isAlternate = i % 2 === 1;
+      const dataRow = await this.createDataRow(row, columns, isAlternate);
+      tableFrame.appendChild(dataRow);
+    }
+
+    return tableFrame;
+  }
+
+  /**
+   * Create header row
+   */
+  private createHeaderRow(columns: Array<{ key: string; label: string; width: number }>): FrameNode {
+    const rowFrame = figma.createFrame();
+    rowFrame.name = 'Header Row';
+    rowFrame.fills = [{ type: 'SOLID', color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
+
+    // Auto-layout horizontal
+    rowFrame.layoutMode = 'HORIZONTAL';
+    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.counterAxisSizingMode = 'FIXED';
+    rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+
+    for (const column of columns) {
+      const cell = this.createHeaderCell(column.label, column.width);
+      rowFrame.appendChild(cell);
+    }
+
+    return rowFrame;
+  }
+
+  /**
+   * Create header cell
+   */
+  private createHeaderCell(label: string, width: number): FrameNode {
+    const cellFrame = figma.createFrame();
+    cellFrame.name = `Header: ${label}`;
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+    cellFrame.fills = [];
+
+    // Auto-layout
+    cellFrame.layoutMode = 'HORIZONTAL';
+    cellFrame.primaryAxisAlignItems = 'CENTER';
+    cellFrame.counterAxisAlignItems = 'CENTER';
+    cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+
+    const text = figma.createText();
+    text.characters = label;
+    text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
+    text.fontName = { family: this.fontFamily, style: 'Bold' };
+    text.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
+
+    cellFrame.appendChild(text);
+    return cellFrame;
+  }
+
+  /**
+   * Create data row
+   */
+  private async createDataRow(
+    row: DocumentationTokenRow,
+    columns: Array<{ key: string; label: string; width: number }>,
+    isAlternate: boolean
+  ): Promise<FrameNode> {
+    const rowFrame = figma.createFrame();
+    rowFrame.name = `Row: ${row.name}`;
+
+    const bgColor = isAlternate
+      ? DOCUMENTATION_LAYOUT_CONFIG.row.alternateBackgroundColor
+      : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
+    rowFrame.fills = [{ type: 'SOLID', color: bgColor }];
+
+    // Auto-layout horizontal
+    rowFrame.layoutMode = 'HORIZONTAL';
+    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.counterAxisSizingMode = 'FIXED';
+    rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+
+    for (const column of columns) {
+      let cell: FrameNode;
+
+      if (column.key === 'visualization') {
+        cell = await this.createVisualizationCell(row, column.width);
+      } else {
+        const value = this.getCellValue(row, column.key);
+        cell = this.createTextCell(value, column.width);
+      }
+
+      rowFrame.appendChild(cell);
+    }
+
+    return rowFrame;
+  }
+
+  /**
+   * Get cell value from row
+   */
+  private getCellValue(row: DocumentationTokenRow, key: string): string {
+    switch (key) {
+      case 'name':
+        return row.name;
+      case 'value':
+        return row.value;
+      case 'resolvedValue':
+        return row.resolvedValue;
+      case 'collection':
+        return row.originalToken.collection || '—';
+      case 'description':
+        return row.description || '—';
+      default:
+        return '—';
+    }
+  }
+
+  /**
+   * Create text cell
+   */
+  private createTextCell(value: string, width: number): FrameNode {
+    const cellFrame = figma.createFrame();
+    cellFrame.name = 'Cell';
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+    cellFrame.fills = [];
+
+    // Auto-layout
+    cellFrame.layoutMode = 'HORIZONTAL';
+    cellFrame.primaryAxisAlignItems = 'CENTER';
+    cellFrame.counterAxisAlignItems = 'CENTER';
+    cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+
+    const text = figma.createText();
+    text.characters = value;
+    text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
+    text.fontName = { family: this.fontFamily, style: 'Regular' };
+    text.fills = [{ type: 'SOLID', color: { r: 0.3, g: 0.3, b: 0.3 } }];
+
+    cellFrame.appendChild(text);
+    return cellFrame;
+  }
+
+  /**
+   * Create visualization cell
+   */
+  private async createVisualizationCell(row: DocumentationTokenRow, width: number): Promise<FrameNode> {
+    const cellFrame = figma.createFrame();
+    cellFrame.name = 'Visualization Cell';
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+    cellFrame.fills = [];
+
+    // Get visualizer
+    const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
+
+    // Render visualization
+    const visualization = visualizer.renderVisualization(
+      row.originalToken,
+      width,
+      DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight
+    );
+
+    cellFrame.appendChild(visualization);
+    return cellFrame;
+  }
+}

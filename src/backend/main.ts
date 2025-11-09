@@ -16,6 +16,7 @@ import { StorageService } from './services/StorageService';
 import { TokenController } from './controllers/TokenController';
 import { GitHubController } from './controllers/GitHubController';
 import { ScopeController } from './controllers/ScopeController';
+import { DocumentationController } from './controllers/DocumentationController';
 
 // New Architecture (Phases 1-4)
 import { FileSourceRegistry } from '../core/registries/FileSourceRegistry';
@@ -23,6 +24,12 @@ import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
 import { GitHubFileSource } from '../core/adapters/GitHubFileSource';
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
 import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
+
+// Documentation Architecture
+import { TokenVisualizerRegistry } from '../core/registries/TokenVisualizerRegistry';
+import { ColorVisualizer } from '../core/visualizers/ColorVisualizer';
+import { DefaultVisualizer } from '../core/visualizers/DefaultVisualizer';
+import { DocumentationGenerator } from './services/DocumentationGenerator';
 
 /**
  * Main backend class for plugin
@@ -43,6 +50,7 @@ class PluginBackend {
   private tokenController: TokenController;
   private githubController: GitHubController;
   private scopeController: ScopeController;
+  private documentationController: DocumentationController;
 
   constructor() {
     // Register new architecture components (Phases 1-4)
@@ -58,6 +66,14 @@ class PluginBackend {
     this.githubController = new GitHubController(this.githubService, this.storage);
     this.scopeController = new ScopeController();
 
+    // Initialize documentation controller
+    const documentationGenerator = new DocumentationGenerator();
+    this.documentationController = new DocumentationController(
+      documentationGenerator,
+      this.storage,
+      this.variableManager
+    );
+
     ErrorHandler.info('Plugin backend initialized', 'PluginBackend');
   }
 
@@ -66,6 +82,7 @@ class PluginBackend {
    * Phase 1: File sources and token formats
    * Phase 3: Parallel processing (enabled via FEATURE_FLAGS)
    * Phase 4: Format auto-detection (enabled via FEATURE_FLAGS)
+   * Phase 5: Documentation system with visualizers
    * @private
    */
   private registerArchitectureComponents(): void {
@@ -75,6 +92,10 @@ class PluginBackend {
     // Register token format strategies (W3C, Style Dictionary, etc.)
     TokenFormatRegistry.register(new W3CTokenFormatStrategy());
     TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
+
+    // Register token visualizers for documentation
+    TokenVisualizerRegistry.register(new ColorVisualizer());
+    TokenVisualizerRegistry.register(new DefaultVisualizer());
 
     ErrorHandler.info('Architecture components registered', 'PluginBackend');
   }
@@ -143,6 +164,11 @@ class PluginBackend {
 
         case 'apply-variable-scopes':
           await this.handleApplyVariableScopes(msg);
+          break;
+
+        // ==================== DOCUMENTATION OPERATIONS ====================
+        case 'generate-documentation':
+          await this.handleGenerateDocumentation(msg);
           break;
 
         // ==================== PLUGIN CONTROL ====================
@@ -285,6 +311,23 @@ class PluginBackend {
       figma.ui.postMessage({
         type: 'scopes-applied',
         message: `Scopes updated for ${result.data} variable(s)`,
+        requestId: msg.requestId
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  }
+
+  // ==================== DOCUMENTATION HANDLERS ====================
+
+  private async handleGenerateDocumentation(msg: PluginMessage): Promise<void> {
+    const result = await this.documentationController.generateDocumentation(msg.data);
+
+    if (result.success) {
+      figma.ui.postMessage({
+        type: 'documentation-generated',
+        data: result.data,
+        message: `Documentation generated: ${result.data!.tokenCount} tokens in ${result.data!.categoryCount} categories`,
         requestId: msg.requestId
       });
     } else {
