@@ -666,14 +666,18 @@
       return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
     }
     /**
-     * Remove collection prefix from style path
-     * Example: ['semantic', 'typography', 'display'] -> ['typography', 'display']
-     * Only removes the first level if it's 'primitive' or 'semantic'
+     * Remove collection and category prefixes from style path
+     * Example: ['semantic', 'typography', 'display'] -> ['display']
+     * Removes first level (primitive/semantic) AND second level (typography/effect/etc)
      */
     cleanStylePath(path) {
       if (path.length === 0) return path;
       const firstLevel = path[0].toLowerCase();
+      const secondLevel = path.length > 1 ? path[1].toLowerCase() : "";
       if (firstLevel === "primitive" || firstLevel === "semantic") {
+        if (secondLevel === "typography" || secondLevel === "effect" || secondLevel === "shadow" || secondLevel === "boxshadow" || secondLevel === "dropshadow") {
+          return path.slice(2);
+        }
         return path.slice(1);
       }
       return path;
@@ -1250,7 +1254,11 @@
      * These will be created as effect styles instead of variables
      */
     isShadowToken(token) {
-      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
+      const isShadow = (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
+      if (isShadow) {
+        console.log(`[SHADOW TOKEN] Detected shadow token with $type: ${token.$type}`);
+      }
+      return isShadow;
     }
     async createVariable(token, path, collection, collectionName) {
       try {
@@ -1273,10 +1281,17 @@
         }
         const processedValue = await processTokenValue(token.$value, tokenType, this.variableMap);
         const modeId = collection.modes[0].modeId;
+        if (tokenType === "color" && processedValue.value && typeof processedValue.value === "object" && "a" in processedValue.value) {
+          console.log(`[CREATE VAR] ${variableName} - Color with alpha:`, processedValue.value);
+        }
         if (processedValue.isAlias && processedValue.aliasVariable) {
           variable.setValueForMode(modeId, { type: "VARIABLE_ALIAS", id: processedValue.aliasVariable.id });
         } else {
           variable.setValueForMode(modeId, processedValue.value);
+          if (tokenType === "color" && processedValue.value && typeof processedValue.value === "object" && "a" in processedValue.value) {
+            const setValue = variable.valuesByMode[modeId];
+            console.log(`[CREATE VAR] ${variableName} - Value after setting:`, setValue);
+          }
         }
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);

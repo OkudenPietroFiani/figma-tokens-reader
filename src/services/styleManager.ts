@@ -120,16 +120,24 @@ export class StyleManager {
   }
 
   /**
-   * Remove collection prefix from style path
-   * Example: ['semantic', 'typography', 'display'] -> ['typography', 'display']
-   * Only removes the first level if it's 'primitive' or 'semantic'
+   * Remove collection and category prefixes from style path
+   * Example: ['semantic', 'typography', 'display'] -> ['display']
+   * Removes first level (primitive/semantic) AND second level (typography/effect/etc)
    */
   private cleanStylePath(path: string[]): string[] {
     if (path.length === 0) return path;
 
     const firstLevel = path[0].toLowerCase();
+    const secondLevel = path.length > 1 ? path[1].toLowerCase() : '';
+
+    // Remove first level if it's a collection name (primitive/semantic)
     if (firstLevel === 'primitive' || firstLevel === 'semantic') {
-      return path.slice(1);
+      // Also remove second level if it's a category (typography, effect, shadow, etc)
+      if (secondLevel === 'typography' || secondLevel === 'effect' || secondLevel === 'shadow' ||
+          secondLevel === 'boxshadow' || secondLevel === 'dropshadow') {
+        return path.slice(2); // Remove both first and second level
+      }
+      return path.slice(1); // Remove only first level
     }
 
     return path;

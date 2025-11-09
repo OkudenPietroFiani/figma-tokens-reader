@@ -382,11 +382,17 @@ export class VariableManager {
    * These will be created as effect styles instead of variables
    */
   private isShadowToken(token: any): boolean {
-    return (
+    const isShadow = (
       (token.$type === 'boxShadow' || token.$type === 'shadow') &&
       token.$value &&
       (typeof token.$value === 'object' || Array.isArray(token.$value))
     );
+
+    if (isShadow) {
+      console.log(`[SHADOW TOKEN] Detected shadow token with $type: ${token.$type}`);
+    }
+
+    return isShadow;
   }
 
   private async createVariable(
@@ -426,11 +432,22 @@ export class VariableManager {
       // Get the default mode
       const modeId = collection.modes[0].modeId;
 
+      // Debug log for color variables with alpha
+      if (tokenType === 'color' && processedValue.value && typeof processedValue.value === 'object' && 'a' in processedValue.value) {
+        console.log(`[CREATE VAR] ${variableName} - Color with alpha:`, processedValue.value);
+      }
+
       // Set the value
       if (processedValue.isAlias && processedValue.aliasVariable) {
         variable.setValueForMode(modeId, { type: 'VARIABLE_ALIAS', id: processedValue.aliasVariable.id });
       } else {
         variable.setValueForMode(modeId, processedValue.value);
+
+        // Verify the value was set correctly for colors with alpha
+        if (tokenType === 'color' && processedValue.value && typeof processedValue.value === 'object' && 'a' in processedValue.value) {
+          const setValue = variable.valuesByMode[modeId];
+          console.log(`[CREATE VAR] ${variableName} - Value after setting:`, setValue);
+        }
       }
 
       // Scopes are managed independently via the Scopes tab
