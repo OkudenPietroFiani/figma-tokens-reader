@@ -1161,6 +1161,7 @@
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>Pull changes</span>
+          <span class="change-indicator hidden" id="change-indicator" style="width: 8px; height: 8px; background-color: #0066FF; border-radius: 50%; margin-left: 8px; display: inline-block;"></span>
         </button>
       </div>
     `;
@@ -1170,6 +1171,7 @@
       this.fileTabsList = screen.querySelector("#file-tabs-list");
       this.tokenTreeContent = screen.querySelector("#token-tree-content");
       this.lastUpdatedText = screen.querySelector("#last-updated-text");
+      this.changeIndicator = screen.querySelector("#change-indicator");
       return screen;
     }
     bindEvents() {
@@ -1192,6 +1194,7 @@
         this.renderFileList();
         this.updatePullChangesButton();
         this.updateLastUpdatedText();
+        this.updateChangeIndicator();
       });
       this.subscribeToState("file-selected", (fileName) => {
         this.renderFilePreview(fileName);
@@ -1353,9 +1356,10 @@
     }
     /**
      * Update pull changes button visibility
+     * Button shows if we have a GitHub config (connected to GitHub)
      */
     updatePullChangesButton() {
-      if (this.state.tokenSource === "github") {
+      if (this.state.githubConfig || this.state.tokenSource === "github") {
         this.pullChangesBtn.classList.remove("hidden");
       } else {
         this.pullChangesBtn.classList.add("hidden");
@@ -1396,6 +1400,25 @@
       return date.toLocaleDateString("en-US", options);
     }
     /**
+     * Update change indicator visibility
+     * Shows blue dot if last update was more than 5 minutes ago (changes might be available)
+     */
+    updateChangeIndicator() {
+      const lastUpdated = this.state.lastUpdated;
+      if (!lastUpdated || !this.state.githubConfig) {
+        this.changeIndicator.classList.add("hidden");
+        return;
+      }
+      const lastUpdateTime = new Date(lastUpdated).getTime();
+      const now = (/* @__PURE__ */ new Date()).getTime();
+      const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 6e4);
+      if (minutesSinceUpdate >= 5) {
+        this.changeIndicator.classList.remove("hidden");
+      } else {
+        this.changeIndicator.classList.add("hidden");
+      }
+    }
+    /**
      * Handle pull changes from GitHub
      */
     async handlePullChanges() {
@@ -1409,6 +1432,7 @@
         this.setEnabled(this.pullChangesBtn, false);
         const response = await this.bridge.send("github-import-files", githubConfig);
         this.handleFilesImported(response);
+        this.changeIndicator.classList.add("hidden");
         this.setEnabled(this.pullChangesBtn, true);
       } catch (error) {
         console.error("Error pulling changes:", error);
@@ -1440,6 +1464,7 @@
       }
       if (tokenFiles.length > 0) {
         this.state.setTokenFiles(tokenFiles);
+        this.state.setTokenSource("github");
         this.showNotification("Successfully pulled latest changes", "success");
       }
     }
@@ -1451,6 +1476,7 @@
       this.renderFileList();
       this.updatePullChangesButton();
       this.updateLastUpdatedText();
+      this.updateChangeIndicator();
       console.log("[TokenScreen] Screen shown");
     }
   };

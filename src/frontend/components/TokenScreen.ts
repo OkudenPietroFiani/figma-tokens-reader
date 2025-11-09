@@ -15,6 +15,7 @@ export class TokenScreen extends BaseComponent {
   private fileTabsList!: HTMLDivElement;
   private tokenTreeContent!: HTMLDivElement;
   private lastUpdatedText!: HTMLDivElement;
+  private changeIndicator!: HTMLSpanElement;
 
   constructor(state: AppState, bridge: PluginBridge) {
     super(state);
@@ -69,6 +70,7 @@ export class TokenScreen extends BaseComponent {
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>Pull changes</span>
+          <span class="change-indicator hidden" id="change-indicator" style="width: 8px; height: 8px; background-color: #0066FF; border-radius: 50%; margin-left: 8px; display: inline-block;"></span>
         </button>
       </div>
     `;
@@ -80,6 +82,7 @@ export class TokenScreen extends BaseComponent {
     this.fileTabsList = screen.querySelector('#file-tabs-list')!;
     this.tokenTreeContent = screen.querySelector('#token-tree-content')!;
     this.lastUpdatedText = screen.querySelector('#last-updated-text')!;
+    this.changeIndicator = screen.querySelector('#change-indicator')!;
 
     return screen;
   }
@@ -113,6 +116,7 @@ export class TokenScreen extends BaseComponent {
       this.renderFileList();
       this.updatePullChangesButton();
       this.updateLastUpdatedText();
+      this.updateChangeIndicator();
     });
 
     this.subscribeToState('file-selected', (fileName) => {
@@ -315,9 +319,11 @@ export class TokenScreen extends BaseComponent {
 
   /**
    * Update pull changes button visibility
+   * Button shows if we have a GitHub config (connected to GitHub)
    */
   private updatePullChangesButton(): void {
-    if (this.state.tokenSource === 'github') {
+    // Show button if we have GitHub config OR tokenSource is github
+    if (this.state.githubConfig || this.state.tokenSource === 'github') {
       this.pullChangesBtn.classList.remove('hidden');
     } else {
       this.pullChangesBtn.classList.add('hidden');
@@ -371,6 +377,30 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
+   * Update change indicator visibility
+   * Shows blue dot if last update was more than 5 minutes ago (changes might be available)
+   */
+  private updateChangeIndicator(): void {
+    const lastUpdated = this.state.lastUpdated;
+
+    if (!lastUpdated || !this.state.githubConfig) {
+      this.changeIndicator.classList.add('hidden');
+      return;
+    }
+
+    // Check if more than 5 minutes have passed since last update
+    const lastUpdateTime = new Date(lastUpdated).getTime();
+    const now = new Date().getTime();
+    const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 60000);
+
+    if (minutesSinceUpdate >= 5) {
+      this.changeIndicator.classList.remove('hidden');
+    } else {
+      this.changeIndicator.classList.add('hidden');
+    }
+  }
+
+  /**
    * Handle pull changes from GitHub
    */
   private async handlePullChanges(): Promise<void> {
@@ -387,6 +417,9 @@ export class TokenScreen extends BaseComponent {
 
       const response = await this.bridge.send('github-import-files', githubConfig);
       this.handleFilesImported(response);
+
+      // Hide change indicator after pulling
+      this.changeIndicator.classList.add('hidden');
 
       this.setEnabled(this.pullChangesBtn, true);
     } catch (error) {
@@ -424,6 +457,7 @@ export class TokenScreen extends BaseComponent {
 
     if (tokenFiles.length > 0) {
       this.state.setTokenFiles(tokenFiles);
+      this.state.setTokenSource('github'); // Ensure tokenSource is set
       this.showNotification('Successfully pulled latest changes', 'success');
     }
   }
@@ -436,6 +470,7 @@ export class TokenScreen extends BaseComponent {
     this.renderFileList();
     this.updatePullChangesButton();
     this.updateLastUpdatedText();
+    this.updateChangeIndicator();
     console.log('[TokenScreen] Screen shown');
   }
 }
