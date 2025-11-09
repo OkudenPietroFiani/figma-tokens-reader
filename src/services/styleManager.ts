@@ -455,10 +455,89 @@ export class StyleManager {
 
   /**
    * Parse color value to RGBA format
-   * Handles hex, rgb/rgba strings, and references
+   * Handles hex, rgb/rgba strings, references, and colorSpace object format
    */
   private parseColorValue(value: any): RGBA {
-    // If it's a reference, try to resolve it
+    // Handle colorSpace object format with references (components and/or alpha)
+    if (typeof value === 'object' && value !== null && ('components' in value || 'alpha' in value)) {
+      let resolvedValue = { ...value };
+      let needsResolution = false;
+
+      // Resolve components reference if present
+      if (typeof value.components === 'string' && value.components.includes('{') && value.components.includes('}')) {
+        const match = value.components.match(/\{([^}]+)\}/);
+        if (match) {
+          const reference = match[1];
+          const componentsVariable = resolveReference(reference, this.variableMap);
+
+          if (componentsVariable) {
+            // Get the resolved color value from the variable
+            const modeId = Object.keys(componentsVariable.valuesByMode)[0];
+            const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
+
+            // Extract RGB components from the resolved color
+            if (typeof resolvedComponentsValue === 'object' && 'r' in resolvedComponentsValue) {
+              // Already have the RGBA value from Figma, use it directly
+              return {
+                r: resolvedComponentsValue.r,
+                g: resolvedComponentsValue.g,
+                b: resolvedComponentsValue.b,
+                a: typeof value.alpha === 'number' ? value.alpha : (resolvedComponentsValue.a || 1)
+              };
+            }
+          } else {
+            console.error(`[SHADOW COLOR COMPONENTS FAILED] Cannot resolve: ${value.components}`);
+          }
+        }
+      }
+
+      // Resolve alpha reference if present
+      if (typeof value.alpha === 'string' && value.alpha.includes('{') && value.alpha.includes('}')) {
+        const match = value.alpha.match(/\{([^}]+)\}/);
+        if (match) {
+          const reference = match[1];
+          const alphaVariable = resolveReference(reference, this.variableMap);
+
+          if (alphaVariable) {
+            // Get the resolved numeric value from the variable
+            const modeId = Object.keys(alphaVariable.valuesByMode)[0];
+            const resolvedAlpha = alphaVariable.valuesByMode[modeId];
+
+            resolvedValue.alpha = typeof resolvedAlpha === 'number' ? resolvedAlpha : 1;
+            needsResolution = true;
+          } else {
+            console.error(`[SHADOW COLOR ALPHA FAILED] Cannot resolve: ${value.alpha}`);
+            resolvedValue.alpha = 1;
+          }
+        }
+      }
+
+      // If we have colorSpace format with arrays, parse it
+      if (value.colorSpace && Array.isArray(resolvedValue.components)) {
+        const { colorSpace, components } = resolvedValue;
+        const alpha = typeof resolvedValue.alpha === 'number' ? resolvedValue.alpha : 1;
+
+        if (colorSpace === 'rgb' && components.length === 3) {
+          return {
+            r: components[0] / 255,
+            g: components[1] / 255,
+            b: components[2] / 255,
+            a: alpha
+          };
+        }
+
+        if (colorSpace === 'hsl' && components.length === 3) {
+          // Convert HSL to RGB
+          const h = components[0] / 360;
+          const s = components[1] / 100;
+          const l = components[2] / 100;
+          const rgb = this.hslToRgb(h, s, l);
+          return { ...rgb, a: alpha };
+        }
+      }
+    }
+
+    // If it's a simple string reference, try to resolve it
     if (typeof value === 'string' && value.includes('{') && value.includes('}')) {
       const resolved = this.resolveTokenReference(value);
       if (resolved) {
@@ -487,6 +566,35 @@ export class StyleManager {
 
     // Default to black
     return { r: 0, g: 0, b: 0, a: 1 };
+  }
+
+  /**
+   * Convert HSL to RGB (without alpha)
+   * Alpha is handled separately in parseColorValue
+   */
+  private hslToRgb(h: number, s: number, l: number): Pick<RGBA, 'r' | 'g' | 'b'> {
+    let r, g, b;
+
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return { r, g, b };
   }
 
   /**
