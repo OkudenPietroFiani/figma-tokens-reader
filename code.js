@@ -3225,25 +3225,32 @@
 
   // src/shared/documentation-config.ts
   var DOCUMENTATION_COLUMNS_CONFIG = [
-    { key: "name", label: "Name", width: 200, enabled: true },
-    { key: "value", label: "Value", width: 200, enabled: true },
-    { key: "resolvedValue", label: "Resolved Value", width: 200, enabled: true },
-    { key: "visualization", label: "Visualization", width: 100, enabled: true },
-    { key: "description", label: "Description", width: 200, enabled: true }
+    { key: "name", label: "Name", widthRatio: 1, enabled: true },
+    { key: "value", label: "Value", widthRatio: 1, enabled: true },
+    { key: "resolvedValue", label: "Resolved Value", widthRatio: 1, enabled: true },
+    { key: "visualization", label: "Visualization", widthRatio: 1, enabled: true },
+    { key: "description", label: "Description", widthRatio: 1, enabled: true }
   ];
   var getEnabledColumns = () => {
     return DOCUMENTATION_COLUMNS_CONFIG.filter((col) => col.enabled);
   };
-  var getTableWidth = (includeDescriptions) => {
+  var calculateColumnWidths = (tableWidth, includeDescriptions) => {
     let columns = getEnabledColumns();
     if (!includeDescriptions) {
       columns = columns.filter((col) => col.key !== "description");
     }
-    return columns.reduce((total, col) => total + col.width, 0);
+    const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
+    const widthMap = /* @__PURE__ */ new Map();
+    columns.forEach((col) => {
+      widthMap.set(col.key, Math.floor(col.widthRatio / totalRatio * tableWidth));
+    });
+    return widthMap;
   };
   var DOCUMENTATION_LAYOUT_CONFIG = {
     // Table layout
     table: {
+      width: 1200,
+      // Fixed table width - all columns will distribute this width
       rowHeight: 40,
       headerHeight: 48,
       padding: 16,
@@ -3461,6 +3468,103 @@
     }
   };
 
+  // src/core/visualizers/SpacingVisualizer.ts
+  var SpacingVisualizer = class {
+    getType() {
+      return "spacing";
+    }
+    canVisualize(token) {
+      return token.type === "spacing" || token.type === "dimension";
+    }
+    renderVisualization(token, width, height) {
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(width, height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const rectangle = figma.createRectangle();
+      const spacingValue = this.parseSpacingValue(token.value);
+      const rectWidth = Math.min(spacingValue, width - 16);
+      const rectHeight = DOCUMENTATION_LAYOUT_CONFIG.visualization.spacingBarHeight;
+      rectangle.resize(rectWidth, rectHeight);
+      rectangle.cornerRadius = 2;
+      rectangle.fills = [{ type: "SOLID", color: { r: 0.4, g: 0.6, b: 1 } }];
+      container.appendChild(rectangle);
+      return container;
+    }
+    /**
+     * Parse spacing value to pixels
+     */
+    parseSpacingValue(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const numStr = value.replace("px", "").trim();
+        const parsed = parseFloat(numStr);
+        return isNaN(parsed) ? 16 : parsed;
+      }
+      return 16;
+    }
+  };
+
+  // src/core/visualizers/FontSizeVisualizer.ts
+  var FontSizeVisualizer = class {
+    getType() {
+      return "fontSize";
+    }
+    canVisualize(token) {
+      return token.type === "fontSize" || token.type === "fontSizes";
+    }
+    renderVisualization(token, width, height) {
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(width, height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const text = figma.createText();
+      text.characters = "Aa";
+      const fontSize = this.parseFontSize(token.value);
+      text.fontSize = fontSize;
+      text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      container.appendChild(text);
+      return container;
+    }
+    /**
+     * Parse font size value to pixels
+     */
+    parseFontSize(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        let numStr = value.trim();
+        if (numStr.endsWith("rem")) {
+          const rem = parseFloat(numStr.replace("rem", ""));
+          return isNaN(rem) ? 16 : rem * 16;
+        }
+        numStr = numStr.replace("px", "");
+        const parsed = parseFloat(numStr);
+        return isNaN(parsed) ? 16 : parsed;
+      }
+      return 16;
+    }
+  };
+
   // src/core/visualizers/DefaultVisualizer.ts
   var DefaultVisualizer = class {
     getType() {
@@ -3578,9 +3682,10 @@
             if (!variable) continue;
             const defaultModeId = collection.modes[0].modeId;
             const value = variable.valuesByMode[defaultModeId];
+            const tokenName = variable.name.replace(/\//g, ".");
             metadata.push({
-              name: variable.name,
-              fullPath: variable.name,
+              name: tokenName,
+              fullPath: tokenName,
               type: this.mapVariableTypeToTokenType(variable.resolvedType),
               value,
               originalValue: value,
@@ -3785,18 +3890,19 @@
       if (!includeDescriptions) {
         columns = columns.filter((col) => col.key !== "description");
       }
-      const tableWidth = getTableWidth(includeDescriptions);
+      const tableWidth = DOCUMENTATION_LAYOUT_CONFIG.table.width;
+      const columnWidths = calculateColumnWidths(tableWidth, includeDescriptions);
       tableFrame.layoutMode = "VERTICAL";
       tableFrame.primaryAxisSizingMode = "AUTO";
       tableFrame.counterAxisSizingMode = "FIXED";
       tableFrame.resize(tableWidth, 100);
       tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
-      const headerRow = this.createHeaderRow(columns, tableWidth);
+      const headerRow = this.createHeaderRow(columns, columnWidths, tableWidth);
       tableFrame.appendChild(headerRow);
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const isAlternate = i % 2 === 1;
-        const dataRow = await this.createDataRow(row, columns, isAlternate, tableWidth);
+        const dataRow = await this.createDataRow(row, columns, columnWidths, isAlternate, tableWidth);
         tableFrame.appendChild(dataRow);
       }
       return tableFrame;
@@ -3804,7 +3910,7 @@
     /**
      * Create header row
      */
-    createHeaderRow(columns, tableWidth) {
+    createHeaderRow(columns, columnWidths, tableWidth) {
       const rowFrame = figma.createFrame();
       rowFrame.name = "Header Row";
       rowFrame.fills = [{ type: "SOLID", color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
@@ -3813,7 +3919,8 @@
       rowFrame.counterAxisSizingMode = "FIXED";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
       for (const column of columns) {
-        const cell = this.createHeaderCell(column.label, column.width);
+        const width = columnWidths.get(column.key) || 200;
+        const cell = this.createHeaderCell(column.label, width);
         rowFrame.appendChild(cell);
       }
       return rowFrame;
@@ -3842,7 +3949,7 @@
     /**
      * Create data row
      */
-    async createDataRow(row, columns, isAlternate, tableWidth) {
+    async createDataRow(row, columns, columnWidths, isAlternate, tableWidth) {
       const rowFrame = figma.createFrame();
       rowFrame.name = `Row: ${row.name}`;
       const bgColor = isAlternate ? DOCUMENTATION_LAYOUT_CONFIG.row.alternateBackgroundColor : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
@@ -3852,12 +3959,13 @@
       rowFrame.counterAxisSizingMode = "FIXED";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       for (const column of columns) {
+        const width = columnWidths.get(column.key) || 200;
         let cell;
         if (column.key === "visualization") {
-          cell = await this.createVisualizationCell(row, column.width);
+          cell = await this.createVisualizationCell(row, width);
         } else {
           const value = this.getCellValue(row, column.key);
-          cell = this.createTextCell(value, column.width);
+          cell = this.createTextCell(value, width);
         }
         rowFrame.appendChild(cell);
       }
@@ -3951,6 +4059,8 @@
       TokenFormatRegistry.register(new W3CTokenFormatStrategy());
       TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
       TokenVisualizerRegistry.register(new ColorVisualizer());
+      TokenVisualizerRegistry.register(new SpacingVisualizer());
+      TokenVisualizerRegistry.register(new FontSizeVisualizer());
       TokenVisualizerRegistry.register(new DefaultVisualizer());
       ErrorHandler.info("Architecture components registered", "PluginBackend");
     }

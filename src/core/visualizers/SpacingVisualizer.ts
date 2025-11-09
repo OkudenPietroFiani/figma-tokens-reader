@@ -1,0 +1,87 @@
+// ====================================================================================
+// SPACING VISUALIZER
+// Renders spacing/dimension tokens as rectangles with the correct width
+// ====================================================================================
+
+import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
+import { TokenMetadata } from '../../shared/types';
+import { DOCUMENTATION_LAYOUT_CONFIG } from '../../shared/documentation-config';
+
+/**
+ * SpacingVisualizer - Renders spacing tokens as rectangles
+ *
+ * Principles:
+ * - Single Responsibility: Only handles spacing/dimension visualization
+ * - Strategy Pattern: Implements ITokenVisualizer
+ *
+ * Visual output:
+ * - Rectangle with width = token value (in pixels)
+ * - Fixed height for consistency
+ * - Centered in the cell
+ */
+export class SpacingVisualizer implements ITokenVisualizer {
+  getType(): string {
+    return 'spacing';
+  }
+
+  canVisualize(token: TokenMetadata): boolean {
+    return token.type === 'spacing' || token.type === 'dimension';
+  }
+
+  renderVisualization(
+    token: TokenMetadata,
+    width: number,
+    height: number
+  ): FrameNode {
+    const container = figma.createFrame();
+    container.name = `viz-${token.name}`;
+    container.resize(width, height);
+    container.fills = [];
+    container.clipsContent = false;
+
+    // Auto-layout for centering
+    container.layoutMode = 'HORIZONTAL';
+    container.primaryAxisAlignItems = 'CENTER';
+    container.counterAxisAlignItems = 'CENTER';
+    container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+    container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+    container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+    container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+
+    // Create rectangle with width = spacing value
+    const rectangle = figma.createRectangle();
+    const spacingValue = this.parseSpacingValue(token.value);
+    const rectWidth = Math.min(spacingValue, width - 16); // Max width is cell width minus padding
+    const rectHeight = DOCUMENTATION_LAYOUT_CONFIG.visualization.spacingBarHeight;
+
+    rectangle.resize(rectWidth, rectHeight);
+    rectangle.cornerRadius = 2;
+
+    // Use a visible color (blue)
+    rectangle.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.6, b: 1 } }];
+
+    container.appendChild(rectangle);
+    return container;
+  }
+
+  /**
+   * Parse spacing value to pixels
+   */
+  private parseSpacingValue(value: any): number {
+    // If already a number, return it
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    // If string, try to parse
+    if (typeof value === 'string') {
+      // Remove 'px' suffix if present
+      const numStr = value.replace('px', '').trim();
+      const parsed = parseFloat(numStr);
+      return isNaN(parsed) ? 16 : parsed; // Default to 16px if parsing fails
+    }
+
+    // Default
+    return 16;
+  }
+}

@@ -28,6 +28,8 @@ import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryF
 // Documentation Architecture
 import { TokenVisualizerRegistry } from '../core/registries/TokenVisualizerRegistry';
 import { ColorVisualizer } from '../core/visualizers/ColorVisualizer';
+import { SpacingVisualizer } from '../core/visualizers/SpacingVisualizer';
+import { FontSizeVisualizer } from '../core/visualizers/FontSizeVisualizer';
 import { DefaultVisualizer } from '../core/visualizers/DefaultVisualizer';
 import { DocumentationGenerator } from './services/DocumentationGenerator';
 
@@ -95,6 +97,8 @@ class PluginBackend {
 
     // Register token visualizers for documentation
     TokenVisualizerRegistry.register(new ColorVisualizer());
+    TokenVisualizerRegistry.register(new SpacingVisualizer());
+    TokenVisualizerRegistry.register(new FontSizeVisualizer());
     TokenVisualizerRegistry.register(new DefaultVisualizer());
 
     ErrorHandler.info('Architecture components registered', 'PluginBackend');

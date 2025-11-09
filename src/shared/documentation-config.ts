@@ -8,21 +8,21 @@
  * Table column configuration
  *
  * Extensibility: Add a new column by adding ONE line here!
- * Example: { key: 'author', label: 'Author', width: 120, enabled: true }
+ * Width is a flex ratio (all columns share width equally if ratio = 1)
  */
 export interface ColumnConfig {
   key: string;
   label: string;
-  width: number;
+  widthRatio: number; // Flex ratio for width distribution
   enabled: boolean;
 }
 
 export const DOCUMENTATION_COLUMNS_CONFIG: readonly ColumnConfig[] = [
-  { key: 'name', label: 'Name', width: 200, enabled: true },
-  { key: 'value', label: 'Value', width: 200, enabled: true },
-  { key: 'resolvedValue', label: 'Resolved Value', width: 200, enabled: true },
-  { key: 'visualization', label: 'Visualization', width: 100, enabled: true },
-  { key: 'description', label: 'Description', width: 200, enabled: true },
+  { key: 'name', label: 'Name', widthRatio: 1, enabled: true },
+  { key: 'value', label: 'Value', widthRatio: 1, enabled: true },
+  { key: 'resolvedValue', label: 'Resolved Value', widthRatio: 1, enabled: true },
+  { key: 'visualization', label: 'Visualization', widthRatio: 1, enabled: true },
+  { key: 'description', label: 'Description', widthRatio: 1, enabled: true },
 ] as const;
 
 // Get only enabled columns
@@ -30,13 +30,21 @@ export const getEnabledColumns = (): ColumnConfig[] => {
   return DOCUMENTATION_COLUMNS_CONFIG.filter(col => col.enabled);
 };
 
-// Calculate total table width from enabled columns
-export const getTableWidth = (includeDescriptions: boolean): number => {
+// Calculate individual column widths based on total table width and ratios
+export const calculateColumnWidths = (tableWidth: number, includeDescriptions: boolean): Map<string, number> => {
   let columns = getEnabledColumns();
   if (!includeDescriptions) {
     columns = columns.filter(col => col.key !== 'description');
   }
-  return columns.reduce((total, col) => total + col.width, 0);
+
+  const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
+  const widthMap = new Map<string, number>();
+
+  columns.forEach(col => {
+    widthMap.set(col.key, Math.floor((col.widthRatio / totalRatio) * tableWidth));
+  });
+
+  return widthMap;
 };
 
 // ==================== LAYOUT CONFIGURATION ====================
@@ -46,6 +54,7 @@ export const getTableWidth = (includeDescriptions: boolean): number => {
 export const DOCUMENTATION_LAYOUT_CONFIG = {
   // Table layout
   table: {
+    width: 1200, // Fixed table width - all columns will distribute this width
     rowHeight: 40,
     headerHeight: 48,
     padding: 16,
