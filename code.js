@@ -2934,6 +2934,156 @@
     }
   };
 
+  // src/core/adapters/StyleDictionaryFormatStrategy.ts
+  var StyleDictionaryFormatStrategy = class {
+    /**
+     * Detect if data matches Style Dictionary format
+     * Looks for characteristic "value" properties (not "$value")
+     *
+     * @returns Confidence score 0-1
+     */
+    detectFormat(data) {
+      let tokenCount = 0;
+      let styleDictTokenCount = 0;
+      const check = (obj) => {
+        if (typeof obj !== "object" || obj === null) return;
+        for (const key in obj) {
+          if (key.startsWith("$")) continue;
+          const value = obj[key];
+          if (typeof value === "object" && value !== null) {
+            if ("value" in value && !("$value" in value)) {
+              tokenCount++;
+              if ("value" in value) {
+                styleDictTokenCount++;
+              }
+            } else if (!("value" in value) && !("$value" in value)) {
+              check(value);
+            }
+          }
+        }
+      };
+      check(data);
+      if (tokenCount === 0) return 0;
+      const score = styleDictTokenCount / tokenCount;
+      return Math.min(score, 1);
+    }
+    /**
+     * Get format information
+     */
+    getFormatInfo() {
+      return {
+        name: "Style Dictionary",
+        version: "3.0",
+        description: "Amazon Style Dictionary format"
+      };
+    }
+    /**
+     * Parse tokens from Style Dictionary format
+     * Traverses nested structure and extracts token definitions
+     */
+    parseTokens(data) {
+      try {
+        const tokens = [];
+        const traverse = (obj, path = []) => {
+          for (const key in obj) {
+            const value = obj[key];
+            const currentPath = [...path, key];
+            if (key.startsWith("$")) continue;
+            if (typeof value === "object" && value !== null && "value" in value) {
+              const type = this.inferType(value.value, currentPath);
+              tokens.push({
+                path: currentPath,
+                value: value.value,
+                type,
+                originalValue: value.value
+              });
+            } else if (typeof value === "object" && value !== null) {
+              traverse(value, currentPath);
+            }
+          }
+        };
+        traverse(data);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[StyleDictionaryFormatStrategy] Failed to parse tokens: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Normalize value according to Style Dictionary conventions
+     */
+    normalizeValue(value, type) {
+      return value;
+    }
+    /**
+     * Extract token type from Style Dictionary token object
+     */
+    extractType(tokenData, path) {
+      if (tokenData.value !== void 0) {
+        return this.inferType(tokenData.value, path);
+      }
+      return null;
+    }
+    /**
+     * Check if value is a reference in Style Dictionary format
+     * Style Dictionary uses {path.to.token} syntax (same as W3C)
+     */
+    isReference(value) {
+      if (typeof value !== "string") return false;
+      return /^\{[^}]+\}$/.test(value.trim());
+    }
+    /**
+     * Extract reference path from Style Dictionary reference syntax
+     */
+    extractReference(value) {
+      if (!this.isReference(value)) return null;
+      const match = value.trim().match(/^\{([^}]+)\}$/);
+      return match ? match[1] : null;
+    }
+    /**
+     * Infer token type from value and path
+     * Style Dictionary organizes tokens as category/type/item
+     *
+     * @private
+     */
+    inferType(value, path) {
+      const pathStr = path.join(".").toLowerCase();
+      if (path.length > 0) {
+        const category = path[0].toLowerCase();
+        if (category === "color" || category === "colors") return "color";
+        if (category === "size" || category === "sizing") return "dimension";
+        if (category === "space" || category === "spacing") return "spacing";
+        if (category === "font") {
+          if (pathStr.includes("size")) return "fontSize";
+          if (pathStr.includes("weight")) return "fontWeight";
+          if (pathStr.includes("family")) return "fontFamily";
+          return "fontFamily";
+        }
+        if (category === "time" || category === "duration") return "duration";
+      }
+      if (pathStr.includes("color")) return "color";
+      if (pathStr.includes("size")) return "fontSize";
+      if (pathStr.includes("spacing") || pathStr.includes("space")) return "spacing";
+      if (pathStr.includes("radius")) return "dimension";
+      if (pathStr.includes("shadow")) return "shadow";
+      if (typeof value === "number") return "number";
+      if (typeof value === "string") {
+        if (/^#[0-9a-f]{3,8}$/i.test(value)) return "color";
+        if (/^rgb/.test(value)) return "color";
+        if (/^hsl/.test(value)) return "color";
+        if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(value)) return "dimension";
+        return "string";
+      }
+      if (typeof value === "object" && value !== null) {
+        if ("r" in value && "g" in value && "b" in value) return "color";
+        if ("x" in value || "offsetX" in value) return "shadow";
+        if ("fontFamily" in value || "fontSize" in value) return "typography";
+      }
+      return "string";
+    }
+  };
+
   // src/backend/main.ts
   var PluginBackend = class {
     constructor() {
@@ -2956,6 +3106,7 @@
     registerArchitectureComponents() {
       FileSourceRegistry.register(new GitHubFileSource());
       TokenFormatRegistry.register(new W3CTokenFormatStrategy());
+      TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
       ErrorHandler.info("Architecture components registered", "PluginBackend");
     }
     /**

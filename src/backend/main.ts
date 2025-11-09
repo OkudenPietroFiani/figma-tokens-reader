@@ -22,6 +22,7 @@ import { FileSourceRegistry } from '../core/registries/FileSourceRegistry';
 import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
 import { GitHubFileSource } from '../core/adapters/GitHubFileSource';
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
+import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
 
 /**
  * Main backend class for plugin
@@ -73,6 +74,7 @@ class PluginBackend {
 
     // Register token format strategies (W3C, Style Dictionary, etc.)
     TokenFormatRegistry.register(new W3CTokenFormatStrategy());
+    TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
 
     ErrorHandler.info('Architecture components registered', 'PluginBackend');
   }
