@@ -914,31 +914,43 @@
     /**
      * Apply shadow effects to effect style
      * Handles both single shadow and array of shadows
+     * Binds color variables instead of resolving to static colors
      */
     async applyShadowEffects(effectStyle, value) {
-      const effects = [];
+      const effectsData = [];
       if (Array.isArray(value)) {
         for (const shadow of value) {
-          const effect = this.parseShadowEffect(shadow);
-          if (effect) {
-            effects.push(effect);
+          const effectData = this.parseShadowEffect(shadow);
+          if (effectData) {
+            effectsData.push(effectData);
           }
         }
       } else if (typeof value === "object" && value !== null) {
-        const effect = this.parseShadowEffect(value);
-        if (effect) {
-          effects.push(effect);
+        const effectData = this.parseShadowEffect(value);
+        if (effectData) {
+          effectsData.push(effectData);
         }
       }
-      if (effects.length > 0) {
-        effectStyle.effects = effects;
+      if (effectsData.length > 0) {
+        effectStyle.effects = effectsData.map((ed) => ed.effect);
+        effectsData.forEach((effectData, index) => {
+          if (effectData.colorVariable) {
+            try {
+              effectStyle.setBoundVariable(`effects[${index}].color`, effectData.colorVariable);
+              console.log(`[SHADOW] Bound effect ${index} color to variable: ${effectData.colorVariable.name}`);
+            } catch (error) {
+              console.error(`[SHADOW] Failed to bind color variable for effect ${index}:`, error);
+            }
+          }
+        });
       } else {
         console.error(`[SHADOW] No valid effects parsed for shadow token`);
       }
     }
     /**
-     * Parse a single shadow object into a Figma Effect
+     * Parse a single shadow object into a Figma Effect with optional color variable binding
      * Format: { x, y, blur, spread, color, type }
+     * Returns: { effect, colorVariable? }
      */
     parseShadowEffect(shadow) {
       try {
@@ -947,7 +959,34 @@
         const blur = this.resolveNumericValue(shadow.blur || shadow.blurRadius || 0);
         const spread = this.resolveNumericValue(shadow.spread || shadow.spreadRadius || 0);
         const colorValue = shadow.color || "#000000";
-        const color = this.parseColorValue(colorValue);
+        let colorVariable;
+        let color;
+        if (typeof colorValue === "string" && colorValue.includes("{") && colorValue.includes("}")) {
+          const match = colorValue.match(/^\{([^}]+)\}$/);
+          if (match) {
+            const reference = match[1];
+            colorVariable = resolveReference(reference, this.variableMap);
+            if (colorVariable) {
+              const modeId = Object.keys(colorVariable.valuesByMode)[0];
+              const variableValue = colorVariable.valuesByMode[modeId];
+              if (typeof variableValue === "object" && "r" in variableValue) {
+                color = variableValue;
+                console.log(`[SHADOW] Found color variable: ${colorVariable.name}`);
+              } else {
+                console.error(`[SHADOW] Variable ${colorVariable.name} is not a color type`);
+                color = this.parseColorValue(colorValue);
+                colorVariable = void 0;
+              }
+            } else {
+              console.error(`[SHADOW] Cannot resolve color reference: ${reference}`);
+              color = this.parseColorValue(colorValue);
+            }
+          } else {
+            color = this.parseColorValue(colorValue);
+          }
+        } else {
+          color = this.parseColorValue(colorValue);
+        }
         const type = shadow.type === "innerShadow" ? "INNER_SHADOW" : "DROP_SHADOW";
         const effect = {
           type,
@@ -958,7 +997,7 @@
           visible: true,
           blendMode: "NORMAL"
         };
-        return effect;
+        return { effect, colorVariable };
       } catch (error) {
         console.error(`[SHADOW PARSE ERROR]`, error);
         return null;

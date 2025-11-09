@@ -389,39 +389,55 @@ export class StyleManager {
   /**
    * Apply shadow effects to effect style
    * Handles both single shadow and array of shadows
+   * Binds color variables instead of resolving to static colors
    */
   private async applyShadowEffects(effectStyle: EffectStyle, value: any): Promise<void> {
-    const effects: Effect[] = [];
+    const effectsData: Array<{ effect: Effect; colorVariable?: Variable }> = [];
 
     // Handle array of shadows
     if (Array.isArray(value)) {
       for (const shadow of value) {
-        const effect = this.parseShadowEffect(shadow);
-        if (effect) {
-          effects.push(effect);
+        const effectData = this.parseShadowEffect(shadow);
+        if (effectData) {
+          effectsData.push(effectData);
         }
       }
     }
     // Handle single shadow
     else if (typeof value === 'object' && value !== null) {
-      const effect = this.parseShadowEffect(value);
-      if (effect) {
-        effects.push(effect);
+      const effectData = this.parseShadowEffect(value);
+      if (effectData) {
+        effectsData.push(effectData);
       }
     }
 
-    if (effects.length > 0) {
-      effectStyle.effects = effects;
+    if (effectsData.length > 0) {
+      // Set the effects on the style
+      effectStyle.effects = effectsData.map(ed => ed.effect);
+
+      // Bind color variables for each effect that has one
+      effectsData.forEach((effectData, index) => {
+        if (effectData.colorVariable) {
+          try {
+            // Bind the color property of this effect to the variable
+            effectStyle.setBoundVariable(`effects[${index}].color`, effectData.colorVariable);
+            console.log(`[SHADOW] Bound effect ${index} color to variable: ${effectData.colorVariable.name}`);
+          } catch (error) {
+            console.error(`[SHADOW] Failed to bind color variable for effect ${index}:`, error);
+          }
+        }
+      });
     } else {
       console.error(`[SHADOW] No valid effects parsed for shadow token`);
     }
   }
 
   /**
-   * Parse a single shadow object into a Figma Effect
+   * Parse a single shadow object into a Figma Effect with optional color variable binding
    * Format: { x, y, blur, spread, color, type }
+   * Returns: { effect, colorVariable? }
    */
-  private parseShadowEffect(shadow: any): Effect | null {
+  private parseShadowEffect(shadow: any): { effect: Effect; colorVariable?: Variable } | null {
     try {
       // Extract shadow properties
       const x = this.resolveNumericValue(shadow.x || shadow.offsetX || 0);
@@ -429,9 +445,43 @@ export class StyleManager {
       const blur = this.resolveNumericValue(shadow.blur || shadow.blurRadius || 0);
       const spread = this.resolveNumericValue(shadow.spread || shadow.spreadRadius || 0);
 
-      // Parse color
+      // Check if color is a variable reference
       const colorValue = shadow.color || '#000000';
-      const color = this.parseColorValue(colorValue);
+      let colorVariable: Variable | undefined;
+      let color: RGBA;
+
+      // If color is a simple variable reference (e.g., "{semantic.color.drop-shadow.weak}")
+      if (typeof colorValue === 'string' && colorValue.includes('{') && colorValue.includes('}')) {
+        const match = colorValue.match(/^\{([^}]+)\}$/);
+        if (match) {
+          const reference = match[1];
+          colorVariable = resolveReference(reference, this.variableMap);
+
+          if (colorVariable) {
+            // Get the variable's color value for the effect
+            const modeId = Object.keys(colorVariable.valuesByMode)[0];
+            const variableValue = colorVariable.valuesByMode[modeId];
+
+            if (typeof variableValue === 'object' && 'r' in variableValue) {
+              color = variableValue as RGBA;
+              console.log(`[SHADOW] Found color variable: ${colorVariable.name}`);
+            } else {
+              console.error(`[SHADOW] Variable ${colorVariable.name} is not a color type`);
+              color = this.parseColorValue(colorValue);
+              colorVariable = undefined;
+            }
+          } else {
+            console.error(`[SHADOW] Cannot resolve color reference: ${reference}`);
+            color = this.parseColorValue(colorValue);
+          }
+        } else {
+          // Not a pure reference, parse as color
+          color = this.parseColorValue(colorValue);
+        }
+      } else {
+        // Parse color normally (handles complex formats, hex, etc.)
+        color = this.parseColorValue(colorValue);
+      }
 
       // Determine effect type (DROP_SHADOW or INNER_SHADOW)
       const type = shadow.type === 'innerShadow' ? 'INNER_SHADOW' : 'DROP_SHADOW';
@@ -446,7 +496,7 @@ export class StyleManager {
         blendMode: 'NORMAL'
       };
 
-      return effect;
+      return { effect, colorVariable };
     } catch (error) {
       console.error(`[SHADOW PARSE ERROR]`, error);
       return null;
