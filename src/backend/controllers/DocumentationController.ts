@@ -45,41 +45,51 @@ export class DocumentationController {
    */
   async generateDocumentation(options: DocumentationOptions): Promise<Result<DocumentationResult>> {
     return ErrorHandler.handle(async () => {
-      // Validate options
-      if (!options.fileNames || options.fileNames.length === 0) {
-        throw new Error('No files selected for documentation');
-      }
-
+      // Empty fileNames means use all collections
+      const fileCount = options.fileNames?.length || 0;
       ErrorHandler.info(
-        `Generating documentation for ${options.fileNames.length} file(s)`,
+        fileCount > 0
+          ? `Generating documentation for ${fileCount} file(s)`
+          : 'Generating documentation for all Figma variable collections',
         'DocumentationController'
       );
 
-      // Load token state from storage
+      // Load token state from storage (optional - generator can work without it)
       const tokenStateResult = await this.storage.getTokenState();
-      if (!tokenStateResult.success || !tokenStateResult.data) {
-        throw new Error('No token state found. Please import tokens first.');
+      let tokenFilesMap = new Map<string, TokenFile>();
+
+      if (tokenStateResult.success && tokenStateResult.data) {
+        const tokenState = tokenStateResult.data;
+        // Convert tokenFiles object to Map
+        for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
+          tokenFilesMap.set(fileName, file);
+        }
+        ErrorHandler.info(
+          `Loaded ${tokenFilesMap.size} token files from storage`,
+          'DocumentationController'
+        );
+      } else {
+        ErrorHandler.info(
+          'No token state found in storage, will use Figma variables directly',
+          'DocumentationController'
+        );
       }
 
-      const tokenState = tokenStateResult.data;
-
-      // Convert tokenFiles object to Map
-      const tokenFilesMap = new Map<string, TokenFile>();
-      for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
-        tokenFilesMap.set(fileName, file);
-      }
-
-      // Get token metadata from VariableManager
+      // Get token metadata from VariableManager (can be empty)
+      // If empty, the generator will build it from Figma variables
       const tokenMetadata = this.variableManager.getTokenMetadata();
 
-      if (!tokenMetadata || tokenMetadata.length === 0) {
-        throw new Error('No token metadata found. Please import tokens to Figma first.');
+      if (tokenMetadata && tokenMetadata.length > 0) {
+        ErrorHandler.info(
+          `Found ${tokenMetadata.length} tokens in metadata`,
+          'DocumentationController'
+        );
+      } else {
+        ErrorHandler.info(
+          'No metadata in memory, generator will read from Figma variables',
+          'DocumentationController'
+        );
       }
-
-      ErrorHandler.info(
-        `Found ${tokenMetadata.length} tokens in metadata`,
-        'DocumentationController'
-      );
 
       // Generate documentation
       const result = await this.generator.generate(

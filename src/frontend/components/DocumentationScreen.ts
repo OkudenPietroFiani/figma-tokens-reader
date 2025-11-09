@@ -117,7 +117,9 @@ export class DocumentationScreen extends BaseComponent {
     const files = Array.from(this.state.tokenFiles.values());
 
     if (files.length === 0) {
-      this.fileSelectionList.innerHTML = '<div class="empty-state">No token files loaded. Import tokens first.</div>';
+      this.fileSelectionList.innerHTML = '<div class="empty-state">No token files loaded. Will use all Figma variable collections.</div>';
+      // Clear selected files so it will use all collections
+      this.selectedFiles.clear();
       this.updateGenerateButtonState();
       return;
     }
@@ -159,9 +161,12 @@ export class DocumentationScreen extends BaseComponent {
    * Update generate button state based on form validity
    */
   private updateGenerateButtonState(): void {
-    const hasFiles = this.selectedFiles.size > 0;
+    const tokenFilesLoaded = this.state.tokenFiles.size > 0;
+    // If no files loaded, we'll use all Figma collections (valid)
+    // If files loaded, at least one must be selected
+    const hasValidSelection = !tokenFilesLoaded || this.selectedFiles.size > 0;
     const hasFont = this.fontFamilyInput.value.trim().length > 0;
-    const isValid = hasFiles && hasFont;
+    const isValid = hasValidSelection && hasFont;
 
     this.generateBtn.disabled = !isValid;
 
@@ -174,7 +179,10 @@ export class DocumentationScreen extends BaseComponent {
    * Handle documentation generation
    */
   private async handleGenerateDocumentation(): Promise<void> {
-    if (this.selectedFiles.size === 0) {
+    const tokenFilesLoaded = this.state.tokenFiles.size > 0;
+
+    // Only require file selection if files are loaded
+    if (tokenFilesLoaded && this.selectedFiles.size === 0) {
       this.showNotification('Please select at least one token file', 'error');
       return;
     }
@@ -185,8 +193,11 @@ export class DocumentationScreen extends BaseComponent {
       return;
     }
 
+    // If no files loaded, pass empty array to use all Figma collections
+    const fileNames = tokenFilesLoaded ? Array.from(this.selectedFiles) : [];
+
     const options: DocumentationOptions = {
-      fileNames: Array.from(this.selectedFiles),
+      fileNames: fileNames,
       fontFamily: fontFamily,
       includeDescriptions: this.includeDescriptionsCheckbox.checked,
     };

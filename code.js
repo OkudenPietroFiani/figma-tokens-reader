@@ -2556,30 +2556,41 @@
      */
     async generateDocumentation(options) {
       return ErrorHandler.handle(async () => {
-        if (!options.fileNames || options.fileNames.length === 0) {
-          throw new Error("No files selected for documentation");
-        }
+        var _a;
+        const fileCount = ((_a = options.fileNames) == null ? void 0 : _a.length) || 0;
         ErrorHandler.info(
-          `Generating documentation for ${options.fileNames.length} file(s)`,
+          fileCount > 0 ? `Generating documentation for ${fileCount} file(s)` : "Generating documentation for all Figma variable collections",
           "DocumentationController"
         );
         const tokenStateResult = await this.storage.getTokenState();
-        if (!tokenStateResult.success || !tokenStateResult.data) {
-          throw new Error("No token state found. Please import tokens first.");
-        }
-        const tokenState = tokenStateResult.data;
-        const tokenFilesMap = /* @__PURE__ */ new Map();
-        for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
-          tokenFilesMap.set(fileName, file);
+        let tokenFilesMap = /* @__PURE__ */ new Map();
+        if (tokenStateResult.success && tokenStateResult.data) {
+          const tokenState = tokenStateResult.data;
+          for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
+            tokenFilesMap.set(fileName, file);
+          }
+          ErrorHandler.info(
+            `Loaded ${tokenFilesMap.size} token files from storage`,
+            "DocumentationController"
+          );
+        } else {
+          ErrorHandler.info(
+            "No token state found in storage, will use Figma variables directly",
+            "DocumentationController"
+          );
         }
         const tokenMetadata = this.variableManager.getTokenMetadata();
-        if (!tokenMetadata || tokenMetadata.length === 0) {
-          throw new Error("No token metadata found. Please import tokens to Figma first.");
+        if (tokenMetadata && tokenMetadata.length > 0) {
+          ErrorHandler.info(
+            `Found ${tokenMetadata.length} tokens in metadata`,
+            "DocumentationController"
+          );
+        } else {
+          ErrorHandler.info(
+            "No metadata in memory, generator will read from Figma variables",
+            "DocumentationController"
+          );
         }
-        ErrorHandler.info(
-          `Found ${tokenMetadata.length} tokens in metadata`,
-          "DocumentationController"
-        );
         const result = await this.generator.generate(
           tokenFilesMap,
           tokenMetadata,
@@ -3487,9 +3498,6 @@
      */
     async generate(tokenFiles, tokenMetadata, options) {
       try {
-        if (options.fileNames.length === 0) {
-          return Failure("No files selected for documentation");
-        }
         if (options.fontFamily) {
           this.fontFamily = options.fontFamily;
         }
