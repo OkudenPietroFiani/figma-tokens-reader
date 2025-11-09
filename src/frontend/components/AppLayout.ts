@@ -18,6 +18,7 @@ export class AppLayout extends BaseComponent {
   private actionFooter!: HTMLDivElement;
   private tokensTab!: HTMLButtonElement;
   private scopesTab!: HTMLButtonElement;
+  private documentationTab!: HTMLButtonElement;
   private switchSourceBtn!: HTMLButtonElement;
   private syncBtn!: HTMLButtonElement;
   private pullChangesBtn!: HTMLButtonElement;
@@ -43,6 +44,7 @@ export class AppLayout extends BaseComponent {
         <div class="app-tabs">
           <button class="app-tab active" id="app-tokens-tab">Tokens</button>
           <button class="app-tab" id="app-scopes-tab">Scopes</button>
+          <button class="app-tab" id="app-documentation-tab">Documentation</button>
         </div>
         <button class="btn-switch-source" id="app-switch-source-btn">Switch source</button>
       </div>
@@ -66,6 +68,7 @@ export class AppLayout extends BaseComponent {
     this.actionFooter = layout.querySelector('.app-actions')!;
     this.tokensTab = layout.querySelector('#app-tokens-tab')!;
     this.scopesTab = layout.querySelector('#app-scopes-tab')!;
+    this.documentationTab = layout.querySelector('#app-documentation-tab')!;
     this.switchSourceBtn = layout.querySelector('#app-switch-source-btn')!;
     this.syncBtn = layout.querySelector('#app-sync-btn')!;
     this.pullChangesBtn = layout.querySelector('#app-pull-btn')!;
@@ -83,6 +86,11 @@ export class AppLayout extends BaseComponent {
     // Scopes tab
     this.addEventListener(this.scopesTab, 'click', () => {
       this.state.setCurrentScreen('scope');
+    });
+
+    // Documentation tab
+    this.addEventListener(this.documentationTab, 'click', () => {
+      this.state.setCurrentScreen('documentation');
     });
 
     // Switch source button
@@ -117,14 +125,15 @@ export class AppLayout extends BaseComponent {
   private updateActiveTab(screen: ScreenType): void {
     this.tokensTab.classList.toggle('active', screen === 'token');
     this.scopesTab.classList.toggle('active', screen === 'scope');
+    this.documentationTab.classList.toggle('active', screen === 'documentation');
   }
 
   /**
    * Show or hide the layout based on current screen
    */
   private updateVisibility(screen: ScreenType): void {
-    // Only show layout for token and scope screens
-    const shouldShow = screen === 'token' || screen === 'scope';
+    // Only show layout for token, scope, and documentation screens
+    const shouldShow = screen === 'token' || screen === 'scope' || screen === 'documentation';
 
     if (shouldShow) {
       this.element.classList.remove('hidden');

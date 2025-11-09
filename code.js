@@ -2541,6 +2541,66 @@
     }
   };
 
+  // src/backend/controllers/DocumentationController.ts
+  var DocumentationController = class {
+    constructor(generator, storage, variableManager) {
+      this.generator = generator;
+      this.storage = storage;
+      this.variableManager = variableManager;
+    }
+    /**
+     * Generate documentation for selected token files
+     *
+     * @param options - Documentation generation options
+     * @returns Result with generation statistics
+     */
+    async generateDocumentation(options) {
+      return ErrorHandler.handle(async () => {
+        if (!options.fileNames || options.fileNames.length === 0) {
+          throw new Error("No files selected for documentation");
+        }
+        ErrorHandler.info(
+          `Generating documentation for ${options.fileNames.length} file(s)`,
+          "DocumentationController"
+        );
+        const tokenStateResult = await this.storage.getTokenState();
+        if (!tokenStateResult.success || !tokenStateResult.data) {
+          throw new Error("No token state found. Please import tokens first.");
+        }
+        const tokenState = tokenStateResult.data;
+        const tokenFilesMap = /* @__PURE__ */ new Map();
+        for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
+          tokenFilesMap.set(fileName, file);
+        }
+        const tokenMetadata = this.variableManager.getTokenMetadata();
+        if (!tokenMetadata || tokenMetadata.length === 0) {
+          throw new Error("No token metadata found. Please import tokens to Figma first.");
+        }
+        ErrorHandler.info(
+          `Found ${tokenMetadata.length} tokens in metadata`,
+          "DocumentationController"
+        );
+        const result = await this.generator.generate(
+          tokenFilesMap,
+          tokenMetadata,
+          options
+        );
+        if (!result.success) {
+          throw new Error(result.error || "Documentation generation failed");
+        }
+        ErrorHandler.info(
+          `Documentation generated: ${result.data.tokenCount} tokens in ${result.data.categoryCount} categories`,
+          "DocumentationController"
+        );
+        ErrorHandler.notifyUser(
+          `\u2713 Documentation generated: ${result.data.tokenCount} tokens`,
+          "success"
+        );
+        return result.data;
+      }, "Generate Documentation");
+    }
+  };
+
   // src/core/registries/FileSourceRegistry.ts
   var FileSourceRegistry = class {
     /**
@@ -3084,6 +3144,638 @@
     }
   };
 
+  // src/core/registries/TokenVisualizerRegistry.ts
+  var TokenVisualizerRegistry = class {
+    /**
+     * Register a token visualizer
+     * Visualizers are indexed by their type
+     *
+     * @param visualizer - Visualizer implementation to register
+     */
+    static register(visualizer) {
+      const type = visualizer.getType();
+      this.visualizers.set(type, visualizer);
+      console.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
+    }
+    /**
+     * Get visualizer by token type
+     *
+     * @param type - Token type (e.g., 'color', 'spacing')
+     * @returns Visualizer for the type, or undefined if not found
+     */
+    static get(type) {
+      return this.visualizers.get(type);
+    }
+    /**
+     * Get visualizer for a specific token
+     * Uses canVisualize() to find the best match
+     *
+     * @param token - Token metadata
+     * @returns Visualizer that can handle the token, or undefined
+     */
+    static getForToken(token) {
+      const exactMatch = this.visualizers.get(token.type);
+      if (exactMatch && exactMatch.canVisualize(token)) {
+        return exactMatch;
+      }
+      for (const visualizer of this.visualizers.values()) {
+        if (visualizer.canVisualize(token)) {
+          return visualizer;
+        }
+      }
+      return void 0;
+    }
+    /**
+     * Check if a visualizer is registered for a type
+     *
+     * @param type - Token type to check
+     * @returns True if visualizer exists for the type
+     */
+    static has(type) {
+      return this.visualizers.has(type);
+    }
+    /**
+     * Get all registered types
+     *
+     * @returns Array of all registered token types
+     */
+    static getRegisteredTypes() {
+      return Array.from(this.visualizers.keys());
+    }
+    /**
+     * Clear all registered visualizers
+     * Useful for testing
+     */
+    static clear() {
+      this.visualizers.clear();
+    }
+  };
+  TokenVisualizerRegistry.visualizers = /* @__PURE__ */ new Map();
+
+  // src/shared/documentation-config.ts
+  var DOCUMENTATION_COLUMNS_CONFIG = [
+    { key: "name", label: "Name", width: 200, enabled: true },
+    { key: "value", label: "Value", width: 150, enabled: true },
+    { key: "resolvedValue", label: "Resolved Value", width: 150, enabled: true },
+    { key: "visualization", label: "Visualization", width: 100, enabled: true },
+    { key: "collection", label: "Collection", width: 120, enabled: true },
+    // ← 1 LIGNE ajoutée !
+    { key: "description", label: "Description", width: 200, enabled: true }
+  ];
+  var getEnabledColumns = () => {
+    return DOCUMENTATION_COLUMNS_CONFIG.filter((col) => col.enabled);
+  };
+  var DOCUMENTATION_LAYOUT_CONFIG = {
+    // Table layout
+    table: {
+      rowHeight: 40,
+      headerHeight: 48,
+      padding: 16,
+      gap: 8
+    },
+    // Category sections
+    category: {
+      padding: 24,
+      gap: 16,
+      titleFontSize: 20,
+      titleFontWeight: 600
+    },
+    // Cell styling
+    cell: {
+      padding: 12,
+      fontSize: 14,
+      lineHeight: 20,
+      cornerRadius: 4
+    },
+    // Header styling
+    header: {
+      backgroundColor: { r: 0.95, g: 0.95, b: 0.95 },
+      // Light gray
+      fontWeight: 600,
+      fontSize: 14
+    },
+    // Row styling
+    row: {
+      backgroundColor: { r: 1, g: 1, b: 1 },
+      // White
+      alternateBackgroundColor: { r: 0.98, g: 0.98, b: 0.98 },
+      // Very light gray
+      hoverBackgroundColor: { r: 0.96, g: 0.96, b: 0.98 }
+      // Light blue-gray
+    },
+    // Visualization cell
+    visualization: {
+      colorSquareSize: 32,
+      typographyHeight: 24,
+      spacingBarHeight: 20,
+      padding: 8
+    },
+    // Global frame
+    global: {
+      padding: 32,
+      gap: 48,
+      backgroundColor: { r: 1, g: 1, b: 1 }
+    }
+  };
+  var DOCUMENTATION_TYPOGRAPHY = {
+    defaultFontFamily: "Inter",
+    defaultFontSize: 14,
+    defaultLineHeight: 20,
+    fallbackFonts: ["Roboto", "Arial", "Helvetica"]
+  };
+  var extractCategoryFromPath = (path) => {
+    const parts = path.split(".");
+    const skipPrefixes = ["semantic", "primitive", "base", "core"];
+    const filteredParts = parts.filter((p) => !skipPrefixes.includes(p.toLowerCase()));
+    return filteredParts[0] || "other";
+  };
+  var formatTokenValue = (value, type) => {
+    if (value === null || value === void 0) {
+      return "\u2014";
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    if (typeof value === "boolean") {
+      return value ? "true" : "false";
+    }
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value, null, 0);
+      } catch (e) {
+        return "[Object]";
+      }
+    }
+    return String(value);
+  };
+
+  // src/core/visualizers/ColorVisualizer.ts
+  var ColorVisualizer = class {
+    getType() {
+      return "color";
+    }
+    canVisualize(token) {
+      return token.type === "color";
+    }
+    renderVisualization(token, width, height) {
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(width, height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const square = figma.createRectangle();
+      const size = DOCUMENTATION_LAYOUT_CONFIG.visualization.colorSquareSize;
+      square.resize(size, size);
+      square.cornerRadius = 4;
+      try {
+        const color = this.parseColor(token.value);
+        square.fills = [{ type: "SOLID", color }];
+      } catch (error) {
+        square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
+        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
+      }
+      container.appendChild(square);
+      return container;
+    }
+    /**
+     * Parse color value to RGB
+     * Supports hex, rgb, hsl formats
+     */
+    parseColor(value) {
+      if (typeof value === "object" && "r" in value && "g" in value && "b" in value) {
+        return value;
+      }
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed.startsWith("#")) {
+          return this.parseHex(trimmed);
+        }
+        if (trimmed.startsWith("rgb")) {
+          return this.parseRgb(trimmed);
+        }
+        if (trimmed.startsWith("hsl")) {
+          return this.parseHsl(trimmed);
+        }
+      }
+      return { r: 0.8, g: 0.8, b: 0.8 };
+    }
+    /**
+     * Parse hex color to RGB
+     */
+    parseHex(hex) {
+      const cleaned = hex.replace("#", "");
+      let r, g, b;
+      if (cleaned.length === 3) {
+        r = parseInt(cleaned[0] + cleaned[0], 16);
+        g = parseInt(cleaned[1] + cleaned[1], 16);
+        b = parseInt(cleaned[2] + cleaned[2], 16);
+      } else if (cleaned.length === 6) {
+        r = parseInt(cleaned.substring(0, 2), 16);
+        g = parseInt(cleaned.substring(2, 4), 16);
+        b = parseInt(cleaned.substring(4, 6), 16);
+      } else {
+        throw new Error("Invalid hex format");
+      }
+      return {
+        r: r / 255,
+        g: g / 255,
+        b: b / 255
+      };
+    }
+    /**
+     * Parse rgb/rgba string to RGB
+     */
+    parseRgb(rgb) {
+      const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (!match) {
+        throw new Error("Invalid RGB format");
+      }
+      return {
+        r: parseInt(match[1]) / 255,
+        g: parseInt(match[2]) / 255,
+        b: parseInt(match[3]) / 255
+      };
+    }
+    /**
+     * Parse hsl/hsla string to RGB
+     */
+    parseHsl(hsl) {
+      const match = hsl.match(/hsla?\((\d+),\s*(\d+)%?,\s*(\d+)%?/);
+      if (!match) {
+        throw new Error("Invalid HSL format");
+      }
+      const h = parseInt(match[1]) / 360;
+      const s = parseInt(match[2]) / 100;
+      const l = parseInt(match[3]) / 100;
+      return this.hslToRgb(h, s, l);
+    }
+    /**
+     * Convert HSL to RGB
+     */
+    hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p2, q2, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
+          if (t < 1 / 2) return q2;
+          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
+          return p2;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return { r, g, b };
+    }
+  };
+
+  // src/core/visualizers/DefaultVisualizer.ts
+  var DefaultVisualizer = class {
+    getType() {
+      return "default";
+    }
+    canVisualize(token) {
+      return true;
+    }
+    renderVisualization(token, width, height) {
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(width, height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      const text = figma.createText();
+      text.characters = "\u2014";
+      text.fontSize = 16;
+      text.fills = [{ type: "SOLID", color: { r: 0.6, g: 0.6, b: 0.6 } }];
+      container.appendChild(text);
+      return container;
+    }
+  };
+
+  // src/backend/services/DocumentationGenerator.ts
+  var DocumentationGenerator = class {
+    constructor() {
+      this.fontFamily = DOCUMENTATION_TYPOGRAPHY.defaultFontFamily;
+      this.defaultVisualizer = new DefaultVisualizer();
+    }
+    /**
+     * Generate documentation table in Figma
+     *
+     * @param tokenFiles - Map of token files to document
+     * @param tokenMetadata - Array of token metadata from VariableManager
+     * @param options - Generation options
+     * @returns Result with generation statistics
+     */
+    async generate(tokenFiles, tokenMetadata, options) {
+      try {
+        if (options.fileNames.length === 0) {
+          return Failure("No files selected for documentation");
+        }
+        if (options.fontFamily) {
+          this.fontFamily = options.fontFamily;
+        }
+        await this.loadFont();
+        const filteredMetadata = this.filterTokensByFiles(
+          tokenMetadata,
+          options.fileNames
+        );
+        if (filteredMetadata.length === 0) {
+          return Failure("No tokens found in selected files");
+        }
+        const rows = this.convertToRows(filteredMetadata);
+        const groupedRows = this.groupByCategory(rows);
+        const docFrame = await this.createDocumentationFrame(
+          groupedRows,
+          options.includeDescriptions
+        );
+        figma.currentPage.selection = [docFrame];
+        figma.viewport.scrollAndZoomIntoView([docFrame]);
+        return Success({
+          frameId: docFrame.id,
+          tokenCount: rows.length,
+          categoryCount: Object.keys(groupedRows).length
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[DocumentationGenerator] Generation failed:", message);
+        return Failure(`Documentation generation failed: ${message}`);
+      }
+    }
+    /**
+     * Load font for documentation
+     */
+    async loadFont() {
+      try {
+        await figma.loadFontAsync({ family: this.fontFamily, style: "Regular" });
+        await figma.loadFontAsync({ family: this.fontFamily, style: "Bold" });
+      } catch (error) {
+        for (const fallback of DOCUMENTATION_TYPOGRAPHY.fallbackFonts) {
+          try {
+            await figma.loadFontAsync({ family: fallback, style: "Regular" });
+            await figma.loadFontAsync({ family: fallback, style: "Bold" });
+            this.fontFamily = fallback;
+            console.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
+            return;
+          } catch (e) {
+            continue;
+          }
+        }
+        throw new Error("Failed to load any font");
+      }
+    }
+    /**
+     * Filter tokens by selected file names
+     */
+    filterTokensByFiles(metadata, fileNames) {
+      if (fileNames.length === 0) {
+        return metadata;
+      }
+      return metadata.filter(
+        (token) => fileNames.some(
+          (fileName) => token.collection.toLowerCase().includes(fileName.toLowerCase())
+        )
+      );
+    }
+    /**
+     * Convert token metadata to documentation rows
+     */
+    convertToRows(metadata) {
+      return metadata.map((token) => ({
+        name: token.name,
+        value: formatTokenValue(token.originalValue || token.value, token.type),
+        resolvedValue: formatTokenValue(token.value, token.type),
+        type: token.type,
+        description: token.description || "",
+        category: extractCategoryFromPath(token.fullPath),
+        path: token.fullPath,
+        originalToken: token
+      }));
+    }
+    /**
+     * Group rows by category
+     */
+    groupByCategory(rows) {
+      const grouped = {};
+      for (const row of rows) {
+        if (!grouped[row.category]) {
+          grouped[row.category] = [];
+        }
+        grouped[row.category].push(row);
+      }
+      return grouped;
+    }
+    /**
+     * Create the main documentation frame
+     */
+    async createDocumentationFrame(groupedRows, includeDescriptions) {
+      const mainFrame = figma.createFrame();
+      mainFrame.name = "Token Documentation";
+      mainFrame.fills = [{ type: "SOLID", color: DOCUMENTATION_LAYOUT_CONFIG.global.backgroundColor }];
+      mainFrame.layoutMode = "VERTICAL";
+      mainFrame.primaryAxisSizingMode = "AUTO";
+      mainFrame.counterAxisSizingMode = "AUTO";
+      mainFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.global.gap;
+      mainFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+      mainFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+      mainFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+      mainFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
+      for (const [category, rows] of Object.entries(groupedRows)) {
+        const categoryFrame = await this.createCategorySection(
+          category,
+          rows,
+          includeDescriptions
+        );
+        mainFrame.appendChild(categoryFrame);
+      }
+      return mainFrame;
+    }
+    /**
+     * Create a category section with table
+     */
+    async createCategorySection(category, rows, includeDescriptions) {
+      const sectionFrame = figma.createFrame();
+      sectionFrame.name = `Category: ${category}`;
+      sectionFrame.fills = [];
+      sectionFrame.layoutMode = "VERTICAL";
+      sectionFrame.primaryAxisSizingMode = "AUTO";
+      sectionFrame.counterAxisSizingMode = "AUTO";
+      sectionFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.category.gap;
+      const title = figma.createText();
+      title.name = "Title";
+      title.characters = category.charAt(0).toUpperCase() + category.slice(1);
+      title.fontSize = DOCUMENTATION_LAYOUT_CONFIG.category.titleFontSize;
+      title.fontName = { family: this.fontFamily, style: "Bold" };
+      title.fills = [{ type: "SOLID", color: { r: 0.1, g: 0.1, b: 0.1 } }];
+      sectionFrame.appendChild(title);
+      const table = await this.createTable(rows, includeDescriptions);
+      sectionFrame.appendChild(table);
+      return sectionFrame;
+    }
+    /**
+     * Create table with header and rows
+     */
+    async createTable(rows, includeDescriptions) {
+      const tableFrame = figma.createFrame();
+      tableFrame.name = "Table";
+      tableFrame.fills = [];
+      tableFrame.layoutMode = "VERTICAL";
+      tableFrame.primaryAxisSizingMode = "AUTO";
+      tableFrame.counterAxisSizingMode = "AUTO";
+      tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
+      let columns = getEnabledColumns();
+      if (!includeDescriptions) {
+        columns = columns.filter((col) => col.key !== "description");
+      }
+      const headerRow = this.createHeaderRow(columns);
+      tableFrame.appendChild(headerRow);
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const isAlternate = i % 2 === 1;
+        const dataRow = await this.createDataRow(row, columns, isAlternate);
+        tableFrame.appendChild(dataRow);
+      }
+      return tableFrame;
+    }
+    /**
+     * Create header row
+     */
+    createHeaderRow(columns) {
+      const rowFrame = figma.createFrame();
+      rowFrame.name = "Header Row";
+      rowFrame.fills = [{ type: "SOLID", color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
+      rowFrame.layoutMode = "HORIZONTAL";
+      rowFrame.primaryAxisSizingMode = "AUTO";
+      rowFrame.counterAxisSizingMode = "FIXED";
+      rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      for (const column of columns) {
+        const cell = this.createHeaderCell(column.label, column.width);
+        rowFrame.appendChild(cell);
+      }
+      return rowFrame;
+    }
+    /**
+     * Create header cell
+     */
+    createHeaderCell(label, width) {
+      const cellFrame = figma.createFrame();
+      cellFrame.name = `Header: ${label}`;
+      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      cellFrame.fills = [];
+      cellFrame.layoutMode = "HORIZONTAL";
+      cellFrame.primaryAxisAlignItems = "CENTER";
+      cellFrame.counterAxisAlignItems = "CENTER";
+      cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      const text = figma.createText();
+      text.characters = label;
+      text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
+      text.fontName = { family: this.fontFamily, style: "Bold" };
+      text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      cellFrame.appendChild(text);
+      return cellFrame;
+    }
+    /**
+     * Create data row
+     */
+    async createDataRow(row, columns, isAlternate) {
+      const rowFrame = figma.createFrame();
+      rowFrame.name = `Row: ${row.name}`;
+      const bgColor = isAlternate ? DOCUMENTATION_LAYOUT_CONFIG.row.alternateBackgroundColor : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
+      rowFrame.fills = [{ type: "SOLID", color: bgColor }];
+      rowFrame.layoutMode = "HORIZONTAL";
+      rowFrame.primaryAxisSizingMode = "AUTO";
+      rowFrame.counterAxisSizingMode = "FIXED";
+      rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      for (const column of columns) {
+        let cell;
+        if (column.key === "visualization") {
+          cell = await this.createVisualizationCell(row, column.width);
+        } else {
+          const value = this.getCellValue(row, column.key);
+          cell = this.createTextCell(value, column.width);
+        }
+        rowFrame.appendChild(cell);
+      }
+      return rowFrame;
+    }
+    /**
+     * Get cell value from row
+     */
+    getCellValue(row, key) {
+      switch (key) {
+        case "name":
+          return row.name;
+        case "value":
+          return row.value;
+        case "resolvedValue":
+          return row.resolvedValue;
+        case "collection":
+          return row.originalToken.collection || "\u2014";
+        case "description":
+          return row.description || "\u2014";
+        default:
+          return "\u2014";
+      }
+    }
+    /**
+     * Create text cell
+     */
+    createTextCell(value, width) {
+      const cellFrame = figma.createFrame();
+      cellFrame.name = "Cell";
+      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      cellFrame.fills = [];
+      cellFrame.layoutMode = "HORIZONTAL";
+      cellFrame.primaryAxisAlignItems = "CENTER";
+      cellFrame.counterAxisAlignItems = "CENTER";
+      cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      const text = figma.createText();
+      text.characters = value;
+      text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
+      text.fontName = { family: this.fontFamily, style: "Regular" };
+      text.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
+      cellFrame.appendChild(text);
+      return cellFrame;
+    }
+    /**
+     * Create visualization cell
+     */
+    async createVisualizationCell(row, width) {
+      const cellFrame = figma.createFrame();
+      cellFrame.name = "Visualization Cell";
+      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      cellFrame.fills = [];
+      const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
+      const visualization = visualizer.renderVisualization(
+        row.originalToken,
+        width,
+        DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight
+      );
+      cellFrame.appendChild(visualization);
+      return cellFrame;
+    }
+  };
+
   // src/backend/main.ts
   var PluginBackend = class {
     constructor() {
@@ -3094,6 +3786,12 @@
       this.tokenController = new TokenController(this.variableManager, this.storage);
       this.githubController = new GitHubController(this.githubService, this.storage);
       this.scopeController = new ScopeController();
+      const documentationGenerator = new DocumentationGenerator();
+      this.documentationController = new DocumentationController(
+        documentationGenerator,
+        this.storage,
+        this.variableManager
+      );
       ErrorHandler.info("Plugin backend initialized", "PluginBackend");
     }
     /**
@@ -3101,12 +3799,15 @@
      * Phase 1: File sources and token formats
      * Phase 3: Parallel processing (enabled via FEATURE_FLAGS)
      * Phase 4: Format auto-detection (enabled via FEATURE_FLAGS)
+     * Phase 5: Documentation system with visualizers
      * @private
      */
     registerArchitectureComponents() {
       FileSourceRegistry.register(new GitHubFileSource());
       TokenFormatRegistry.register(new W3CTokenFormatStrategy());
       TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
+      TokenVisualizerRegistry.register(new ColorVisualizer());
+      TokenVisualizerRegistry.register(new DefaultVisualizer());
       ErrorHandler.info("Architecture components registered", "PluginBackend");
     }
     /**
@@ -3159,6 +3860,10 @@
             break;
           case "apply-variable-scopes":
             await this.handleApplyVariableScopes(msg);
+            break;
+          // ==================== DOCUMENTATION OPERATIONS ====================
+          case "generate-documentation":
+            await this.handleGenerateDocumentation(msg);
             break;
           // ==================== PLUGIN CONTROL ====================
           case "cancel":
@@ -3274,6 +3979,20 @@
         figma.ui.postMessage({
           type: "scopes-applied",
           message: `Scopes updated for ${result.data} variable(s)`,
+          requestId: msg.requestId
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    }
+    // ==================== DOCUMENTATION HANDLERS ====================
+    async handleGenerateDocumentation(msg) {
+      const result = await this.documentationController.generateDocumentation(msg.data);
+      if (result.success) {
+        figma.ui.postMessage({
+          type: "documentation-generated",
+          data: result.data,
+          message: `Documentation generated: ${result.data.tokenCount} tokens in ${result.data.categoryCount} categories`,
           requestId: msg.requestId
         });
       } else {

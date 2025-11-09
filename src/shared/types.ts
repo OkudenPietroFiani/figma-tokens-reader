@@ -114,6 +114,7 @@ export type PluginMessageType =
   | 'load-tokens'
   | 'get-figma-variables'
   | 'apply-variable-scopes'
+  | 'generate-documentation'
   | 'cancel';
 
 export interface PluginMessage {
@@ -132,6 +133,7 @@ export type UIMessageType =
   | 'tokens-loaded'
   | 'figma-variables-loaded'
   | 'scopes-applied'
+  | 'documentation-generated'
   | 'error';
 
 export interface UIMessage {
@@ -153,8 +155,8 @@ export interface AppStateData {
   tokenFiles: Map<string, TokenFile>;
   selectedFile: string | null;
   selectedTokens: Set<string>;
-  currentScreen: 'welcome' | 'import' | 'token';
-  currentTab: 'tokens' | 'scopes';
+  currentScreen: 'welcome' | 'import' | 'token' | 'documentation';
+  currentTab: 'tokens' | 'scopes' | 'documentation';
   importMode: 'github' | 'local';
   tokenSource: 'github' | 'local' | null;
   githubConfig: GitHubConfig | null;
@@ -174,8 +176,8 @@ export type AppStateEvent =
   | 'import-mode-changed';
 
 // ==================== COMPONENT TYPES ====================
-export type ScreenType = 'welcome' | 'import' | 'token';
-export type TabType = 'tokens' | 'scopes';
+export type ScreenType = 'welcome' | 'import' | 'token' | 'documentation';
+export type TabType = 'tokens' | 'scopes' | 'documentation';
 export type ImportMode = 'github' | 'local';
 
 // ==================== NOTIFICATION TYPES ====================
@@ -243,3 +245,30 @@ export const FIGMA_SCOPES = {
 
 // Type-safe scope values
 export type FigmaScopeValue = typeof FIGMA_SCOPES[keyof typeof FIGMA_SCOPES];
+
+// ==================== DOCUMENTATION TYPES ====================
+// Token row data for documentation table
+export interface DocumentationTokenRow {
+  name: string;
+  value: string;
+  resolvedValue: string;
+  type: string;
+  description?: string;
+  category: string;
+  path: string;
+  originalToken: TokenMetadata;
+}
+
+// Documentation generation options
+export interface DocumentationOptions {
+  fileNames: string[];
+  fontFamily?: string;
+  includeDescriptions: boolean;
+}
+
+// Documentation generation result
+export interface DocumentationResult {
+  frameId: string;
+  tokenCount: number;
+  categoryCount: number;
+}

@@ -9,6 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ImportScreen } from './components/ImportScreen';
 import { TokenScreen } from './components/TokenScreen';
 import { ScopeScreen } from './components/ScopeScreen';
+import { DocumentationScreen } from './components/DocumentationScreen';
 import { AppLayout } from './components/AppLayout';
 import { NotificationManager } from './components/NotificationManager';
 import { ScreenType } from '../shared/types';
@@ -26,6 +27,7 @@ class FrontendApp {
   private importScreen: ImportScreen;
   private tokenScreen: TokenScreen;
   private scopeScreen: ScopeScreen;
+  private documentationScreen: DocumentationScreen;
   private appLayout: AppLayout;
   private notificationManager: NotificationManager;
 
@@ -42,6 +44,7 @@ class FrontendApp {
     this.importScreen = new ImportScreen(this.state, this.bridge);
     this.tokenScreen = new TokenScreen(this.state, this.bridge);
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+    this.documentationScreen = new DocumentationScreen(this.state, this.bridge);
     this.appLayout = new AppLayout(this.state);
     this.notificationManager = new NotificationManager();
 
@@ -50,6 +53,7 @@ class FrontendApp {
     this.importScreen.init();
     this.tokenScreen.init();
     this.scopeScreen.init();
+    this.documentationScreen.init();
     this.appLayout.init();
     this.notificationManager.init();
 
@@ -59,6 +63,7 @@ class FrontendApp {
       ['import', this.importScreen],
       ['token', this.tokenScreen],
       ['scope', this.scopeScreen],
+      ['documentation', this.documentationScreen],
     ]);
 
     // Wire up callbacks between layout and screens
@@ -102,10 +107,11 @@ class FrontendApp {
     const body = document.body;
     this.appLayout.mount(body);
 
-    // Mount token and scope screens into the layout's content area
+    // Mount token, scope, and documentation screens into the layout's content area
     const contentArea = this.appLayout.getContentArea();
     this.tokenScreen.mount(contentArea);
     this.scopeScreen.mount(contentArea);
+    this.documentationScreen.mount(contentArea);
 
     // Mount welcome and import screens directly to body
     this.welcomeScreen.mount(body);
@@ -119,6 +125,7 @@ class FrontendApp {
     this.importScreen.hide();
     this.tokenScreen.hide();
     this.scopeScreen.hide();
+    this.documentationScreen.hide();
 
     // Subscribe to screen changes
     this.state.subscribe('screen-changed', (screen: ScreenType) => {
