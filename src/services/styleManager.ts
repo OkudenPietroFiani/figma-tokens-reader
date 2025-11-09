@@ -91,12 +91,6 @@ export class StyleManager {
           // Otherwise recurse into nested groups
           else if (!('$value' in value)) {
             await this.processTokenGroup(value as TokenData, currentPath, styleType);
-          } else {
-            // Has $value but not a shadow - log why it was skipped
-            const token = value as any;
-            if (token.$type) {
-              console.log(`[EFFECT SKIP] Token at ${currentPath.join('/')} has $type="${token.$type}" but not shadow type`);
-            }
           }
         }
       }
@@ -127,24 +121,19 @@ export class StyleManager {
   }
 
   /**
-   * Remove collection and category prefixes from style path
-   * Example: ['semantic', 'typography', 'display'] -> ['display']
-   * Removes first level (primitive/semantic) AND second level (typography/effect/etc)
+   * Remove category prefixes from style path
+   * Example: ['typography', 'display'] -> ['display']
+   * Removes first level if it's a category (typography, effect, shadow, etc)
    */
   private cleanStylePath(path: string[]): string[] {
     if (path.length === 0) return path;
 
     const firstLevel = path[0].toLowerCase();
-    const secondLevel = path.length > 1 ? path[1].toLowerCase() : '';
 
-    // Remove first level if it's a collection name (primitive/semantic)
-    if (firstLevel === 'primitive' || firstLevel === 'semantic') {
-      // Also remove second level if it's a category (typography, effect, shadow, etc)
-      if (secondLevel === 'typography' || secondLevel === 'effect' || secondLevel === 'shadow' ||
-          secondLevel === 'boxshadow' || secondLevel === 'dropshadow') {
-        return path.slice(2); // Remove both first and second level
-      }
-      return path.slice(1); // Remove only first level
+    // Remove first level if it's a category
+    if (firstLevel === 'typography' || firstLevel === 'effect' || firstLevel === 'shadow' ||
+        firstLevel === 'boxshadow' || firstLevel === 'dropshadow' || firstLevel === 'font') {
+      return path.slice(1);
     }
 
     return path;
@@ -159,8 +148,6 @@ export class StyleManager {
       const cleanedPath = this.cleanStylePath(path);
       const styleName = cleanedPath.join('/');
       const typography = token.$value as TypographyToken;
-
-      console.log(`[TEXT STYLE] Original path: ${path.join('/')} → Cleaned: ${styleName}`);
 
       // Find or create text style
       const existingStyles = await figma.getLocalTextStylesAsync();
@@ -195,9 +182,6 @@ export class StyleManager {
     try {
       const cleanedPath = this.cleanStylePath(path);
       const styleName = cleanedPath.join('/');
-
-      console.log(`[EFFECT STYLE] Original path: ${path.join('/')} → Cleaned: ${styleName}`);
-      console.log(`[EFFECT STYLE] Token $type: ${(token as any).$type}, $value:`, token.$value);
 
       // Find or create effect style
       const existingStyles = await figma.getLocalEffectStylesAsync();

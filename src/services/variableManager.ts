@@ -53,14 +53,14 @@ export class VariableManager {
 
       if (primitives) {
         const cleanedPrimitives = this.prepareAndValidateTokens(primitives, 'primitive');
-        await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
-        await styleManager.createEffectStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+        await styleManager.createTextStyles(cleanedPrimitives, []);
+        await styleManager.createEffectStyles(cleanedPrimitives, []);
       }
 
       if (semantics) {
         const cleanedSemantics = this.prepareAndValidateTokens(semantics, 'semantic');
-        await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
-        await styleManager.createEffectStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
+        await styleManager.createTextStyles(cleanedSemantics, []);
+        await styleManager.createEffectStyles(cleanedSemantics, []);
       }
 
       figma.notify(

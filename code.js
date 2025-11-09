@@ -640,11 +640,6 @@
               await this.createEffectStyle(value, currentPath);
             } else if (!("$value" in value)) {
               await this.processTokenGroup(value, currentPath, styleType);
-            } else {
-              const token = value;
-              if (token.$type) {
-                console.log(`[EFFECT SKIP] Token at ${currentPath.join("/")} has $type="${token.$type}" but not shadow type`);
-              }
             }
           }
         }
@@ -663,18 +658,14 @@
       return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
     }
     /**
-     * Remove collection and category prefixes from style path
-     * Example: ['semantic', 'typography', 'display'] -> ['display']
-     * Removes first level (primitive/semantic) AND second level (typography/effect/etc)
+     * Remove category prefixes from style path
+     * Example: ['typography', 'display'] -> ['display']
+     * Removes first level if it's a category (typography, effect, shadow, etc)
      */
     cleanStylePath(path) {
       if (path.length === 0) return path;
       const firstLevel = path[0].toLowerCase();
-      const secondLevel = path.length > 1 ? path[1].toLowerCase() : "";
-      if (firstLevel === "primitive" || firstLevel === "semantic") {
-        if (secondLevel === "typography" || secondLevel === "effect" || secondLevel === "shadow" || secondLevel === "boxshadow" || secondLevel === "dropshadow") {
-          return path.slice(2);
-        }
+      if (firstLevel === "typography" || firstLevel === "effect" || firstLevel === "shadow" || firstLevel === "boxshadow" || firstLevel === "dropshadow" || firstLevel === "font") {
         return path.slice(1);
       }
       return path;
@@ -688,7 +679,6 @@
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
         const typography = token.$value;
-        console.log(`[TEXT STYLE] Original path: ${path.join("/")} \u2192 Cleaned: ${styleName}`);
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
         if (!textStyle) {
@@ -714,8 +704,6 @@
       try {
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
-        console.log(`[EFFECT STYLE] Original path: ${path.join("/")} \u2192 Cleaned: ${styleName}`);
-        console.log(`[EFFECT STYLE] Token $type: ${token.$type}, $value:`, token.$value);
         const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
         if (!effectStyle) {
@@ -1014,13 +1002,13 @@
         const styleManager = new StyleManager(this.variableMap);
         if (primitives) {
           const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
-          await styleManager.createTextStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
-          await styleManager.createEffectStyles(cleanedPrimitives, [COLLECTION_NAMES.primitive]);
+          await styleManager.createTextStyles(cleanedPrimitives, []);
+          await styleManager.createEffectStyles(cleanedPrimitives, []);
         }
         if (semantics) {
           const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
-          await styleManager.createTextStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
-          await styleManager.createEffectStyles(cleanedSemantics, [COLLECTION_NAMES.semantic]);
+          await styleManager.createTextStyles(cleanedSemantics, []);
+          await styleManager.createEffectStyles(cleanedSemantics, []);
         }
         figma.notify(
           `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
