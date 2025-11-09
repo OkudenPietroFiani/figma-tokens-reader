@@ -41,7 +41,7 @@ export class DocumentationGenerator {
    * Generate documentation table in Figma
    *
    * @param tokenFiles - Map of token files to document
-   * @param tokenMetadata - Array of token metadata from VariableManager
+   * @param tokenMetadata - Array of token metadata from VariableManager (can be empty)
    * @param options - Generation options
    * @returns Result with generation statistics
    */
@@ -64,14 +64,25 @@ export class DocumentationGenerator {
       // Load font
       await this.loadFont();
 
+      // If no metadata provided, build from Figma variables
+      let metadata = tokenMetadata;
+      if (!metadata || metadata.length === 0) {
+        console.log('[DocumentationGenerator] No metadata provided, building from Figma variables...');
+        const buildResult = await this.buildMetadataFromFigmaVariables();
+        if (!buildResult.success) {
+          return Failure(buildResult.error || 'Failed to build metadata from Figma variables');
+        }
+        metadata = buildResult.data!;
+      }
+
       // Filter tokens by selected files
       const filteredMetadata = this.filterTokensByFiles(
-        tokenMetadata,
+        metadata,
         options.fileNames
       );
 
       if (filteredMetadata.length === 0) {
-        return Failure('No tokens found in selected files');
+        return Failure('No tokens found in selected files or Figma variables');
       }
 
       // Convert to rows
@@ -127,6 +138,65 @@ export class DocumentationGenerator {
   }
 
   /**
+   * Build metadata from Figma variables
+   * Used when no metadata is provided from VariableManager
+   */
+  private async buildMetadataFromFigmaVariables(): Promise<Result<TokenMetadata[]>> {
+    try {
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      const metadata: TokenMetadata[] = [];
+
+      for (const collection of collections) {
+        const variables = collection.variableIds.map(id => figma.variables.getVariableById(id)!);
+
+        for (const variable of variables) {
+          if (!variable) continue;
+
+          // Get the default mode value
+          const defaultModeId = collection.modes[0].modeId;
+          const value = variable.valuesByMode[defaultModeId];
+
+          // Build metadata
+          metadata.push({
+            name: variable.name,
+            fullPath: variable.name,
+            type: this.mapVariableTypeToTokenType(variable.resolvedType),
+            value: value,
+            originalValue: value,
+            description: variable.description || '',
+            collection: collection.name,
+          });
+        }
+      }
+
+      console.log(`[DocumentationGenerator] Built metadata for ${metadata.length} variables`);
+      return Success(metadata);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[DocumentationGenerator] Failed to build metadata:', message);
+      return Failure(`Failed to build metadata from Figma variables: ${message}`);
+    }
+  }
+
+  /**
+   * Map Figma variable type to token type
+   */
+  private mapVariableTypeToTokenType(variableType: VariableResolvedDataType): string {
+    switch (variableType) {
+      case 'COLOR':
+        return 'color';
+      case 'FLOAT':
+        return 'number';
+      case 'STRING':
+        return 'string';
+      case 'BOOLEAN':
+        return 'boolean';
+      default:
+        return 'string';
+    }
+  }
+
+  /**
    * Filter tokens by selected file names
    */
   private filterTokensByFiles(
@@ -139,11 +209,16 @@ export class DocumentationGenerator {
     }
 
     // Filter by collection (file name)
-    return metadata.filter(token =>
-      fileNames.some(fileName =>
-        token.collection.toLowerCase().includes(fileName.toLowerCase())
-      )
-    );
+    // Match against both the exact collection name and partial filename matches
+    return metadata.filter(token => {
+      const collectionLower = token.collection.toLowerCase();
+      return fileNames.some(fileName => {
+        const fileNameLower = fileName.toLowerCase();
+        // Check if collection contains filename or vice versa
+        return collectionLower.includes(fileNameLower) ||
+               fileNameLower.includes(collectionLower);
+      });
+    });
   }
 
   /**
