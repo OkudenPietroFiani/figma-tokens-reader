@@ -9,13 +9,12 @@ import { PluginBridge } from '../services/PluginBridge';
 
 export class TokenScreen extends BaseComponent {
   private bridge: PluginBridge;
-  private syncBtn!: HTMLButtonElement;
-  private pullChangesBtn!: HTMLButtonElement;
-  private switchSourceBtn!: HTMLButtonElement;
   private fileTabsList!: HTMLDivElement;
   private tokenTreeContent!: HTMLDivElement;
   private lastUpdatedText!: HTMLDivElement;
-  private changeIndicator!: HTMLSpanElement;
+
+  // Callback for layout to update pull button state
+  public onPullButtonUpdate: ((visible: boolean, hasChanges: boolean) => void) | null = null;
 
   constructor(state: AppState, bridge: PluginBridge) {
     super(state);
@@ -25,18 +24,9 @@ export class TokenScreen extends BaseComponent {
   protected createElement(): HTMLElement {
     const screen = document.createElement('div');
     screen.id = 'token-screen';
-    screen.className = 'screen token-screen';
+    screen.className = 'screen-content token-screen';
 
     screen.innerHTML = `
-      <!-- Top Bar -->
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab active" id="tokens-tab">Tokens</button>
-          <button class="token-tab" id="scope-tab">Scopes</button>
-        </div>
-        <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
-      </div>
-
       <!-- Tokens View -->
       <div class="token-view active" id="tokens-view">
         <div class="token-layout">
@@ -59,59 +49,22 @@ export class TokenScreen extends BaseComponent {
           </div>
         </div>
       </div>
-
-      <!-- Action Footer -->
-      <div class="token-actions">
-        <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
-        <button class="btn btn-secondary hidden" id="pull-changes-btn">
-          Pull changes
-          <span class="badge badge-info hidden" id="change-indicator"></span>
-        </button>
-      </div>
     `;
 
     // Cache references
-    this.syncBtn = screen.querySelector('#sync-to-figma-btn')!;
-    this.pullChangesBtn = screen.querySelector('#pull-changes-btn')!;
-    this.switchSourceBtn = screen.querySelector('#switch-source-btn')!;
     this.fileTabsList = screen.querySelector('#file-tabs-list')!;
     this.tokenTreeContent = screen.querySelector('#token-tree-content')!;
     this.lastUpdatedText = screen.querySelector('#last-updated-text')!;
-    this.changeIndicator = screen.querySelector('#change-indicator')!;
 
     return screen;
   }
 
   protected bindEvents(): void {
-    // Sync to Figma button
-    this.addEventListener(this.syncBtn, 'click', () => {
-      this.handleSyncToFigma();
-    });
-
-    // Pull changes button
-    this.addEventListener(this.pullChangesBtn, 'click', () => {
-      this.handlePullChanges();
-    });
-
-    // Switch source button
-    this.addEventListener(this.switchSourceBtn, 'click', () => {
-      this.state.setCurrentScreen('welcome');
-    });
-
-    // Scope tab button
-    const scopeTab = this.element.querySelector('#scope-tab');
-    if (scopeTab) {
-      this.addEventListener(scopeTab as HTMLElement, 'click', () => {
-        this.state.setCurrentScreen('scope');
-      });
-    }
-
     // Listen to state changes
     this.subscribeToState('files-loaded', () => {
       this.renderFileList();
-      this.updatePullChangesButton();
+      this.updatePullButton();
       this.updateLastUpdatedText();
-      this.updateChangeIndicator();
     });
 
     this.subscribeToState('file-selected', (fileName) => {
@@ -275,9 +228,9 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
-   * Handle sync to Figma
+   * Handle sync to Figma (called from AppLayout)
    */
-  private async handleSyncToFigma(): Promise<void> {
+  public async handleSyncToFigma(): Promise<void> {
     const files = Array.from(this.state.tokenFiles.values());
 
     if (files.length === 0) {
@@ -303,28 +256,52 @@ export class TokenScreen extends BaseComponent {
     }
 
     try {
-      this.setEnabled(this.syncBtn, false);
+      // Disabled state managed by AppLayout
       const message = await this.bridge.send('import-tokens', {
         primitives,
         semantics,
         source: this.state.tokenSource
       });
       this.showNotification(message, 'success');
-      this.setEnabled(this.syncBtn, true);
     } catch (error) {
       console.error('Error syncing to Figma:', error);
       this.showNotification('Failed to sync tokens', 'error');
-      this.setEnabled(this.syncBtn, true);
     }
   }
 
   /**
-   * Update pull changes button visibility
-   * Button is always visible for both local and GitHub sources
+   * Update pull button state and notify layout
    */
-  private updatePullChangesButton(): void {
+  private updatePullButton(): void {
     // Always show the pull changes button
-    this.pullChangesBtn.classList.remove('hidden');
+    const shouldShowPullButton = true;
+
+    // Check if we should show change indicator
+    const hasChanges = this.shouldShowChangeIndicator();
+
+    // Notify layout to update pull button
+    if (this.onPullButtonUpdate) {
+      this.onPullButtonUpdate(shouldShowPullButton, hasChanges);
+    }
+  }
+
+  /**
+   * Check if change indicator should be shown
+   */
+  private shouldShowChangeIndicator(): boolean {
+    const lastUpdated = this.state.lastUpdated;
+
+    if (!lastUpdated) {
+      return false;
+    }
+
+    // Check if more than 5 minutes have passed since last update
+    const lastUpdateTime = new Date(lastUpdated).getTime();
+    const now = new Date().getTime();
+    const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 60000);
+
+    // Show indicator if it's been more than 5 minutes since last update
+    return minutesSinceUpdate >= 5;
   }
 
   /**
@@ -374,36 +351,11 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
-   * Update change indicator visibility
-   * Shows blue dot if last update was more than 5 minutes ago (changes might be available)
-   */
-  private updateChangeIndicator(): void {
-    const lastUpdated = this.state.lastUpdated;
-
-    if (!lastUpdated) {
-      this.changeIndicator.classList.add('hidden');
-      return;
-    }
-
-    // Check if more than 5 minutes have passed since last update
-    const lastUpdateTime = new Date(lastUpdated).getTime();
-    const now = new Date().getTime();
-    const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 60000);
-
-    // Show indicator if it's been more than 5 minutes since last update
-    if (minutesSinceUpdate >= 5) {
-      this.changeIndicator.classList.remove('hidden');
-    } else {
-      this.changeIndicator.classList.add('hidden');
-    }
-  }
-
-  /**
-   * Handle pull changes from source
+   * Handle pull changes from source (called from AppLayout)
    * For GitHub: pulls latest changes from repository
    * For local: navigates to import screen to re-select files
    */
-  private async handlePullChanges(): Promise<void> {
+  public async handlePullChanges(): Promise<void> {
     const tokenSource = this.state.tokenSource;
     const githubConfig = this.state.githubConfig;
 
@@ -417,7 +369,6 @@ export class TokenScreen extends BaseComponent {
     // Handle GitHub source - pull latest changes
     try {
       this.showNotification('Pulling latest changes from GitHub...', 'info');
-      this.setEnabled(this.pullChangesBtn, false);
 
       // Store current files for comparison
       const oldFiles = Array.from(this.state.tokenFiles.values());
@@ -425,14 +376,11 @@ export class TokenScreen extends BaseComponent {
       const response = await this.bridge.send('github-import-files', githubConfig);
       this.handleFilesImported(response, oldFiles);
 
-      // Hide change indicator after pulling
-      this.changeIndicator.classList.add('hidden');
-
-      this.setEnabled(this.pullChangesBtn, true);
+      // Update pull button state (will hide change indicator)
+      this.updatePullButton();
     } catch (error) {
       console.error('Error pulling changes:', error);
       this.showNotification('Failed to pull changes', 'error');
-      this.setEnabled(this.pullChangesBtn, true);
     }
   }
 
@@ -589,9 +537,8 @@ export class TokenScreen extends BaseComponent {
   show(): void {
     super.show();
     this.renderFileList();
-    this.updatePullChangesButton();
+    this.updatePullButton();
     this.updateLastUpdatedText();
-    this.updateChangeIndicator();
     console.log('[TokenScreen] Screen shown');
   }
 }
