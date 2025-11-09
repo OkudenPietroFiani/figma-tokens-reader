@@ -6,7 +6,7 @@
 import { Result, Success, Failure, DocumentationOptions, DocumentationResult, DocumentationTokenRow, TokenFile, TokenMetadata } from '../../shared/types';
 import {
   getEnabledColumns,
-  getTableWidth,
+  calculateColumnWidths,
   DOCUMENTATION_LAYOUT_CONFIG,
   extractCategoryFromPath,
   formatTokenValue,
@@ -153,9 +153,12 @@ export class DocumentationGenerator {
           const value = variable.valuesByMode[defaultModeId];
 
           // Build metadata
+          // Convert Figma variable name (with /) to token nomenclature (with .)
+          const tokenName = variable.name.replace(/\//g, '.');
+
           metadata.push({
-            name: variable.name,
-            fullPath: variable.name,
+            name: tokenName,
+            fullPath: tokenName,
             type: this.mapVariableTypeToTokenType(variable.resolvedType),
             value: value,
             originalValue: value,
@@ -430,8 +433,11 @@ export class DocumentationGenerator {
       columns = columns.filter(col => col.key !== 'description');
     }
 
-    // Calculate fixed table width
-    const tableWidth = getTableWidth(includeDescriptions);
+    // Use fixed table width from config
+    const tableWidth = DOCUMENTATION_LAYOUT_CONFIG.table.width;
+
+    // Calculate individual column widths
+    const columnWidths = calculateColumnWidths(tableWidth, includeDescriptions);
 
     // Auto-layout vertical with fixed width
     tableFrame.layoutMode = 'VERTICAL';
@@ -441,14 +447,14 @@ export class DocumentationGenerator {
     tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
 
     // Header row
-    const headerRow = this.createHeaderRow(columns, tableWidth);
+    const headerRow = this.createHeaderRow(columns, columnWidths, tableWidth);
     tableFrame.appendChild(headerRow);
 
     // Data rows
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const isAlternate = i % 2 === 1;
-      const dataRow = await this.createDataRow(row, columns, isAlternate, tableWidth);
+      const dataRow = await this.createDataRow(row, columns, columnWidths, isAlternate, tableWidth);
       tableFrame.appendChild(dataRow);
     }
 
@@ -458,7 +464,11 @@ export class DocumentationGenerator {
   /**
    * Create header row
    */
-  private createHeaderRow(columns: Array<{ key: string; label: string; width: number }>, tableWidth: number): FrameNode {
+  private createHeaderRow(
+    columns: Array<{ key: string; label: string; widthRatio: number }>,
+    columnWidths: Map<string, number>,
+    tableWidth: number
+  ): FrameNode {
     const rowFrame = figma.createFrame();
     rowFrame.name = 'Header Row';
     rowFrame.fills = [{ type: 'SOLID', color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
@@ -470,7 +480,8 @@ export class DocumentationGenerator {
     rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
 
     for (const column of columns) {
-      const cell = this.createHeaderCell(column.label, column.width);
+      const width = columnWidths.get(column.key) || 200; // Fallback width
+      const cell = this.createHeaderCell(column.label, width);
       rowFrame.appendChild(cell);
     }
 
@@ -508,7 +519,8 @@ export class DocumentationGenerator {
    */
   private async createDataRow(
     row: DocumentationTokenRow,
-    columns: Array<{ key: string; label: string; width: number }>,
+    columns: Array<{ key: string; label: string; widthRatio: number }>,
+    columnWidths: Map<string, number>,
     isAlternate: boolean,
     tableWidth: number
   ): Promise<FrameNode> {
@@ -527,13 +539,14 @@ export class DocumentationGenerator {
     rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
 
     for (const column of columns) {
+      const width = columnWidths.get(column.key) || 200; // Get width from map
       let cell: FrameNode;
 
       if (column.key === 'visualization') {
-        cell = await this.createVisualizationCell(row, column.width);
+        cell = await this.createVisualizationCell(row, width);
       } else {
         const value = this.getCellValue(row, column.key);
-        cell = this.createTextCell(value, column.width);
+        cell = this.createTextCell(value, width);
       }
 
       rowFrame.appendChild(cell);
