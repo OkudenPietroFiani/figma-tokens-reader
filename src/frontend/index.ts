@@ -9,6 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ImportScreen } from './components/ImportScreen';
 import { TokenScreen } from './components/TokenScreen';
 import { ScopeScreen } from './components/ScopeScreen';
+import { NotificationManager } from './components/NotificationManager';
 import { ScreenType } from '../shared/types';
 
 /**
@@ -24,6 +25,7 @@ class FrontendApp {
   private importScreen: ImportScreen;
   private tokenScreen: TokenScreen;
   private scopeScreen: ScopeScreen;
+  private notificationManager: NotificationManager;
 
   // Screen registry
   private screens: Map<ScreenType, any>;
@@ -38,12 +40,14 @@ class FrontendApp {
     this.importScreen = new ImportScreen(this.state, this.bridge);
     this.tokenScreen = new TokenScreen(this.state, this.bridge);
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+    this.notificationManager = new NotificationManager();
 
     // Initialize components (bind events after all properties are set)
     this.welcomeScreen.init();
     this.importScreen.init();
     this.tokenScreen.init();
     this.scopeScreen.init();
+    this.notificationManager.init();
 
     // Register screens
     this.screens = new Map([
@@ -64,6 +68,7 @@ class FrontendApp {
     this.importScreen.mount(body);
     this.tokenScreen.mount(body);
     this.scopeScreen.mount(body);
+    this.notificationManager.mount(body);
 
     // Hide all screens initially
     this.welcomeScreen.hide();
@@ -83,9 +88,6 @@ class FrontendApp {
 
     // Setup backend message handlers
     this.setupBackendHandlers();
-
-    // Setup notification system
-    this.setupNotificationSystem();
 
     // Load saved tokens if any
     await this.loadSavedTokens();
@@ -213,105 +215,6 @@ class FrontendApp {
     this.bridge.on('tokens-loaded', (data: any) => {
       console.log('[Frontend] Tokens loaded:', data);
     });
-  }
-
-  /**
-   * Setup notification system
-   */
-  private setupNotificationSystem(): void {
-    // Create notification container
-    const container = document.createElement('div');
-    container.id = 'notification-container';
-    container.style.cssText = `
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-    `;
-    document.body.appendChild(container);
-
-    // Listen for notification events
-    window.addEventListener('notification', ((event: CustomEvent) => {
-      const { message, type } = event.detail;
-      this.displayNotification(message, type);
-    }) as EventListener);
-  }
-
-  /**
-   * Display a notification
-   */
-  private displayNotification(message: string, type: 'success' | 'error' | 'info'): void {
-    const container = document.getElementById('notification-container');
-    if (!container) return;
-
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      background: ${type === 'success' ? '#0ACF83' : type === 'error' ? '#F24822' : '#0066FF'};
-      color: white;
-      padding: 12px 16px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      max-width: 300px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      pointer-events: auto;
-      cursor: pointer;
-      animation: slideIn 0.2s ease-out;
-    `;
-    notification.textContent = message;
-
-    // Add animation keyframes
-    if (!document.getElementById('notification-styles')) {
-      const style = document.createElement('style');
-      style.id = 'notification-styles';
-      style.textContent = `
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes slideOut {
-          from {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          to {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    // Add to container
-    container.appendChild(notification);
-
-    // Auto-remove after 4 seconds
-    const removeNotification = () => {
-      notification.style.animation = 'slideOut 0.2s ease-in';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 200);
-    };
-
-    // Click to dismiss
-    notification.addEventListener('click', removeNotification);
-
-    // Auto-dismiss
-    setTimeout(removeNotification, 4000);
   }
 }
 

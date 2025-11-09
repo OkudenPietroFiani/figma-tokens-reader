@@ -1415,12 +1415,16 @@
       }
     }
     /**
-     * Handle pull changes from GitHub
+     * Handle pull changes from source
+     * For GitHub: pulls latest changes from repository
+     * For local: navigates to import screen to re-select files
      */
     async handlePullChanges() {
+      const tokenSource = this.state.tokenSource;
       const githubConfig = this.state.githubConfig;
-      if (!githubConfig) {
-        this.showNotification("GitHub configuration not found", "error");
+      if (tokenSource === "local" || !githubConfig) {
+        this.showNotification("Re-import your token files from the import screen", "info");
+        this.state.setCurrentScreen("import");
         return;
       }
       try {
@@ -2162,6 +2166,152 @@
     }
   };
 
+  // src/frontend/components/NotificationManager.ts
+  var NotificationManager = class {
+    constructor() {
+      this.styleElement = null;
+      this.container = this.createContainer();
+      this.setupStyles();
+    }
+    /**
+     * Initialize the notification manager
+     */
+    init() {
+      window.addEventListener("notification", this.handleNotificationEvent.bind(this));
+    }
+    /**
+     * Mount the notification container to the DOM
+     */
+    mount(parent2) {
+      parent2.appendChild(this.container);
+    }
+    /**
+     * Unmount and cleanup
+     */
+    unmount() {
+      window.removeEventListener("notification", this.handleNotificationEvent.bind(this));
+      if (this.container.parentNode) {
+        this.container.parentNode.removeChild(this.container);
+      }
+      if (this.styleElement && this.styleElement.parentNode) {
+        this.styleElement.parentNode.removeChild(this.styleElement);
+      }
+    }
+    /**
+     * Create the notification container element
+     */
+    createContainer() {
+      const container = document.createElement("div");
+      container.id = "notification-container";
+      container.className = "notification-container";
+      return container;
+    }
+    /**
+     * Setup CSS styles for notifications
+     * Clean code: Styles defined in one place, reusable
+     */
+    setupStyles() {
+      if (document.getElementById("notification-styles")) {
+        return;
+      }
+      const style = document.createElement("style");
+      style.id = "notification-styles";
+      style.textContent = `
+      .notification-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+      }
+
+      .notification {
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        max-width: 300px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        pointer-events: auto;
+        cursor: pointer;
+        animation: slideIn 0.2s ease-out;
+        color: white;
+      }
+
+      .notification-success {
+        background-color: #0ACF83;
+      }
+
+      .notification-error {
+        background-color: #F24822;
+      }
+
+      .notification-info {
+        background-color: #0066FF;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+      }
+    `;
+      document.head.appendChild(style);
+      this.styleElement = style;
+    }
+    /**
+     * Handle notification events
+     */
+    handleNotificationEvent(event) {
+      const customEvent = event;
+      const { message, type } = customEvent.detail;
+      this.show(message, type || "info");
+    }
+    /**
+     * Display a notification
+     * Clean code: Single purpose, clear flow
+     */
+    show(message, type = "info") {
+      const notification = document.createElement("div");
+      notification.className = `notification notification-${type}`;
+      notification.textContent = message;
+      this.container.appendChild(notification);
+      const dismiss = () => this.dismiss(notification);
+      notification.addEventListener("click", dismiss);
+      setTimeout(dismiss, 4e3);
+    }
+    /**
+     * Dismiss a notification with animation
+     */
+    dismiss(notification) {
+      notification.style.animation = "slideOut 0.2s ease-in";
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 200);
+    }
+  };
+
   // src/frontend/index.ts
   var FrontendApp = class {
     constructor() {
@@ -2171,10 +2321,12 @@
       this.importScreen = new ImportScreen(this.state, this.bridge);
       this.tokenScreen = new TokenScreen(this.state, this.bridge);
       this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+      this.notificationManager = new NotificationManager();
       this.welcomeScreen.init();
       this.importScreen.init();
       this.tokenScreen.init();
       this.scopeScreen.init();
+      this.notificationManager.init();
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],
         ["import", this.importScreen],
@@ -2191,6 +2343,7 @@
       this.importScreen.mount(body);
       this.tokenScreen.mount(body);
       this.scopeScreen.mount(body);
+      this.notificationManager.mount(body);
       this.welcomeScreen.hide();
       this.importScreen.hide();
       this.tokenScreen.hide();
@@ -2202,7 +2355,6 @@
         this.saveTokenState();
       });
       this.setupBackendHandlers();
-      this.setupNotificationSystem();
       await this.loadSavedTokens();
       console.log("[Frontend] Application started");
     }
@@ -2292,88 +2444,6 @@
       this.bridge.on("tokens-loaded", (data) => {
         console.log("[Frontend] Tokens loaded:", data);
       });
-    }
-    /**
-     * Setup notification system
-     */
-    setupNotificationSystem() {
-      const container = document.createElement("div");
-      container.id = "notification-container";
-      container.style.cssText = `
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-    `;
-      document.body.appendChild(container);
-      window.addEventListener("notification", ((event) => {
-        const { message, type } = event.detail;
-        this.displayNotification(message, type);
-      }));
-    }
-    /**
-     * Display a notification
-     */
-    displayNotification(message, type) {
-      const container = document.getElementById("notification-container");
-      if (!container) return;
-      const notification = document.createElement("div");
-      notification.style.cssText = `
-      background: ${type === "success" ? "#0ACF83" : type === "error" ? "#F24822" : "#0066FF"};
-      color: white;
-      padding: 12px 16px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      max-width: 300px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      pointer-events: auto;
-      cursor: pointer;
-      animation: slideIn 0.2s ease-out;
-    `;
-      notification.textContent = message;
-      if (!document.getElementById("notification-styles")) {
-        const style = document.createElement("style");
-        style.id = "notification-styles";
-        style.textContent = `
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes slideOut {
-          from {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          to {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-        }
-      `;
-        document.head.appendChild(style);
-      }
-      container.appendChild(notification);
-      const removeNotification = () => {
-        notification.style.animation = "slideOut 0.2s ease-in";
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 200);
-      };
-      notification.addEventListener("click", removeNotification);
-      setTimeout(removeNotification, 4e3);
     }
   };
   try {
