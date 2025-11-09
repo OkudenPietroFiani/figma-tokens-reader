@@ -601,7 +601,7 @@ body {
   /* No additional styles needed - layout handled by screen-content */
 }
 
-.token-top-bar {
+.app-top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -611,13 +611,13 @@ body {
   background: var(--color-background);
 }
 
-.token-top-bar-tabs {
+.app-tabs {
   display: flex;
   gap: var(--space-lg);
   align-items: center;
 }
 
-.token-tab {
+.app-tab {
   font-size: var(--text-lg);
   font-weight: var(--weight-normal);
   color: var(--color-text-strong);
@@ -629,27 +629,27 @@ body {
   font-family: inherit;
 }
 
-.token-tab:hover {
+.app-tab:hover {
   font-weight: var(--weight-medium);
 }
 
-.token-tab.active {
+.app-tab.active {
   font-weight: var(--weight-bold);
 }
 
-.token-layout {
+.screen-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-.token-view {
+.screen-view {
   display: none;
   flex: 1;
   overflow: hidden;
 }
 
-.token-view.active {
+.screen-view.active {
   display: flex;
 }
 
@@ -878,13 +878,17 @@ body {
   font-size: var(--text-md);
 }
 
-/* Token Tree View Container */
-.token-tree-view {
+/* Tree View Container - used by both token and variable displays */
+.tree-view {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--color-background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--color-text-strong);
 }
 
 #token-tree-content,
@@ -988,7 +992,7 @@ body {
 .tree-item-indent-6 { padding-left: 88px; }
 
 /* Action Footer */
-.token-actions {
+.app-actions {
   padding: var(--space-md) var(--space-lg);
   height: 64px;
   border-top: 1px solid var(--color-border-light);
@@ -998,22 +1002,22 @@ body {
   align-items: center;
 }
 
-.token-actions .btn {
+.app-actions .btn {
   padding: var(--space-sm) var(--space-xl);
   border-radius: var(--radius-full);
   font-size: var(--text-md);
 }
 
-.token-actions .btn-primary {
+.app-actions .btn-primary {
   background: var(--color-text-strong);
   color: var(--color-background);
 }
 
-.token-actions .btn-primary:hover:not(:disabled) {
+.app-actions .btn-primary:hover:not(:disabled) {
   background: #000000;
 }
 
-.token-actions .btn-secondary {
+.app-actions .btn-secondary {
   background: var(--color-background);
   color: var(--color-text-strong);
   border: 1px solid var(--color-text-strong);
@@ -1022,7 +1026,7 @@ body {
   gap: var(--space-sm);
 }
 
-.token-actions .btn-secondary:hover:not(:disabled) {
+.app-actions .btn-secondary:hover:not(:disabled) {
   background: var(--color-hover);
 }
 
@@ -1086,13 +1090,6 @@ body {
 }
 
 /* ==================== SCOPE SCREEN ==================== */
-.scope-tree {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: var(--text-lg);
-  line-height: 1.5;
-  color: var(--color-text-strong);
-}
-
 /* Scope-specific: checkbox for variable selection */
 .scope-checkbox {
   width: 16px;
@@ -2442,8 +2439,8 @@ body {
       screen.className = "screen-content token-screen";
       screen.innerHTML = `
       <!-- Tokens View -->
-      <div class="token-view active" id="tokens-view">
-        <div class="token-layout">
+      <div class="screen-view active" id="tokens-view">
+        <div class="screen-layout">
           <!-- Left Column: File Tabs -->
           <div class="file-tabs">
             <div class="file-tabs-header">
@@ -2455,8 +2452,8 @@ body {
             </div>
           </div>
 
-          <!-- Right Column: Token Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="token-tree-content">
               <div class="empty-state">Select a token file from the left to preview its contents</div>
             </div>
@@ -2861,8 +2858,8 @@ body {
       div.className = "screen-content scope-screen";
       div.innerHTML = `
       <!-- Scope View -->
-      <div class="token-view active">
-        <div class="token-layout">
+      <div class="screen-view active">
+        <div class="screen-layout">
           <!-- Left Column: Collections List View -->
           <div class="file-tabs" id="collections-view">
             <div class="file-tabs-header">
@@ -2890,8 +2887,8 @@ body {
             </div>
           </div>
 
-          <!-- Right Column: Scope Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="scope-content">
               <div class="empty-state">Loading variables...</div>
             </div>
@@ -3003,7 +3000,7 @@ body {
       console.log("[ScopeScreen] Filtered variables count:", filteredVars.length);
       console.log("[ScopeScreen] Filtered variables:", filteredVars.map((v) => v.name));
       const tree = this.buildVariableTree(filteredVars);
-      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      const html = this.renderVariableTree(tree, 0);
       if (filteredVars.length === 0) {
         this.scopeContent.innerHTML = '<div class="empty-state">No variables found in this collection.</div>';
       } else {
@@ -3020,7 +3017,7 @@ body {
         return;
       }
       const tree = this.buildVariableTree(this.variables);
-      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      const html = this.renderVariableTree(tree, 0);
       this.scopeContent.innerHTML = html;
       this.attachVariableEventHandlers();
     }
@@ -3415,10 +3412,10 @@ body {
       layout.className = "app-layout hidden";
       layout.innerHTML = `
       <!-- Top Navigation Bar -->
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab active" id="app-tokens-tab">Tokens</button>
-          <button class="token-tab" id="app-scopes-tab">Scopes</button>
+      <div class="app-top-bar">
+        <div class="app-tabs">
+          <button class="app-tab active" id="app-tokens-tab">Tokens</button>
+          <button class="app-tab" id="app-scopes-tab">Scopes</button>
         </div>
         <button class="btn-switch-source" id="app-switch-source-btn">Switch source</button>
       </div>
@@ -3427,7 +3424,7 @@ body {
       <div id="app-content-area" class="app-content-area"></div>
 
       <!-- Action Footer -->
-      <div class="token-actions">
+      <div class="app-actions">
         <button class="btn btn-primary" id="app-sync-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="app-pull-btn">
           Pull changes
@@ -3435,9 +3432,9 @@ body {
         </button>
       </div>
     `;
-      this.topBar = layout.querySelector(".token-top-bar");
+      this.topBar = layout.querySelector(".app-top-bar");
       this.contentArea = layout.querySelector("#app-content-area");
-      this.actionFooter = layout.querySelector(".token-actions");
+      this.actionFooter = layout.querySelector(".app-actions");
       this.tokensTab = layout.querySelector("#app-tokens-tab");
       this.scopesTab = layout.querySelector("#app-scopes-tab");
       this.switchSourceBtn = layout.querySelector("#app-switch-source-btn");

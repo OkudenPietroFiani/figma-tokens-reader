@@ -39,10 +39,10 @@ export class AppLayout extends BaseComponent {
 
     layout.innerHTML = `
       <!-- Top Navigation Bar -->
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab active" id="app-tokens-tab">Tokens</button>
-          <button class="token-tab" id="app-scopes-tab">Scopes</button>
+      <div class="app-top-bar">
+        <div class="app-tabs">
+          <button class="app-tab active" id="app-tokens-tab">Tokens</button>
+          <button class="app-tab" id="app-scopes-tab">Scopes</button>
         </div>
         <button class="btn-switch-source" id="app-switch-source-btn">Switch source</button>
       </div>
@@ -51,7 +51,7 @@ export class AppLayout extends BaseComponent {
       <div id="app-content-area" class="app-content-area"></div>
 
       <!-- Action Footer -->
-      <div class="token-actions">
+      <div class="app-actions">
         <button class="btn btn-primary" id="app-sync-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="app-pull-btn">
           Pull changes
@@ -61,9 +61,9 @@ export class AppLayout extends BaseComponent {
     `;
 
     // Cache references
-    this.topBar = layout.querySelector('.token-top-bar')!;
+    this.topBar = layout.querySelector('.app-top-bar')!;
     this.contentArea = layout.querySelector('#app-content-area')!;
-    this.actionFooter = layout.querySelector('.token-actions')!;
+    this.actionFooter = layout.querySelector('.app-actions')!;
     this.tokensTab = layout.querySelector('#app-tokens-tab')!;
     this.scopesTab = layout.querySelector('#app-scopes-tab')!;
     this.switchSourceBtn = layout.querySelector('#app-switch-source-btn')!;

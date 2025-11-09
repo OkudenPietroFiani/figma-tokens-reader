@@ -595,7 +595,7 @@ body {
   /* No additional styles needed - layout handled by screen-content */
 }
 
-.token-top-bar {
+.app-top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -605,13 +605,13 @@ body {
   background: var(--color-background);
 }
 
-.token-top-bar-tabs {
+.app-tabs {
   display: flex;
   gap: var(--space-lg);
   align-items: center;
 }
 
-.token-tab {
+.app-tab {
   font-size: var(--text-lg);
   font-weight: var(--weight-normal);
   color: var(--color-text-strong);
@@ -623,27 +623,27 @@ body {
   font-family: inherit;
 }
 
-.token-tab:hover {
+.app-tab:hover {
   font-weight: var(--weight-medium);
 }
 
-.token-tab.active {
+.app-tab.active {
   font-weight: var(--weight-bold);
 }
 
-.token-layout {
+.screen-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-.token-view {
+.screen-view {
   display: none;
   flex: 1;
   overflow: hidden;
 }
 
-.token-view.active {
+.screen-view.active {
   display: flex;
 }
 
@@ -872,13 +872,17 @@ body {
   font-size: var(--text-md);
 }
 
-/* Token Tree View Container */
-.token-tree-view {
+/* Tree View Container - used by both token and variable displays */
+.tree-view {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--color-background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--color-text-strong);
 }
 
 #token-tree-content,
@@ -982,7 +986,7 @@ body {
 .tree-item-indent-6 { padding-left: 88px; }
 
 /* Action Footer */
-.token-actions {
+.app-actions {
   padding: var(--space-md) var(--space-lg);
   height: 64px;
   border-top: 1px solid var(--color-border-light);
@@ -992,22 +996,22 @@ body {
   align-items: center;
 }
 
-.token-actions .btn {
+.app-actions .btn {
   padding: var(--space-sm) var(--space-xl);
   border-radius: var(--radius-full);
   font-size: var(--text-md);
 }
 
-.token-actions .btn-primary {
+.app-actions .btn-primary {
   background: var(--color-text-strong);
   color: var(--color-background);
 }
 
-.token-actions .btn-primary:hover:not(:disabled) {
+.app-actions .btn-primary:hover:not(:disabled) {
   background: #000000;
 }
 
-.token-actions .btn-secondary {
+.app-actions .btn-secondary {
   background: var(--color-background);
   color: var(--color-text-strong);
   border: 1px solid var(--color-text-strong);
@@ -1016,7 +1020,7 @@ body {
   gap: var(--space-sm);
 }
 
-.token-actions .btn-secondary:hover:not(:disabled) {
+.app-actions .btn-secondary:hover:not(:disabled) {
   background: var(--color-hover);
 }
 
@@ -1080,13 +1084,6 @@ body {
 }
 
 /* ==================== SCOPE SCREEN ==================== */
-.scope-tree {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: var(--text-lg);
-  line-height: 1.5;
-  color: var(--color-text-strong);
-}
-
 /* Scope-specific: checkbox for variable selection */
 .scope-checkbox {
   width: 16px;

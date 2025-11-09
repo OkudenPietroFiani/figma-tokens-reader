@@ -28,8 +28,8 @@ export class TokenScreen extends BaseComponent {
 
     screen.innerHTML = `
       <!-- Tokens View -->
-      <div class="token-view active" id="tokens-view">
-        <div class="token-layout">
+      <div class="screen-view active" id="tokens-view">
+        <div class="screen-layout">
           <!-- Left Column: File Tabs -->
           <div class="file-tabs">
             <div class="file-tabs-header">
@@ -41,8 +41,8 @@ export class TokenScreen extends BaseComponent {
             </div>
           </div>
 
-          <!-- Right Column: Token Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="token-tree-content">
               <div class="empty-state">Select a token file from the left to preview its contents</div>
             </div>
