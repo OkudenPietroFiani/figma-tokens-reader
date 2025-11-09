@@ -398,16 +398,22 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
-   * Handle pull changes from GitHub
+   * Handle pull changes from source
+   * For GitHub: pulls latest changes from repository
+   * For local: navigates to import screen to re-select files
    */
   private async handlePullChanges(): Promise<void> {
+    const tokenSource = this.state.tokenSource;
     const githubConfig = this.state.githubConfig;
 
-    if (!githubConfig) {
-      this.showNotification('GitHub configuration not found', 'error');
+    // Handle local source - navigate to import screen
+    if (tokenSource === 'local' || !githubConfig) {
+      this.showNotification('Re-import your token files from the import screen', 'info');
+      this.state.setCurrentScreen('import');
       return;
     }
 
+    // Handle GitHub source - pull latest changes
     try {
       this.showNotification('Pulling latest changes from GitHub...', 'info');
       this.setEnabled(this.pullChangesBtn, false);
