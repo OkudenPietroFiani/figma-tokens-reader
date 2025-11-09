@@ -412,8 +412,11 @@ export class TokenScreen extends BaseComponent {
       this.showNotification('Pulling latest changes from GitHub...', 'info');
       this.setEnabled(this.pullChangesBtn, false);
 
+      // Store current files for comparison
+      const oldFiles = Array.from(this.state.tokenFiles.values());
+
       const response = await this.bridge.send('github-import-files', githubConfig);
-      this.handleFilesImported(response);
+      this.handleFilesImported(response, oldFiles);
 
       // Hide change indicator after pulling
       this.changeIndicator.classList.add('hidden');
@@ -429,7 +432,7 @@ export class TokenScreen extends BaseComponent {
   /**
    * Handle files imported from GitHub
    */
-  private handleFilesImported(data: any): void {
+  private handleFilesImported(data: any, oldFiles?: any[]): void {
     console.log('[TokenScreen] Files imported from GitHub:', data);
 
     const tokenFiles = [];
@@ -455,8 +458,90 @@ export class TokenScreen extends BaseComponent {
     if (tokenFiles.length > 0) {
       this.state.setTokenFiles(tokenFiles);
       this.state.setTokenSource('github'); // Ensure tokenSource is set
-      this.showNotification('Successfully pulled latest changes', 'success');
+
+      // Show detailed comparison if we have old files to compare
+      if (oldFiles && oldFiles.length > 0) {
+        const changeMessage = this.compareTokenFiles(oldFiles, tokenFiles);
+        this.showNotification(changeMessage, 'success');
+      } else {
+        this.showNotification('Successfully pulled latest changes', 'success');
+      }
     }
+  }
+
+  /**
+   * Compare old and new token files and generate a summary message
+   */
+  private compareTokenFiles(oldFiles: any[], newFiles: any[]): string {
+    let hasChanges = false;
+    let changeDetails: string[] = [];
+
+    // Compare each file
+    for (const newFile of newFiles) {
+      const oldFile = oldFiles.find(f => f.name === newFile.name);
+
+      if (!oldFile) {
+        hasChanges = true;
+        changeDetails.push(`${newFile.name}: added`);
+        continue;
+      }
+
+      // Compare file contents
+      const oldJson = JSON.stringify(oldFile.content);
+      const newJson = JSON.stringify(newFile.content);
+
+      if (oldJson !== newJson) {
+        hasChanges = true;
+        const oldSize = Object.keys(this.flattenTokens(oldFile.content)).length;
+        const newSize = Object.keys(this.flattenTokens(newFile.content)).length;
+        const diff = newSize - oldSize;
+
+        if (diff > 0) {
+          changeDetails.push(`${newFile.name}: +${diff} token${diff === 1 ? '' : 's'}`);
+        } else if (diff < 0) {
+          changeDetails.push(`${newFile.name}: ${diff} token${diff === -1 ? '' : 's'}`);
+        } else {
+          changeDetails.push(`${newFile.name}: modified`);
+        }
+      }
+    }
+
+    // Check for deleted files
+    for (const oldFile of oldFiles) {
+      if (!newFiles.find(f => f.name === oldFile.name)) {
+        hasChanges = true;
+        changeDetails.push(`${oldFile.name}: removed`);
+      }
+    }
+
+    if (!hasChanges) {
+      return '✓ No changes detected - tokens are up to date';
+    }
+
+    if (changeDetails.length === 1) {
+      return `✓ ${changeDetails[0]}`;
+    }
+
+    return `✓ Changes detected: ${changeDetails.join(', ')}`;
+  }
+
+  /**
+   * Flatten token object to count all tokens
+   */
+  private flattenTokens(obj: any, result: any = {}): any {
+    for (const key in obj) {
+      const value = obj[key];
+      if (value && typeof value === 'object') {
+        if ('$value' in value) {
+          // It's a token
+          result[key] = value;
+        } else {
+          // It's a group, recurse
+          this.flattenTokens(value, result);
+        }
+      }
+    }
+    return result;
   }
 
   /**
