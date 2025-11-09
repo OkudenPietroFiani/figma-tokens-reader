@@ -1,107 +1,61 @@
 # W3C Design Tokens Importer for Figma
 
-A Figma plugin that imports W3C Design Tokens from JSON files and automatically converts them to Figma variables with proper type mapping and reference resolution.
+A Figma plugin that imports W3C Design Tokens and Style Dictionary formats from GitHub or local files, automatically converting them to Figma variables with parallel processing and smart format detection.
 
 ## Features
 
-### 🎨 Comprehensive Token Support
-- **Colors**: HSL, RGB, HEX formats with automatic conversion
-- **Spacing & Dimensions**: px and rem units (rem converted to px using 16px base)
-- **Typography**: Font families, weights, sizes, and line heights
-- **Numbers**: Raw numeric values for opacity, transparency, etc.
-
-### 📦 Flexible Import Options
-- Upload ZIP files containing multiple JSON files
-- Upload individual JSON files (primitives.json, semantics.json)
-- Drag-and-drop support for easy file upload
-- Automatic file detection and parsing
-
-### 🔗 Smart Reference Resolution
-- Automatically resolves token references (e.g., `{primitive.color.primary.600}`)
-- Creates Figma variable aliases for referenced tokens
-- Supports both primitive and semantic token structures
-- Handles nested token hierarchies
-
-### 🎯 Figma Integration
-- Creates two variable collections: "Primitive" and "Semantic"
-- Replicates exact token hierarchy as nested groups
-- Proper type mapping:
-  - `color` → COLOR
-  - `spacing`/`dimension` → FLOAT
-  - `fontFamily`/`fontWeight` → STRING
-  - `number` → FLOAT
-
-### 🖥️ Modern UI
-- Clean, Figma-style interface
-- Two-column JSON preview with syntax highlighting
-- Real-time loading states
-- Success/error messages with details
-- Responsive design (800x600 minimum)
+- **Multiple Token Formats**: W3C Design Tokens and Style Dictionary support
+- **GitHub Integration**: Direct import from GitHub repositories
+- **Local Import**: Upload ZIP files or individual JSON files
+- **Parallel Processing**: 6x faster file fetching with batched parallel processing
+- **Auto-Format Detection**: Automatically detects token format with confidence scoring
+- **Smart References**: Resolves token references and creates Figma variable aliases
+- **Comprehensive Types**: Colors (HSL, RGB, HEX), spacing, dimensions, typography, numbers
+- **Scope Management**: Apply Figma variable scopes via dedicated UI
+- **Modern Architecture**: SOLID principles, registry pattern, dependency injection
 
 ## Installation
 
-### Option 1: Install from Figma Community (Coming Soon)
-1. Open Figma
-2. Go to Plugins → Browse plugins in Community
-3. Search for "W3C Design Tokens Importer"
-4. Click Install
+### Development Installation
 
-### Option 2: Development Installation
-1. Clone this repository:
+1. Clone and install:
    ```bash
    git clone https://github.com/OkudenPietroFiana/figma-tokens-reader.git
    cd figma-tokens-reader
-   ```
-
-2. Install dependencies:
-   ```bash
    npm install
-   ```
-
-3. Build the plugin:
-   ```bash
    npm run build
    ```
 
-4. In Figma:
+2. In Figma:
    - Go to **Plugins → Development → Import plugin from manifest**
-   - Select the `manifest.json` file from this repository
-   - The plugin will now appear in your Plugins menu
+   - Select the `manifest.json` file
+   - Plugin appears in your Plugins menu
 
-## Usage
+## Quick Start
 
-### 1. Prepare Your Token Files
+### GitHub Import
+1. Open plugin in Figma
+2. Select **GitHub** import mode
+3. Enter repository details (owner, repo, branch, token)
+4. Select token files to import
+5. Click **Sync to Figma** to import
 
-Create W3C-compliant design token JSON files. Example structure:
+### Local Import
+1. Open plugin in Figma
+2. Select **Local** import mode
+3. Upload ZIP file or individual JSON files
+4. Preview loaded tokens
+5. Click **Export to Figma Variables**
 
-**primitives.json:**
+### Token Format Examples
+
+**W3C Design Tokens** (primitives.json):
 ```json
 {
   "color": {
     "primary": {
       "600": {
         "$value": "#1e40af",
-        "$type": "color",
-        "$description": "Primary brand color"
-      }
-    }
-  },
-  "spacing": {
-    "sm": {
-      "$value": "8px",
-      "$type": "spacing"
-    }
-  }
-}
-```
-
-**semantics.json:**
-```json
-{
-  "button": {
-    "primary": {
-      "background": {
-        "$value": "{color.primary.600}",
         "$type": "color"
       }
     }
@@ -109,182 +63,101 @@ Create W3C-compliant design token JSON files. Example structure:
 }
 ```
 
-### 2. Run the Plugin
-
-1. Open your Figma file
-2. Go to **Plugins → W3C Design Tokens Importer**
-3. The plugin window will open (800x600)
-
-### 3. Import Your Tokens
-
-**Option A: ZIP File**
-- Create a ZIP file containing your `primitives.json` and `semantics.json`
-- Drag and drop the ZIP file into the upload area, or click to browse
-
-**Option B: Individual JSON Files**
-- Select multiple JSON files (primitives.json and semantics.json)
-- The plugin will automatically detect and parse them
-
-### 4. Preview & Export
-
-1. Review the JSON preview in the two-column layout
-2. Click **"Export to Figma Variables"**
-3. Wait for the import process to complete
-4. Success! Your tokens are now available as Figma variables
-
-## Token Format Specification
-
-### Supported Token Types
-
-| Token Type | W3C Format | Figma Variable Type | Conversion |
-|------------|------------|---------------------|------------|
-| Color | `#ff0000`, `rgb(255,0,0)`, `hsl(0,100%,50%)` | COLOR | Normalized to RGB |
-| Spacing | `8px`, `1rem` | FLOAT | Strip px, convert rem (16px base) |
-| Dimension | `16px`, `1.5rem` | FLOAT | Strip px, convert rem (16px base) |
-| Font Family | `"Inter"`, `["Inter", "sans-serif"]` | STRING | String representation |
-| Font Weight | `400`, `"bold"` | STRING | String representation |
-| Font Size | `16px`, `1rem` | FLOAT | Convert to pixels |
-| Line Height | `1.5`, `24px` | STRING | String representation |
-| Number | `0.8`, `1.5` | FLOAT | Raw numeric value |
-
-### Token Structure
-
-Each token must have a `$value` property. Optional properties:
-- `$type`: Explicit type declaration (recommended)
-- `$description`: Token description (becomes variable description in Figma)
-
-### Token References
-
-Reference other tokens using curly braces:
+**Style Dictionary** (tokens.json):
 ```json
 {
-  "semantic-color": {
-    "$value": "{primitive.color.primary.600}",
-    "$type": "color"
+  "color": {
+    "primary": {
+      "value": "#1e40af",
+      "type": "color"
+    }
   }
 }
 ```
 
-Supported reference formats:
-- `{primitive.color.primary.600}`
-- `{color.primary.600}`
-- `{color/primary/600}`
-
-## File Structure
-
-```
-figma-tokens-reader/
-├── manifest.json          # Figma plugin manifest
-├── code.ts               # Plugin logic (TypeScript)
-├── code.js               # Compiled plugin code
-├── ui.html               # Plugin UI (includes styles and JSZip)
-├── package.json          # Node dependencies
-├── tsconfig.json         # TypeScript configuration
-└── README.md            # This file
+**References** (semantics.json):
+```json
+{
+  "button": {
+    "background": {
+      "$value": "{color.primary.600}",
+      "$type": "color"
+    }
+  }
+}
 ```
 
 ## Development
 
-### Build Command
+### Build Commands
 ```bash
-npm run build
+npm run build        # Build plugin
+npm run watch        # Auto-rebuild on changes
+npm test             # Run tests (172 tests)
+npm run lint         # Check code quality
+npm run lint:fix     # Auto-fix lint issues
 ```
-Compiles TypeScript to JavaScript.
 
-### Watch Mode
-```bash
-npm run watch
-```
-Auto-recompiles on file changes.
+### Architecture
 
-### Lint
-```bash
-npm run lint
-```
-Check code quality with ESLint.
+The plugin uses a modern, extensible architecture (Phases 1-4 complete):
+- **Registry Pattern**: For file sources and token formats
+- **Adapter Pattern**: Wraps existing services with new interfaces
+- **Strategy Pattern**: Different parsing strategies per format
+- **Parallel Processing**: BatchProcessor for 6x faster fetching
+- **Feature Flags**: Safe rollout of new features
+- **Result Pattern**: Type-safe error handling
 
-### Fix Lint Issues
-```bash
-npm run lint:fix
-```
+### Contributing
+
+For development guidelines, see:
+- `.claude/instructions/SOLID_PRINCIPLES.md` - SOLID architecture guidelines
+- `.claude/instructions/CODE_STYLE.md` - Code style and DRY principles
+- `.claude/instructions/TESTING.md` - Testing requirements and patterns
+- `.claude/instructions/ARCHITECTURE_DECISIONS.md` - Mandatory patterns
+- `.claude/instructions/CONTRIBUTING.md` - Quick-start guides for adding features
+
+All contributions must:
+- Follow SOLID principles (target: 9/10 minimum)
+- Maintain 85-100% test coverage
+- Pass all 172+ tests
+- Follow DRY principles for code and CSS
+- Include tests for new features
+
+See `ARCHITECTURE.md` for detailed architecture documentation.
 
 ## Technology Stack
 
-- **TypeScript**: Type-safe plugin development
-- **Figma Plugin API**: Variable creation and management
-- **JSZip**: ZIP file extraction (loaded via CDN)
-- **Vanilla JavaScript**: UI interactions (no framework dependencies)
-
-## Error Handling
-
-The plugin handles various error scenarios:
-
-- ❌ Invalid ZIP structure
-- ❌ Missing required files
-- ❌ JSON parsing errors
-- ❌ Invalid token references
-- ❌ Figma API errors
-- ❌ Type conversion errors
-
-All errors are displayed in the UI with detailed messages.
-
-## Known Limitations
-
-1. **Token References**: References must point to existing tokens in the same import
-2. **Type Inference**: If `$type` is not specified, the plugin infers type from value format
-3. **Collections**: Existing "Primitive" and "Semantic" collections will be reused and updated
-4. **Nested References**: Multiple levels of references are resolved, but circular references are not supported
+- **TypeScript**: Type-safe development
+- **Figma Plugin API**: Variable and scope management
+- **GitHub API**: Repository integration with parallel fetching
+- **Jest**: Testing framework (172 tests, 85-100% coverage)
+- **ESBuild**: Fast compilation
 
 ## Troubleshooting
 
-### Plugin Won't Load
-- Ensure `code.js` exists (run `npm run build`)
-- Check Figma console for errors (Plugins → Development → Open Console)
+**Plugin won't load**: Run `npm run build` to compile code.js
 
-### Tokens Not Importing
-- Verify JSON structure matches W3C format
-- Ensure files are named correctly (primitives.json, semantics.json)
-- Check for JSON syntax errors
+**Tokens not importing**: Verify JSON matches W3C or Style Dictionary format
 
-### References Not Resolving
-- Ensure referenced tokens exist
-- Check reference syntax (use dots or slashes)
-- Verify primitives are imported before semantics
+**GitHub import fails**: Check token permissions and repository access
 
-### Build Errors
-- Run `npm install` to ensure all dependencies are installed
-- Check Node.js version (recommended: 16+)
+**References not resolving**: Ensure referenced tokens exist and use correct syntax `{path.to.token}`
 
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is open source and available under the MIT License.
+For detailed troubleshooting, check Figma console: **Plugins → Development → Open Console**
 
 ## Support
 
-If you encounter any issues or have questions:
+- Open issues on [GitHub](https://github.com/OkudenPietroFiana/figma-tokens-reader/issues)
+- Review [W3C Design Tokens spec](https://design-tokens.github.io/community-group/format/)
+- Review [Style Dictionary docs](https://amzn.github.io/style-dictionary/)
 
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Open an issue on GitHub
-3. Review the W3C Design Tokens spec: https://design-tokens.github.io/community-group/format/
+## License
 
-## Acknowledgments
-
-- Built with the [Figma Plugin API](https://www.figma.com/plugin-docs/)
-- W3C Design Tokens Community Group
-- [JSZip](https://stuk.github.io/jszip/) for ZIP file handling
+MIT License
 
 ---
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Author**: Pietro Fiana
 **Repository**: https://github.com/OkudenPietroFiana/figma-tokens-reader

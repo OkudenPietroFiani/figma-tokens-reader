@@ -1,7 +1,7 @@
 {
   "name": "tokens-reader",
-  "version": "1.0.0",
-  "description": "Your Figma Plugin",
+  "version": "1.1.0",
+  "description": "W3C Design Tokens Importer for Figma",
   "main": "code.js",
   "scripts": {
     "build": "npm run build:backend && npm run build:frontend",
