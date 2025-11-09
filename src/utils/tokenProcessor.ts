@@ -33,13 +33,52 @@ export async function processTokenValue(
   // Process based on type
   switch (tokenType) {
     case 'color':
-      // Handle color object format with alpha reference
-      if (typeof value === 'object' && value !== null && 'alpha' in value) {
-        const alphaValue = value.alpha;
+      // Handle color object format with references (components and/or alpha)
+      if (typeof value === 'object' && value !== null && ('alpha' in value || 'components' in value)) {
+        let resolvedValue = { ...value };
+        let needsResolution = false;
 
-        // If alpha is a reference, resolve it
-        if (typeof alphaValue === 'string' && alphaValue.includes('{') && alphaValue.includes('}')) {
-          const alphaRef = extractReference(alphaValue);
+        // Resolve components reference if present
+        if (typeof value.components === 'string' && value.components.includes('{') && value.components.includes('}')) {
+          const componentsRef = extractReference(value.components);
+          if (componentsRef) {
+            const componentsVariable = resolveReference(componentsRef, variableMap);
+
+            if (componentsVariable) {
+              // Get the resolved color value from the variable
+              const modeId = Object.keys(componentsVariable.valuesByMode)[0];
+              const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
+
+              // Extract RGB components from the resolved color
+              if (typeof resolvedComponentsValue === 'object' && 'r' in resolvedComponentsValue) {
+                // Convert Figma RGB (0-1) to the format expected by parseColor
+                const colorSpace = value.colorSpace || 'rgb';
+                if (colorSpace === 'rgb') {
+                  resolvedValue.components = [
+                    Math.round(resolvedComponentsValue.r * 255),
+                    Math.round(resolvedComponentsValue.g * 255),
+                    Math.round(resolvedComponentsValue.b * 255)
+                  ];
+                } else if (colorSpace === 'hsl') {
+                  // Convert RGB to HSL for HSL color space
+                  const hsl = rgbToHsl(resolvedComponentsValue.r, resolvedComponentsValue.g, resolvedComponentsValue.b);
+                  resolvedValue.components = [
+                    Math.round(hsl.h * 360),
+                    Math.round(hsl.s * 100),
+                    Math.round(hsl.l * 100)
+                  ];
+                }
+                needsResolution = true;
+              }
+            } else {
+              console.error(`[COMPONENTS FAILED] Cannot resolve: ${value.components}`);
+            }
+          }
+        }
+
+        // Resolve alpha reference if present
+        if (typeof value.alpha === 'string' && value.alpha.includes('{') && value.alpha.includes('}')) {
+          const alphaRef = extractReference(value.alpha);
           if (alphaRef) {
             const alphaVariable = resolveReference(alphaRef, variableMap);
 
@@ -48,19 +87,17 @@ export async function processTokenValue(
               const modeId = Object.keys(alphaVariable.valuesByMode)[0];
               const resolvedAlpha = alphaVariable.valuesByMode[modeId];
 
-              // Create a new value object with resolved alpha
-              const resolvedValue = {
-                ...value,
-                alpha: typeof resolvedAlpha === 'number' ? resolvedAlpha : 1
-              };
-
-              return { value: parseColor(resolvedValue), isAlias: false };
+              resolvedValue.alpha = typeof resolvedAlpha === 'number' ? resolvedAlpha : 1;
+              needsResolution = true;
+            } else {
+              console.error(`[ALPHA FAILED] Cannot resolve: ${value.alpha}`);
+              resolvedValue.alpha = 1;
             }
           }
+        }
 
-          // Resolution failed - log error and default to full opacity
-          console.error(`[ALPHA FAILED] Cannot resolve: ${alphaValue}`);
-          return { value: parseColor({ ...value, alpha: 1 }), isAlias: false };
+        if (needsResolution) {
+          return { value: parseColor(resolvedValue), isAlias: false };
         }
       }
 
@@ -137,4 +174,35 @@ export function resolveReference(
   console.error(`  Tried: ${cleanRef}, ${slashRef}, and ${parts.length - 1} dotted variations`);
   console.error(`  Map has ${variableMap.size} variables`);
   return null;
+}
+
+/**
+ * Convert RGB (0-1) to HSL (h: 0-1, s: 0-1, l: 0-1)
+ * Used for resolving color components references
+ */
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+  }
+
+  return { h, s, l };
 }

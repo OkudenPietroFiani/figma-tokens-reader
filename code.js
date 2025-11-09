@@ -515,23 +515,56 @@
     }
     switch (tokenType) {
       case "color":
-        if (typeof value === "object" && value !== null && "alpha" in value) {
-          const alphaValue = value.alpha;
-          if (typeof alphaValue === "string" && alphaValue.includes("{") && alphaValue.includes("}")) {
-            const alphaRef = extractReference(alphaValue);
+        if (typeof value === "object" && value !== null && ("alpha" in value || "components" in value)) {
+          let resolvedValue = __spreadValues({}, value);
+          let needsResolution = false;
+          if (typeof value.components === "string" && value.components.includes("{") && value.components.includes("}")) {
+            const componentsRef = extractReference(value.components);
+            if (componentsRef) {
+              const componentsVariable = resolveReference(componentsRef, variableMap);
+              if (componentsVariable) {
+                const modeId = Object.keys(componentsVariable.valuesByMode)[0];
+                const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
+                if (typeof resolvedComponentsValue === "object" && "r" in resolvedComponentsValue) {
+                  const colorSpace = value.colorSpace || "rgb";
+                  if (colorSpace === "rgb") {
+                    resolvedValue.components = [
+                      Math.round(resolvedComponentsValue.r * 255),
+                      Math.round(resolvedComponentsValue.g * 255),
+                      Math.round(resolvedComponentsValue.b * 255)
+                    ];
+                  } else if (colorSpace === "hsl") {
+                    const hsl = rgbToHsl(resolvedComponentsValue.r, resolvedComponentsValue.g, resolvedComponentsValue.b);
+                    resolvedValue.components = [
+                      Math.round(hsl.h * 360),
+                      Math.round(hsl.s * 100),
+                      Math.round(hsl.l * 100)
+                    ];
+                  }
+                  needsResolution = true;
+                }
+              } else {
+                console.error(`[COMPONENTS FAILED] Cannot resolve: ${value.components}`);
+              }
+            }
+          }
+          if (typeof value.alpha === "string" && value.alpha.includes("{") && value.alpha.includes("}")) {
+            const alphaRef = extractReference(value.alpha);
             if (alphaRef) {
               const alphaVariable = resolveReference(alphaRef, variableMap);
               if (alphaVariable) {
                 const modeId = Object.keys(alphaVariable.valuesByMode)[0];
                 const resolvedAlpha = alphaVariable.valuesByMode[modeId];
-                const resolvedValue = __spreadProps(__spreadValues({}, value), {
-                  alpha: typeof resolvedAlpha === "number" ? resolvedAlpha : 1
-                });
-                return { value: parseColor(resolvedValue), isAlias: false };
+                resolvedValue.alpha = typeof resolvedAlpha === "number" ? resolvedAlpha : 1;
+                needsResolution = true;
+              } else {
+                console.error(`[ALPHA FAILED] Cannot resolve: ${value.alpha}`);
+                resolvedValue.alpha = 1;
               }
             }
-            console.error(`[ALPHA FAILED] Cannot resolve: ${alphaValue}`);
-            return { value: parseColor(__spreadProps(__spreadValues({}, value), { alpha: 1 })), isAlias: false };
+          }
+          if (needsResolution) {
+            return { value: parseColor(resolvedValue), isAlias: false };
           }
         }
         return { value: parseColor(value), isAlias: false };
@@ -583,6 +616,29 @@
     console.error(`  Tried: ${cleanRef}, ${slashRef}, and ${parts.length - 1} dotted variations`);
     console.error(`  Map has ${variableMap.size} variables`);
     return null;
+  }
+  function rgbToHsl(r, g, b) {
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          break;
+        case g:
+          h = ((b - r) / d + 2) / 6;
+          break;
+        case b:
+          h = ((r - g) / d + 4) / 6;
+          break;
+      }
+    }
+    return { h, s, l };
   }
 
   // src/services/styleManager.ts
@@ -910,9 +966,69 @@
     }
     /**
      * Parse color value to RGBA format
-     * Handles hex, rgb/rgba strings, and references
+     * Handles hex, rgb/rgba strings, references, and colorSpace object format
      */
     parseColorValue(value) {
+      if (typeof value === "object" && value !== null && ("components" in value || "alpha" in value)) {
+        let resolvedValue = __spreadValues({}, value);
+        let needsResolution = false;
+        if (typeof value.components === "string" && value.components.includes("{") && value.components.includes("}")) {
+          const match = value.components.match(/\{([^}]+)\}/);
+          if (match) {
+            const reference = match[1];
+            const componentsVariable = resolveReference(reference, this.variableMap);
+            if (componentsVariable) {
+              const modeId = Object.keys(componentsVariable.valuesByMode)[0];
+              const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
+              if (typeof resolvedComponentsValue === "object" && "r" in resolvedComponentsValue) {
+                return {
+                  r: resolvedComponentsValue.r,
+                  g: resolvedComponentsValue.g,
+                  b: resolvedComponentsValue.b,
+                  a: typeof value.alpha === "number" ? value.alpha : resolvedComponentsValue.a || 1
+                };
+              }
+            } else {
+              console.error(`[SHADOW COLOR COMPONENTS FAILED] Cannot resolve: ${value.components}`);
+            }
+          }
+        }
+        if (typeof value.alpha === "string" && value.alpha.includes("{") && value.alpha.includes("}")) {
+          const match = value.alpha.match(/\{([^}]+)\}/);
+          if (match) {
+            const reference = match[1];
+            const alphaVariable = resolveReference(reference, this.variableMap);
+            if (alphaVariable) {
+              const modeId = Object.keys(alphaVariable.valuesByMode)[0];
+              const resolvedAlpha = alphaVariable.valuesByMode[modeId];
+              resolvedValue.alpha = typeof resolvedAlpha === "number" ? resolvedAlpha : 1;
+              needsResolution = true;
+            } else {
+              console.error(`[SHADOW COLOR ALPHA FAILED] Cannot resolve: ${value.alpha}`);
+              resolvedValue.alpha = 1;
+            }
+          }
+        }
+        if (value.colorSpace && Array.isArray(resolvedValue.components)) {
+          const { colorSpace, components } = resolvedValue;
+          const alpha = typeof resolvedValue.alpha === "number" ? resolvedValue.alpha : 1;
+          if (colorSpace === "rgb" && components.length === 3) {
+            return {
+              r: components[0] / 255,
+              g: components[1] / 255,
+              b: components[2] / 255,
+              a: alpha
+            };
+          }
+          if (colorSpace === "hsl" && components.length === 3) {
+            const h = components[0] / 360;
+            const s = components[1] / 100;
+            const l = components[2] / 100;
+            const rgb = this.hslToRgb(h, s, l);
+            return __spreadProps(__spreadValues({}, rgb), { a: alpha });
+          }
+        }
+      }
       if (typeof value === "string" && value.includes("{") && value.includes("}")) {
         const resolved = this.resolveTokenReference(value);
         if (resolved) {
@@ -934,6 +1050,31 @@
         }
       }
       return { r: 0, g: 0, b: 0, a: 1 };
+    }
+    /**
+     * Convert HSL to RGB (without alpha)
+     * Alpha is handled separately in parseColorValue
+     */
+    hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p2, q2, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
+          if (t < 1 / 2) return q2;
+          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
+          return p2;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return { r, g, b };
     }
     /**
      * Convert hex color to RGBA
