@@ -1493,8 +1493,188 @@
     }
   };
 
+  // src/utils/Base64Decoder.ts
+  var Base64Decoder = class {
+    /**
+     * Decode base64 string to UTF-8 text
+     *
+     * @param base64 - Base64 encoded string
+     * @returns Decoded UTF-8 string
+     * @throws Error if decoding fails
+     */
+    static decode(base64) {
+      const cleanBase64 = base64.replace(/\s/g, "");
+      if (cleanBase64.length === 0) {
+        throw new Error("Empty base64 string");
+      }
+      try {
+        if (!this.base64Lookup) {
+          this.initializeLookup();
+        }
+        const bytes = this.decodeToBytes(cleanBase64);
+        return this.bytesToUtf8(bytes);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[Base64Decoder] Decoding failed: ${message}`);
+        throw new Error(`Failed to decode base64: ${message}`);
+      }
+    }
+    /**
+     * Initialize base64 character lookup table
+     * @private
+     */
+    static initializeLookup() {
+      this.base64Lookup = /* @__PURE__ */ new Map();
+      for (let i = 0; i < this.BASE64_CHARS.length; i++) {
+        this.base64Lookup.set(this.BASE64_CHARS[i], i);
+      }
+    }
+    /**
+     * Decode base64 string to byte array
+     * @private
+     */
+    static decodeToBytes(base64) {
+      const bytes = [];
+      for (let i = 0; i < base64.length; i += 4) {
+        const encoded1 = this.base64Lookup.get(base64[i]) || 0;
+        const encoded2 = this.base64Lookup.get(base64[i + 1]) || 0;
+        const encoded3 = this.base64Lookup.get(base64[i + 2]) || 0;
+        const encoded4 = this.base64Lookup.get(base64[i + 3]) || 0;
+        const byte1 = encoded1 << 2 | encoded2 >> 4;
+        const byte2 = (encoded2 & 15) << 4 | encoded3 >> 2;
+        const byte3 = (encoded3 & 3) << 6 | encoded4;
+        bytes.push(byte1);
+        if (base64[i + 2] !== "=") bytes.push(byte2);
+        if (base64[i + 3] !== "=") bytes.push(byte3);
+      }
+      return bytes;
+    }
+    /**
+     * Convert byte array to UTF-8 string
+     * Handles multi-byte characters
+     * @private
+     */
+    static bytesToUtf8(bytes) {
+      let result = "";
+      let i = 0;
+      while (i < bytes.length) {
+        const byte1 = bytes[i++];
+        if (byte1 < 128) {
+          result += String.fromCharCode(byte1);
+        } else if (byte1 >= 192 && byte1 < 224) {
+          const byte2 = bytes[i++];
+          result += String.fromCharCode((byte1 & 31) << 6 | byte2 & 63);
+        } else if (byte1 >= 224 && byte1 < 240) {
+          const byte2 = bytes[i++];
+          const byte3 = bytes[i++];
+          result += String.fromCharCode((byte1 & 15) << 12 | (byte2 & 63) << 6 | byte3 & 63);
+        } else {
+          i += 3;
+        }
+      }
+      return result;
+    }
+  };
+  Base64Decoder.BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  Base64Decoder.base64Lookup = null;
+
+  // src/utils/FileClassifier.ts
+  var FileClassifier = class {
+    /**
+     * Classify a file path or filename
+     *
+     * @param filePath - Full path or filename
+     * @returns Classification with confidence score
+     */
+    static classify(filePath) {
+      const filename = this.extractFilename(filePath);
+      for (const pattern of this.SEMANTIC_PATTERNS) {
+        if (pattern.test(filename)) {
+          return {
+            category: "semantic",
+            confidence: 0.9
+          };
+        }
+      }
+      for (const pattern of this.PRIMITIVE_PATTERNS) {
+        if (pattern.test(filename)) {
+          return {
+            category: "primitive",
+            confidence: 0.9
+          };
+        }
+      }
+      return {
+        category: "primitive",
+        confidence: 0.5
+      };
+    }
+    /**
+     * Check if file is primitive
+     *
+     * @param filePath - Full path or filename
+     * @returns True if file is classified as primitive
+     */
+    static isPrimitive(filePath) {
+      return this.classify(filePath).category === "primitive";
+    }
+    /**
+     * Check if file is semantic
+     *
+     * @param filePath - Full path or filename
+     * @returns True if file is classified as semantic
+     */
+    static isSemantic(filePath) {
+      return this.classify(filePath).category === "semantic";
+    }
+    /**
+     * Extract filename from full path
+     * @private
+     */
+    static extractFilename(filePath) {
+      const parts = filePath.split("/");
+      return parts[parts.length - 1] || filePath;
+    }
+    /**
+     * Classify multiple files into primitives and semantics
+     *
+     * @param filePaths - Array of file paths
+     * @returns Object with primitive and semantic arrays
+     */
+    static classifyBatch(filePaths) {
+      const primitives = [];
+      const semantics = [];
+      for (const path of filePaths) {
+        const classification = this.classify(path);
+        if (classification.category === "semantic") {
+          semantics.push(path);
+        } else {
+          primitives.push(path);
+        }
+      }
+      return { primitives, semantics };
+    }
+  };
+  FileClassifier.PRIMITIVE_PATTERNS = [
+    /primitive/i,
+    /base/i,
+    /core/i,
+    /foundation/i,
+    /tokens/i
+    // Generic token files default to primitives
+  ];
+  FileClassifier.SEMANTIC_PATTERNS = [
+    /semantic/i,
+    /theme/i,
+    /component/i,
+    /alias/i
+  ];
+
   // src/services/githubService.ts
   var GitHubService = class {
+    /**
+     * Fetch list of JSON files from repository
+     */
     async fetchRepositoryFiles(config) {
       try {
         const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
@@ -1523,10 +1703,12 @@
         throw new Error(`Failed to fetch repository files: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     }
+    /**
+     * Fetch content of a single file
+     */
     async fetchFileContent(config, filePath) {
       try {
         const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`;
-        console.log(`Fetching file: ${filePath}`);
         const response = await fetch(url, {
           headers: {
             "Authorization": `token ${config.token}`,
@@ -1540,27 +1722,26 @@
           throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
         }
         const data = await response.json();
-        console.log(`File fetched successfully: ${filePath}, encoding: ${data.encoding}, size: ${data.size}`);
         if (!data.content) {
           throw new Error(`No content field in GitHub response for ${filePath}`);
         }
-        const content = this.decodeBase64(data.content);
-        console.log(`Content decoded, length: ${content.length} chars`);
+        const content = Base64Decoder.decode(data.content);
         return JSON.parse(content);
       } catch (error) {
         console.error(`Error fetching file ${filePath}:`, error);
         throw error;
       }
     }
+    /**
+     * Fetch multiple files and organize by primitives/semantics
+     */
     async fetchMultipleFiles(config, filePaths) {
       const primitivesData = {};
       const semanticsData = {};
       for (const filePath of filePaths) {
         const jsonData = await this.fetchFileContent(config, filePath);
         const fileName = filePath.split("/").pop() || filePath;
-        if (filePath.toLowerCase().includes("primitive")) {
-          primitivesData[fileName] = jsonData;
-        } else if (filePath.toLowerCase().includes("semantic")) {
+        if (FileClassifier.isSemantic(filePath)) {
           semanticsData[fileName] = jsonData;
         } else {
           primitivesData[fileName] = jsonData;
@@ -1568,51 +1749,9 @@
       }
       return { primitives: primitivesData, semantics: semanticsData };
     }
-    decodeBase64(base64) {
-      const cleanBase64 = base64.replace(/\s/g, "");
-      try {
-        const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        const base64Lookup = /* @__PURE__ */ new Map();
-        for (let i2 = 0; i2 < base64Chars.length; i2++) {
-          base64Lookup.set(base64Chars[i2], i2);
-        }
-        const bytes = [];
-        for (let i2 = 0; i2 < cleanBase64.length; i2 += 4) {
-          const encoded1 = base64Lookup.get(cleanBase64[i2]) || 0;
-          const encoded2 = base64Lookup.get(cleanBase64[i2 + 1]) || 0;
-          const encoded3 = base64Lookup.get(cleanBase64[i2 + 2]) || 0;
-          const encoded4 = base64Lookup.get(cleanBase64[i2 + 3]) || 0;
-          const byte1 = encoded1 << 2 | encoded2 >> 4;
-          const byte2 = (encoded2 & 15) << 4 | encoded3 >> 2;
-          const byte3 = (encoded3 & 3) << 6 | encoded4;
-          bytes.push(byte1);
-          if (cleanBase64[i2 + 2] !== "=") bytes.push(byte2);
-          if (cleanBase64[i2 + 3] !== "=") bytes.push(byte3);
-        }
-        let result = "";
-        let i = 0;
-        while (i < bytes.length) {
-          const byte1 = bytes[i++];
-          if (byte1 < 128) {
-            result += String.fromCharCode(byte1);
-          } else if (byte1 >= 192 && byte1 < 224) {
-            const byte2 = bytes[i++];
-            result += String.fromCharCode((byte1 & 31) << 6 | byte2 & 63);
-          } else if (byte1 >= 224 && byte1 < 240) {
-            const byte2 = bytes[i++];
-            const byte3 = bytes[i++];
-            result += String.fromCharCode((byte1 & 15) << 12 | (byte2 & 63) << 6 | byte3 & 63);
-          } else {
-            i += 3;
-          }
-        }
-        return result;
-      } catch (error) {
-        console.error("Error decoding base64:", error);
-        console.error("Base64 content (first 100 chars):", base64.substring(0, 100));
-        throw new Error(`Failed to decode file content from GitHub: ${error instanceof Error ? error.message : "Unknown error"}`);
-      }
-    }
+    /**
+     * Parse GitHub repository URL
+     */
     parseRepoUrl(url) {
       const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
       if (!match) {
