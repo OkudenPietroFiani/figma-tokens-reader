@@ -3481,7 +3481,7 @@
      * Generate documentation table in Figma
      *
      * @param tokenFiles - Map of token files to document
-     * @param tokenMetadata - Array of token metadata from VariableManager
+     * @param tokenMetadata - Array of token metadata from VariableManager (can be empty)
      * @param options - Generation options
      * @returns Result with generation statistics
      */
@@ -3494,12 +3494,21 @@
           this.fontFamily = options.fontFamily;
         }
         await this.loadFont();
+        let metadata = tokenMetadata;
+        if (!metadata || metadata.length === 0) {
+          console.log("[DocumentationGenerator] No metadata provided, building from Figma variables...");
+          const buildResult = await this.buildMetadataFromFigmaVariables();
+          if (!buildResult.success) {
+            return Failure(buildResult.error || "Failed to build metadata from Figma variables");
+          }
+          metadata = buildResult.data;
+        }
         const filteredMetadata = this.filterTokensByFiles(
-          tokenMetadata,
+          metadata,
           options.fileNames
         );
         if (filteredMetadata.length === 0) {
-          return Failure("No tokens found in selected files");
+          return Failure("No tokens found in selected files or Figma variables");
         }
         const rows = this.convertToRows(filteredMetadata);
         const groupedRows = this.groupByCategory(rows);
@@ -3543,17 +3552,69 @@
       }
     }
     /**
+     * Build metadata from Figma variables
+     * Used when no metadata is provided from VariableManager
+     */
+    async buildMetadataFromFigmaVariables() {
+      try {
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const metadata = [];
+        for (const collection of collections) {
+          const variables = collection.variableIds.map((id) => figma.variables.getVariableById(id));
+          for (const variable of variables) {
+            if (!variable) continue;
+            const defaultModeId = collection.modes[0].modeId;
+            const value = variable.valuesByMode[defaultModeId];
+            metadata.push({
+              name: variable.name,
+              fullPath: variable.name,
+              type: this.mapVariableTypeToTokenType(variable.resolvedType),
+              value,
+              originalValue: value,
+              description: variable.description || "",
+              collection: collection.name
+            });
+          }
+        }
+        console.log(`[DocumentationGenerator] Built metadata for ${metadata.length} variables`);
+        return Success(metadata);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[DocumentationGenerator] Failed to build metadata:", message);
+        return Failure(`Failed to build metadata from Figma variables: ${message}`);
+      }
+    }
+    /**
+     * Map Figma variable type to token type
+     */
+    mapVariableTypeToTokenType(variableType) {
+      switch (variableType) {
+        case "COLOR":
+          return "color";
+        case "FLOAT":
+          return "number";
+        case "STRING":
+          return "string";
+        case "BOOLEAN":
+          return "boolean";
+        default:
+          return "string";
+      }
+    }
+    /**
      * Filter tokens by selected file names
      */
     filterTokensByFiles(metadata, fileNames) {
       if (fileNames.length === 0) {
         return metadata;
       }
-      return metadata.filter(
-        (token) => fileNames.some(
-          (fileName) => token.collection.toLowerCase().includes(fileName.toLowerCase())
-        )
-      );
+      return metadata.filter((token) => {
+        const collectionLower = token.collection.toLowerCase();
+        return fileNames.some((fileName) => {
+          const fileNameLower = fileName.toLowerCase();
+          return collectionLower.includes(fileNameLower) || fileNameLower.includes(collectionLower);
+        });
+      });
     }
     /**
      * Convert token metadata to documentation rows

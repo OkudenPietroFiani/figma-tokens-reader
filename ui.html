@@ -3421,62 +3421,43 @@ body {
       screen.id = "documentation-screen";
       screen.className = "screen-content documentation-screen";
       screen.innerHTML = `
-      <!-- Documentation View -->
-      <div class="screen-view active" id="documentation-view">
-        <div class="documentation-layout">
+      <div class="import-header">
+        <h1 class="import-title">Generate Documentation</h1>
+        <p class="import-subtitle">Create a visual table of your design tokens in Figma</p>
+      </div>
 
-          <!-- Configuration Section -->
-          <div class="documentation-config">
-            <h2 class="section-title">Generate Token Documentation</h2>
-            <p class="section-description">
-              Create a visual table of your design tokens directly in Figma with automatic categorization.
-            </p>
-
-            <!-- File Selection -->
-            <div class="form-group">
-              <label class="form-label">Select Token Files</label>
-              <div class="file-selection-list" id="file-selection-list">
-                <div class="empty-state">No token files loaded. Import tokens first.</div>
-              </div>
-            </div>
-
-            <!-- Font Family -->
-            <div class="form-group">
-              <label class="form-label" for="doc-font-family">Font Family</label>
-              <input
-                type="text"
-                id="doc-font-family"
-                class="form-input"
-                placeholder="Inter"
-                value="Inter"
-              />
-              <span class="form-help">Font used for all text in the documentation table</span>
-            </div>
-
-            <!-- Options -->
-            <div class="form-group">
-              <label class="form-checkbox">
-                <input type="checkbox" id="doc-include-descriptions" checked />
-                <span>Include descriptions column</span>
-              </label>
-            </div>
-
-            <!-- Generate Button -->
-            <button class="btn btn-primary btn-large" id="doc-generate-btn">
-              Generate Documentation
-            </button>
-
-            <!-- Info Box -->
-            <div class="info-box">
-              <svg class="info-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div class="info-content">
-                <strong>Documentation Format:</strong> The documentation will be generated as a table with one row per token, organized by category (color, spacing, typography, etc.). Each column is configurable and extensible.
-              </div>
-            </div>
+      <div class="import-content active">
+        <!-- File Selection -->
+        <div class="input-group">
+          <label>Select Token Files</label>
+          <div class="file-selection-list" id="file-selection-list">
+            <div class="empty-state">No token files loaded. Import tokens first.</div>
           </div>
         </div>
+
+        <!-- Font Family -->
+        <div class="input-group">
+          <label for="doc-font-family">Font Family</label>
+          <input
+            type="text"
+            id="doc-font-family"
+            placeholder="Inter"
+            value="Inter"
+          />
+        </div>
+
+        <!-- Options -->
+        <div class="input-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="doc-include-descriptions" checked />
+            <span>Include descriptions column</span>
+          </label>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="btn btn-primary btn-full" id="doc-generate-btn">
+          Generate Documentation
+        </button>
       </div>
     `;
       this.fileSelectionList = screen.querySelector("#file-selection-list");
