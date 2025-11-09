@@ -3226,15 +3226,20 @@
   // src/shared/documentation-config.ts
   var DOCUMENTATION_COLUMNS_CONFIG = [
     { key: "name", label: "Name", width: 200, enabled: true },
-    { key: "value", label: "Value", width: 150, enabled: true },
-    { key: "resolvedValue", label: "Resolved Value", width: 150, enabled: true },
+    { key: "value", label: "Value", width: 200, enabled: true },
+    { key: "resolvedValue", label: "Resolved Value", width: 200, enabled: true },
     { key: "visualization", label: "Visualization", width: 100, enabled: true },
-    { key: "collection", label: "Collection", width: 120, enabled: true },
-    // ← 1 LIGNE ajoutée !
     { key: "description", label: "Description", width: 200, enabled: true }
   ];
   var getEnabledColumns = () => {
     return DOCUMENTATION_COLUMNS_CONFIG.filter((col) => col.enabled);
+  };
+  var getTableWidth = (includeDescriptions) => {
+    let columns = getEnabledColumns();
+    if (!includeDescriptions) {
+      columns = columns.filter((col) => col.key !== "description");
+    }
+    return columns.reduce((total, col) => total + col.width, 0);
   };
   var DOCUMENTATION_LAYOUT_CONFIG = {
     // Table layout
@@ -3630,8 +3635,8 @@
     convertToRows(metadata) {
       return metadata.map((token) => ({
         name: token.name,
-        value: formatTokenValue(token.originalValue || token.value, token.type),
-        resolvedValue: formatTokenValue(token.value, token.type),
+        value: this.formatValue(token.originalValue || token.value, token.type),
+        resolvedValue: this.formatResolvedValue(token.value, token.type),
         type: token.type,
         description: token.description || "",
         category: extractCategoryFromPath(token.fullPath),
@@ -3640,17 +3645,87 @@
       }));
     }
     /**
-     * Group rows by category
+     * Group rows by collection (primitive, semantic, etc.)
      */
     groupByCategory(rows) {
       const grouped = {};
       for (const row of rows) {
-        if (!grouped[row.category]) {
-          grouped[row.category] = [];
+        const collection = row.originalToken.collection;
+        if (!grouped[collection]) {
+          grouped[collection] = [];
         }
-        grouped[row.category].push(row);
+        grouped[collection].push(row);
       }
       return grouped;
+    }
+    /**
+     * Format token value for display
+     * Shows token reference if it's a reference, otherwise formatted value
+     */
+    formatValue(value, type) {
+      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
+        return value;
+      }
+      return this.formatResolvedValue(value, type);
+    }
+    /**
+     * Format resolved value for display
+     * Always shows the final computed value, never a reference
+     */
+    formatResolvedValue(value, type) {
+      if (value === null || value === void 0) {
+        return "\u2014";
+      }
+      if (type === "color") {
+        return this.formatColorValue(value);
+      }
+      if (typeof value === "number") {
+        if (type === "fontSize" || type === "lineHeight") {
+          return `${value / 16}rem`;
+        }
+        if (type === "dimension" || type === "spacing") {
+          return `${value}px`;
+        }
+        return String(value);
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      if (typeof value === "object") {
+        if ("r" in value && "g" in value && "b" in value) {
+          return this.rgbToHex(value);
+        }
+        return JSON.stringify(value);
+      }
+      return String(value);
+    }
+    /**
+     * Format color value to hex or other format
+     */
+    formatColorValue(value) {
+      if (typeof value === "string") {
+        return value;
+      }
+      if (typeof value === "object" && "r" in value && "g" in value && "b" in value) {
+        return this.rgbToHex(value);
+      }
+      return formatTokenValue(value, "color");
+    }
+    /**
+     * Convert RGB object to hex string
+     */
+    rgbToHex(rgb) {
+      const r = Math.round(rgb.r * 255);
+      const g = Math.round(rgb.g * 255);
+      const b = Math.round(rgb.b * 255);
+      const toHex = (n) => {
+        const hex = n.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      };
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
     }
     /**
      * Create the main documentation frame
@@ -3667,22 +3742,22 @@
       mainFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
       mainFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
       mainFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.global.padding;
-      for (const [category, rows] of Object.entries(groupedRows)) {
-        const categoryFrame = await this.createCategorySection(
-          category,
+      for (const [collection, rows] of Object.entries(groupedRows)) {
+        const collectionFrame = await this.createCollectionSection(
+          collection,
           rows,
           includeDescriptions
         );
-        mainFrame.appendChild(categoryFrame);
+        mainFrame.appendChild(collectionFrame);
       }
       return mainFrame;
     }
     /**
-     * Create a category section with table
+     * Create a collection section with table
      */
-    async createCategorySection(category, rows, includeDescriptions) {
+    async createCollectionSection(collection, rows, includeDescriptions) {
       const sectionFrame = figma.createFrame();
-      sectionFrame.name = `Category: ${category}`;
+      sectionFrame.name = `Collection: ${collection}`;
       sectionFrame.fills = [];
       sectionFrame.layoutMode = "VERTICAL";
       sectionFrame.primaryAxisSizingMode = "AUTO";
@@ -3690,7 +3765,7 @@
       sectionFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.category.gap;
       const title = figma.createText();
       title.name = "Title";
-      title.characters = category.charAt(0).toUpperCase() + category.slice(1);
+      title.characters = collection.charAt(0).toUpperCase() + collection.slice(1);
       title.fontSize = DOCUMENTATION_LAYOUT_CONFIG.category.titleFontSize;
       title.fontName = { family: this.fontFamily, style: "Bold" };
       title.fills = [{ type: "SOLID", color: { r: 0.1, g: 0.1, b: 0.1 } }];
@@ -3706,20 +3781,22 @@
       const tableFrame = figma.createFrame();
       tableFrame.name = "Table";
       tableFrame.fills = [];
-      tableFrame.layoutMode = "VERTICAL";
-      tableFrame.primaryAxisSizingMode = "AUTO";
-      tableFrame.counterAxisSizingMode = "AUTO";
-      tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
       let columns = getEnabledColumns();
       if (!includeDescriptions) {
         columns = columns.filter((col) => col.key !== "description");
       }
-      const headerRow = this.createHeaderRow(columns);
+      const tableWidth = getTableWidth(includeDescriptions);
+      tableFrame.layoutMode = "VERTICAL";
+      tableFrame.primaryAxisSizingMode = "AUTO";
+      tableFrame.counterAxisSizingMode = "FIXED";
+      tableFrame.resize(tableWidth, 100);
+      tableFrame.itemSpacing = DOCUMENTATION_LAYOUT_CONFIG.table.gap;
+      const headerRow = this.createHeaderRow(columns, tableWidth);
       tableFrame.appendChild(headerRow);
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const isAlternate = i % 2 === 1;
-        const dataRow = await this.createDataRow(row, columns, isAlternate);
+        const dataRow = await this.createDataRow(row, columns, isAlternate, tableWidth);
         tableFrame.appendChild(dataRow);
       }
       return tableFrame;
@@ -3727,14 +3804,14 @@
     /**
      * Create header row
      */
-    createHeaderRow(columns) {
+    createHeaderRow(columns, tableWidth) {
       const rowFrame = figma.createFrame();
       rowFrame.name = "Header Row";
       rowFrame.fills = [{ type: "SOLID", color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
       rowFrame.layoutMode = "HORIZONTAL";
-      rowFrame.primaryAxisSizingMode = "AUTO";
+      rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "FIXED";
-      rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
       for (const column of columns) {
         const cell = this.createHeaderCell(column.label, column.width);
         rowFrame.appendChild(cell);
@@ -3765,15 +3842,15 @@
     /**
      * Create data row
      */
-    async createDataRow(row, columns, isAlternate) {
+    async createDataRow(row, columns, isAlternate, tableWidth) {
       const rowFrame = figma.createFrame();
       rowFrame.name = `Row: ${row.name}`;
       const bgColor = isAlternate ? DOCUMENTATION_LAYOUT_CONFIG.row.alternateBackgroundColor : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
       rowFrame.fills = [{ type: "SOLID", color: bgColor }];
       rowFrame.layoutMode = "HORIZONTAL";
-      rowFrame.primaryAxisSizingMode = "AUTO";
+      rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "FIXED";
-      rowFrame.resize(rowFrame.width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       for (const column of columns) {
         let cell;
         if (column.key === "visualization") {
@@ -3797,8 +3874,6 @@
           return row.value;
         case "resolvedValue":
           return row.resolvedValue;
-        case "collection":
-          return row.originalToken.collection || "\u2014";
         case "description":
           return row.description || "\u2014";
         default:
