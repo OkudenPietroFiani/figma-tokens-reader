@@ -149,12 +149,9 @@ export class StyleManager {
    */
   private async createTextStyle(token: DesignToken, path: string[]): Promise<void> {
     try {
-      // Remove collection prefix (semantic/primitive) from path
       const cleanedPath = this.cleanStylePath(path);
       const styleName = cleanedPath.join('/');
       const typography = token.$value as TypographyToken;
-
-      console.log(`[STYLE] Creating text style: ${styleName} (from path: ${path.join('/')})`);
 
       // Find or create text style
       const existingStyles = await figma.getLocalTextStylesAsync();
@@ -164,10 +161,8 @@ export class StyleManager {
         textStyle = figma.createTextStyle();
         textStyle.name = styleName;
         this.styleStats.created++;
-        console.log(`[STYLE] ✓ Created new text style: ${styleName}`);
       } else {
         this.styleStats.updated++;
-        console.log(`[STYLE] ✓ Updating existing text style: ${styleName}`);
       }
 
       // Set description
@@ -179,7 +174,7 @@ export class StyleManager {
       await this.applyTypographyProperties(textStyle, typography);
 
     } catch (error) {
-      console.error(`[STYLE] Error creating text style ${path.join('/')}: ${error}`);
+      console.error(`[TEXT STYLE ERROR] ${path.join('/')}: ${error}`);
       this.styleStats.skipped++;
     }
   }
@@ -189,11 +184,8 @@ export class StyleManager {
    */
   private async createEffectStyle(token: DesignToken, path: string[]): Promise<void> {
     try {
-      // Remove collection prefix (semantic/primitive) from path
       const cleanedPath = this.cleanStylePath(path);
       const styleName = cleanedPath.join('/');
-
-      console.log(`[STYLE] Creating effect style: ${styleName} (from path: ${path.join('/')})`);
 
       // Find or create effect style
       const existingStyles = await figma.getLocalEffectStylesAsync();
@@ -203,10 +195,8 @@ export class StyleManager {
         effectStyle = figma.createEffectStyle();
         effectStyle.name = styleName;
         this.styleStats.created++;
-        console.log(`[STYLE] ✓ Created new effect style: ${styleName}`);
       } else {
         this.styleStats.updated++;
-        console.log(`[STYLE] ✓ Updating existing effect style: ${styleName}`);
       }
 
       // Set description
@@ -218,7 +208,7 @@ export class StyleManager {
       await this.applyShadowEffects(effectStyle, token.$value);
 
     } catch (error) {
-      console.error(`[STYLE] Error creating effect style ${path.join('/')}: ${error}`);
+      console.error(`[EFFECT STYLE ERROR] ${path.join('/')}: ${error}`);
       this.styleStats.skipped++;
     }
   }
@@ -410,7 +400,8 @@ export class StyleManager {
 
     if (effects.length > 0) {
       effectStyle.effects = effects;
-      console.log(`[STYLE] Applied ${effects.length} shadow effect(s)`);
+    } else {
+      console.error(`[SHADOW] No valid effects parsed for shadow token`);
     }
   }
 
@@ -445,7 +436,7 @@ export class StyleManager {
 
       return effect;
     } catch (error) {
-      console.warn(`[STYLE] Failed to parse shadow effect:`, error);
+      console.error(`[SHADOW PARSE ERROR]`, error);
       return null;
     }
   }

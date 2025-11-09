@@ -518,27 +518,19 @@
         if (typeof value === "object" && value !== null && "alpha" in value) {
           const alphaValue = value.alpha;
           if (typeof alphaValue === "string" && alphaValue.includes("{") && alphaValue.includes("}")) {
-            console.log(`[Color Alpha] Resolving alpha reference: ${alphaValue}`);
-            console.log(`[Color Alpha] VariableMap size: ${variableMap.size}`);
             const alphaRef = extractReference(alphaValue);
             if (alphaRef) {
-              console.log(`[Color Alpha] Extracted reference: ${alphaRef}`);
               const alphaVariable = resolveReference(alphaRef, variableMap);
               if (alphaVariable) {
                 const modeId = Object.keys(alphaVariable.valuesByMode)[0];
                 const resolvedAlpha = alphaVariable.valuesByMode[modeId];
-                console.log(`[Color Alpha] Resolved to value: ${resolvedAlpha} (type: ${typeof resolvedAlpha})`);
                 const resolvedValue = __spreadProps(__spreadValues({}, value), {
                   alpha: typeof resolvedAlpha === "number" ? resolvedAlpha : 1
                 });
-                const finalColor = parseColor(resolvedValue);
-                console.log(`[Color Alpha] Final color with alpha:`, finalColor);
-                return { value: finalColor, isAlias: false };
-              } else {
-                console.warn(`[Color Alpha] Could not find variable for reference: ${alphaRef}`);
+                return { value: parseColor(resolvedValue), isAlias: false };
               }
             }
-            console.warn(`[Color Alpha] Failed to resolve alpha reference: ${alphaValue}, using alpha=1`);
+            console.error(`[ALPHA FAILED] Cannot resolve: ${alphaValue}`);
             return { value: parseColor(__spreadProps(__spreadValues({}, value), { alpha: 1 })), isAlias: false };
           }
         }
@@ -566,49 +558,30 @@
     return match ? match[1] : null;
   }
   function resolveReference(reference, variableMap) {
-    console.log(`[Resolve] Attempting to resolve: "${reference}"`);
-    console.log(`[Resolve] Available variables (first 10):`, Array.from(variableMap.keys()).slice(0, 10));
-    let cleanRef = reference.replace(/^(primitive|semantic)\./, "");
-    console.log(`[Resolve] After removing prefix: "${cleanRef}"`);
+    const cleanRef = reference.replace(/^(primitive|semantic)\./, "");
     let variable = variableMap.get(cleanRef);
-    if (variable) {
-      console.log(`[Resolve] \u2713 Found via direct lookup: "${cleanRef}"`);
-      return variable;
-    }
-    let slashRef = cleanRef.replace(/\./g, "/");
-    console.log(`[Resolve] Trying with slashes: "${slashRef}"`);
+    if (variable) return variable;
+    const slashRef = cleanRef.replace(/\./g, "/");
     variable = variableMap.get(slashRef);
-    if (variable) {
-      console.log(`[Resolve] \u2713 Found via slash conversion: "${slashRef}"`);
-      return variable;
-    }
+    if (variable) return variable;
     const parts = cleanRef.split(".");
     if (parts.length >= 2) {
       for (let i = parts.length - 1; i >= 1; i--) {
         const pathPart = parts.slice(0, i).join("/");
         const namePart = parts.slice(i).join("-");
         const dottedRef = pathPart ? `${pathPart}/${namePart}` : namePart;
-        console.log(`[Resolve] Trying with dotted name: "${dottedRef}"`);
         variable = variableMap.get(dottedRef);
-        if (variable) {
-          console.log(`[Resolve] \u2713 Found via dotted name: "${dottedRef}"`);
-          return variable;
-        }
+        if (variable) return variable;
       }
     }
-    console.log(`[Resolve] Trying fuzzy match...`);
     for (const [key, val] of variableMap.entries()) {
       if (key.endsWith(cleanRef) || key.includes(cleanRef)) {
-        console.log(`[Resolve] \u2713 Found via fuzzy match: "${key}" matches "${cleanRef}"`);
         return val;
       }
     }
-    console.warn(`[Resolve] \u2717 Could not resolve reference: "${reference}"`);
-    console.warn(`[Resolve] \u2717 Tried:`, {
-      direct: cleanRef,
-      slashes: slashRef,
-      variations: "multiple dotted name variations"
-    });
+    console.error(`[RESOLVE FAILED] Cannot find variable: "${reference}"`);
+    console.error(`  Tried: ${cleanRef}, ${slashRef}, and ${parts.length - 1} dotted variations`);
+    console.error(`  Map has ${variableMap.size} variables`);
     return null;
   }
 
@@ -710,24 +683,21 @@
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
         const typography = token.$value;
-        console.log(`[STYLE] Creating text style: ${styleName} (from path: ${path.join("/")})`);
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
         if (!textStyle) {
           textStyle = figma.createTextStyle();
           textStyle.name = styleName;
           this.styleStats.created++;
-          console.log(`[STYLE] \u2713 Created new text style: ${styleName}`);
         } else {
           this.styleStats.updated++;
-          console.log(`[STYLE] \u2713 Updating existing text style: ${styleName}`);
         }
         if (token.$description) {
           textStyle.description = token.$description;
         }
         await this.applyTypographyProperties(textStyle, typography);
       } catch (error) {
-        console.error(`[STYLE] Error creating text style ${path.join("/")}: ${error}`);
+        console.error(`[TEXT STYLE ERROR] ${path.join("/")}: ${error}`);
         this.styleStats.skipped++;
       }
     }
@@ -738,24 +708,21 @@
       try {
         const cleanedPath = this.cleanStylePath(path);
         const styleName = cleanedPath.join("/");
-        console.log(`[STYLE] Creating effect style: ${styleName} (from path: ${path.join("/")})`);
         const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
         if (!effectStyle) {
           effectStyle = figma.createEffectStyle();
           effectStyle.name = styleName;
           this.styleStats.created++;
-          console.log(`[STYLE] \u2713 Created new effect style: ${styleName}`);
         } else {
           this.styleStats.updated++;
-          console.log(`[STYLE] \u2713 Updating existing effect style: ${styleName}`);
         }
         if (token.$description) {
           effectStyle.description = token.$description;
         }
         await this.applyShadowEffects(effectStyle, token.$value);
       } catch (error) {
-        console.error(`[STYLE] Error creating effect style ${path.join("/")}: ${error}`);
+        console.error(`[EFFECT STYLE ERROR] ${path.join("/")}: ${error}`);
         this.styleStats.skipped++;
       }
     }
@@ -902,7 +869,8 @@
       }
       if (effects.length > 0) {
         effectStyle.effects = effects;
-        console.log(`[STYLE] Applied ${effects.length} shadow effect(s)`);
+      } else {
+        console.error(`[SHADOW] No valid effects parsed for shadow token`);
       }
     }
     /**
@@ -929,7 +897,7 @@
         };
         return effect;
       } catch (error) {
-        console.warn(`[STYLE] Failed to parse shadow effect:`, error);
+        console.error(`[SHADOW PARSE ERROR]`, error);
         return null;
       }
     }
@@ -1082,10 +1050,7 @@
      * Clean code principle: Single responsibility - only prepares tokens
      */
     prepareAndValidateTokens(data, collectionType) {
-      console.log(`
-[PREPARE] Input structure for ${collectionType}:`, this.getStructureSummary(data));
       const isFileKeyed = this.isFileKeyedStructure(data);
-      console.log(`[PREPARE] Is file-keyed: ${isFileKeyed}`);
       let processed;
       if (isFileKeyed) {
         processed = this.processMultipleFiles(data, collectionType);
@@ -1093,7 +1058,6 @@
         processed = this.removeAllCollectionWrappers(data, collectionType);
       }
       this.validateNoCollectionWrappers(processed, collectionType);
-      console.log(`[PREPARE] Final structure for ${collectionType}:`, this.getStructureSummary(processed));
       return processed;
     }
     /**
@@ -1110,20 +1074,13 @@
      * Clean code: Separated concerns - file processing vs merging
      */
     processMultipleFiles(filesData, collectionType) {
-      console.log(`[MULTI-FILE] Processing ${Object.keys(filesData).length} files`);
       const cleanedFiles = [];
       for (const [fileName, fileContent] of Object.entries(filesData)) {
         if (!fileContent || typeof fileContent !== "object") continue;
-        console.log(`
-[FILE] Processing: ${fileName}`);
-        console.log(`[FILE] Before clean:`, this.getStructureSummary(fileContent));
         const cleaned = this.removeAllCollectionWrappers(fileContent, collectionType);
-        console.log(`[FILE] After clean:`, this.getStructureSummary(cleaned));
         cleanedFiles.push(cleaned);
       }
-      const merged = this.deepMergeAll(cleanedFiles);
-      console.log(`[MULTI-FILE] After merge:`, this.getStructureSummary(merged));
-      return merged;
+      return this.deepMergeAll(cleanedFiles);
     }
     /**
      * Remove ALL collection-name wrappers recursively
@@ -1144,14 +1101,11 @@
           if (this.isCollectionNameKey(key, collectionType)) {
             const value = current[key];
             if (value && typeof value === "object" && !("$value" in value)) {
-              console.log(`[UNWRAP] Found collection wrapper '${key}' with ${Object.keys(value).length} children`);
               if (keys.length === 1) {
-                console.log(`[UNWRAP] Single key - replacing entire structure`);
                 current = value;
                 didUnwrap = true;
                 break;
               } else {
-                console.log(`[UNWRAP] Multiple keys - extracting wrapper contents`);
                 const newStructure = {};
                 for (const k of keys) {
                   if (k !== key) {
@@ -1168,15 +1122,12 @@
             }
           }
         }
-        if (!didUnwrap) {
-          break;
-        }
+        if (!didUnwrap) break;
         iterations++;
       }
       if (iterations >= maxIterations) {
-        console.warn(`[UNWRAP] Warning: Max iterations reached. Possible circular structure.`);
+        console.error(`[UNWRAP] Max iterations reached - circular structure in ${collectionType}`);
       }
-      console.log(`[UNWRAP] Completed after ${iterations} iteration(s)`);
       return current;
     }
     /**
@@ -1197,13 +1148,10 @@
         if (this.isCollectionNameKey(key, collectionType)) {
           const value = data[key];
           if (value && typeof value === "object" && !("$value" in value)) {
-            console.error(`[VALIDATION] Found collection wrapper that should have been removed: '${key}'`);
-            console.error(`[VALIDATION] This will create duplicate levels in Figma!`);
             throw new Error(`Validation failed: Collection wrapper '${key}' still exists in ${collectionType} data`);
           }
         }
       }
-      console.log(`[VALIDATION] \u2713 No collection wrappers found in ${collectionType}`);
     }
     /**
      * Get structure summary for logging
@@ -1246,14 +1194,8 @@
         const currentPath = [...pathPrefix, key];
         if (value && typeof value === "object") {
           if ("$value" in value) {
-            if (this.isCompositeTypographyToken(value)) {
-              console.log(`[SKIP] Skipping typography token ${currentPath.join("/")} - will be created as text style`);
-              continue;
-            }
-            if (this.isShadowToken(value)) {
-              console.log(`[SKIP] Skipping shadow token ${currentPath.join("/")} - will be created as effect style`);
-              continue;
-            }
+            if (this.isCompositeTypographyToken(value)) continue;
+            if (this.isShadowToken(value)) continue;
             await this.createVariable(value, currentPath, collection, collectionName);
           } else {
             await this.processTokenGroup(value, collectionName, collection, currentPath);
@@ -1273,11 +1215,7 @@
      * These will be created as effect styles instead of variables
      */
     isShadowToken(token) {
-      const isShadow = (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
-      if (isShadow) {
-        console.log(`[SHADOW TOKEN] Detected shadow token with $type: ${token.$type}`);
-      }
-      return isShadow;
+      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
     }
     async createVariable(token, path, collection, collectionName) {
       try {
@@ -1300,17 +1238,10 @@
         }
         const processedValue = await processTokenValue(token.$value, tokenType, this.variableMap);
         const modeId = collection.modes[0].modeId;
-        if (tokenType === "color" && processedValue.value && typeof processedValue.value === "object" && "a" in processedValue.value) {
-          console.log(`[CREATE VAR] ${variableName} - Color with alpha:`, processedValue.value);
-        }
         if (processedValue.isAlias && processedValue.aliasVariable) {
           variable.setValueForMode(modeId, { type: "VARIABLE_ALIAS", id: processedValue.aliasVariable.id });
         } else {
           variable.setValueForMode(modeId, processedValue.value);
-          if (tokenType === "color" && processedValue.value && typeof processedValue.value === "object" && "a" in processedValue.value) {
-            const setValue = variable.valuesByMode[modeId];
-            console.log(`[CREATE VAR] ${variableName} - Value after setting:`, setValue);
-          }
         }
         this.setCodeSyntax(variable, path, collectionName);
         this.variableMap.set(variableName, variable);
@@ -1346,9 +1277,7 @@
         variable.setVariableCodeSyntax("WEB", `var(${cssVarName})`);
         variable.setVariableCodeSyntax("ANDROID", `@dimen/${collection}_${path.join("_").replace(/[^a-z0-9_]/g, "_")}`);
         variable.setVariableCodeSyntax("iOS", `${collection}.${path.join(".")}`);
-        console.log(`\u2713 Code syntax set for ${variable.name}: var(${cssVarName})`);
       } catch (error) {
-        console.warn(`Could not set code syntax for ${path.join("/")}: ${error}`);
       }
     }
     async findVariableByName(name, collection) {
