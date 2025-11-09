@@ -2,6 +2,7 @@
 // Handles creation of text styles from composite typography tokens
 
 import { DesignToken, TokenData } from '../shared/types';
+import { resolveReference } from '../utils/tokenProcessor';
 
 interface TypographyToken {
   fontFamily?: string;
@@ -90,6 +91,12 @@ export class StyleManager {
           // Otherwise recurse into nested groups
           else if (!('$value' in value)) {
             await this.processTokenGroup(value as TokenData, currentPath, styleType);
+          } else {
+            // Has $value but not a shadow - log why it was skipped
+            const token = value as any;
+            if (token.$type) {
+              console.log(`[EFFECT SKIP] Token at ${currentPath.join('/')} has $type="${token.$type}" but not shadow type`);
+            }
           }
         }
       }
@@ -153,6 +160,8 @@ export class StyleManager {
       const styleName = cleanedPath.join('/');
       const typography = token.$value as TypographyToken;
 
+      console.log(`[TEXT STYLE] Original path: ${path.join('/')} → Cleaned: ${styleName}`);
+
       // Find or create text style
       const existingStyles = await figma.getLocalTextStylesAsync();
       let textStyle = existingStyles.find(s => s.name === styleName);
@@ -186,6 +195,9 @@ export class StyleManager {
     try {
       const cleanedPath = this.cleanStylePath(path);
       const styleName = cleanedPath.join('/');
+
+      console.log(`[EFFECT STYLE] Original path: ${path.join('/')} → Cleaned: ${styleName}`);
+      console.log(`[EFFECT STYLE] Token $type: ${(token as any).$type}, $value:`, token.$value);
 
       // Find or create effect style
       const existingStyles = await figma.getLocalEffectStylesAsync();
@@ -286,19 +298,18 @@ export class StyleManager {
       return value; // Not a reference, return as-is
     }
 
-    const path = match[1];
-    // Convert path like "primitive.typography.font-family.primary" to "primitive/typography/font-family/primary"
-    const variableName = path.replace(/\./g, '/');
+    const reference = match[1];
 
-    // Look up variable
-    const variable = this.variableMap.get(variableName);
+    // Use the same resolution logic as tokenProcessor
+    const variable = resolveReference(reference, this.variableMap);
     if (variable) {
-      // Get the variable's value
-      // Note: This is simplified - in reality you'd need to get the resolved value
-      return String(variable.name);
+      // Get the variable's actual value from the mode
+      const modeId = Object.keys(variable.valuesByMode)[0];
+      const value = variable.valuesByMode[modeId];
+      return String(value);
     }
 
-    console.warn(`[STYLE] Could not resolve reference: ${value}`);
+    // Reference couldn't be resolved - will be logged by resolveReference
     return null;
   }
 
