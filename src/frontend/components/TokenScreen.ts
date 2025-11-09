@@ -14,6 +14,7 @@ export class TokenScreen extends BaseComponent {
   private switchSourceBtn!: HTMLButtonElement;
   private fileTabsList!: HTMLDivElement;
   private tokenTreeContent!: HTMLDivElement;
+  private lastUpdatedText!: HTMLDivElement;
 
   constructor(state: AppState, bridge: PluginBridge) {
     super(state);
@@ -42,6 +43,7 @@ export class TokenScreen extends BaseComponent {
           <div class="file-tabs">
             <div class="file-tabs-header">
               <div class="file-tabs-title">Files</div>
+              <div id="last-updated-text" style="font-size: 12px; color: #787878; margin-top: 4px;"></div>
             </div>
             <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
               <!-- Tabs will be dynamically added here -->
@@ -77,6 +79,7 @@ export class TokenScreen extends BaseComponent {
     this.switchSourceBtn = screen.querySelector('#switch-source-btn')!;
     this.fileTabsList = screen.querySelector('#file-tabs-list')!;
     this.tokenTreeContent = screen.querySelector('#token-tree-content')!;
+    this.lastUpdatedText = screen.querySelector('#last-updated-text')!;
 
     return screen;
   }
@@ -109,6 +112,7 @@ export class TokenScreen extends BaseComponent {
     this.subscribeToState('files-loaded', () => {
       this.renderFileList();
       this.updatePullChangesButton();
+      this.updateLastUpdatedText();
     });
 
     this.subscribeToState('file-selected', (fileName) => {
@@ -321,6 +325,52 @@ export class TokenScreen extends BaseComponent {
   }
 
   /**
+   * Update last updated timestamp text
+   */
+  private updateLastUpdatedText(): void {
+    const lastUpdated = this.state.lastUpdated;
+
+    if (!lastUpdated) {
+      this.lastUpdatedText.textContent = '';
+      return;
+    }
+
+    // Format the timestamp
+    const date = new Date(lastUpdated);
+    const formattedDate = this.formatDateTime(date);
+    this.lastUpdatedText.textContent = `Updated: ${formattedDate}`;
+  }
+
+  /**
+   * Format date and time for display
+   */
+  private formatDateTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    // If less than 1 minute ago, show "just now"
+    if (diffMins < 1) {
+      return 'just now';
+    }
+
+    // If less than 60 minutes ago, show "X mins ago"
+    if (diffMins < 60) {
+      return `${diffMins} min${diffMins === 1 ? '' : 's'} ago`;
+    }
+
+    // Otherwise show date and time
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+
+    return date.toLocaleDateString('en-US', options);
+  }
+
+  /**
    * Handle pull changes from GitHub
    */
   private async handlePullChanges(): Promise<void> {
@@ -385,6 +435,7 @@ export class TokenScreen extends BaseComponent {
     super.show();
     this.renderFileList();
     this.updatePullChangesButton();
+    this.updateLastUpdatedText();
     console.log('[TokenScreen] Screen shown');
   }
 }

@@ -14,6 +14,8 @@
       this._githubConfig = null;
       this._figmaVariables = /* @__PURE__ */ new Map();
       this._tokenScopesMap = /* @__PURE__ */ new Map();
+      this._lastUpdated = null;
+      // ISO timestamp of last token update
       // ==================== OBSERVABLE PATTERN ====================
       this.eventListeners = /* @__PURE__ */ new Map();
     }
@@ -85,6 +87,9 @@
     get tokenScopesMap() {
       return new Map(this._tokenScopesMap);
     }
+    get lastUpdated() {
+      return this._lastUpdated;
+    }
     // ==================== SETTERS WITH EVENTS ====================
     /**
      * Set token files and emit event
@@ -94,6 +99,7 @@
       files.forEach((file) => {
         this._tokenFiles.set(file.name, file);
       });
+      this._lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
       this.emit("files-loaded", files);
       console.log(`[AppState] Token files updated: ${files.length} files`);
     }
@@ -250,7 +256,8 @@
         tokenSource: this._tokenSource,
         githubConfig: this._githubConfig,
         figmaVariables: Array.from(this._figmaVariables.entries()),
-        tokenScopesMap: Array.from(this._tokenScopesMap.entries())
+        tokenScopesMap: Array.from(this._tokenScopesMap.entries()),
+        lastUpdated: this._lastUpdated
       };
     }
     /**
@@ -291,6 +298,9 @@
       if (snapshot.tokenScopesMap) {
         this._tokenScopesMap = new Map(snapshot.tokenScopesMap);
       }
+      if (snapshot.lastUpdated !== void 0) {
+        this._lastUpdated = snapshot.lastUpdated;
+      }
       console.log(`[AppState] State restored from snapshot`);
     }
     /**
@@ -307,6 +317,7 @@
       this._githubConfig = null;
       this._figmaVariables.clear();
       this._tokenScopesMap.clear();
+      this._lastUpdated = null;
       console.log(`[AppState] State reset to initial values`);
     }
   };
@@ -1124,6 +1135,7 @@
           <div class="file-tabs">
             <div class="file-tabs-header">
               <div class="file-tabs-title">Files</div>
+              <div id="last-updated-text" style="font-size: 12px; color: #787878; margin-top: 4px;"></div>
             </div>
             <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
               <!-- Tabs will be dynamically added here -->
@@ -1157,6 +1169,7 @@
       this.switchSourceBtn = screen.querySelector("#switch-source-btn");
       this.fileTabsList = screen.querySelector("#file-tabs-list");
       this.tokenTreeContent = screen.querySelector("#token-tree-content");
+      this.lastUpdatedText = screen.querySelector("#last-updated-text");
       return screen;
     }
     bindEvents() {
@@ -1178,6 +1191,7 @@
       this.subscribeToState("files-loaded", () => {
         this.renderFileList();
         this.updatePullChangesButton();
+        this.updateLastUpdatedText();
       });
       this.subscribeToState("file-selected", (fileName) => {
         this.renderFilePreview(fileName);
@@ -1348,6 +1362,40 @@
       }
     }
     /**
+     * Update last updated timestamp text
+     */
+    updateLastUpdatedText() {
+      const lastUpdated = this.state.lastUpdated;
+      if (!lastUpdated) {
+        this.lastUpdatedText.textContent = "";
+        return;
+      }
+      const date = new Date(lastUpdated);
+      const formattedDate = this.formatDateTime(date);
+      this.lastUpdatedText.textContent = `Updated: ${formattedDate}`;
+    }
+    /**
+     * Format date and time for display
+     */
+    formatDateTime(date) {
+      const now = /* @__PURE__ */ new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 6e4);
+      if (diffMins < 1) {
+        return "just now";
+      }
+      if (diffMins < 60) {
+        return `${diffMins} min${diffMins === 1 ? "" : "s"} ago`;
+      }
+      const options = {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      };
+      return date.toLocaleDateString("en-US", options);
+    }
+    /**
      * Handle pull changes from GitHub
      */
     async handlePullChanges() {
@@ -1402,6 +1450,7 @@
       super.show();
       this.renderFileList();
       this.updatePullChangesButton();
+      this.updateLastUpdatedText();
       console.log("[TokenScreen] Screen shown");
     }
   };
