@@ -957,12 +957,14 @@ body {
   background: var(--color-hover);
 }
 
-.token-name {
+/* Tree item content - agnostic names for use in both token and variable displays */
+.tree-item-label {
   color: var(--color-text-strong);
   font-weight: var(--weight-normal);
+  flex: 1;
 }
 
-.token-value {
+.tree-item-meta {
   color: var(--color-text-weak);
   font-size: var(--text-sm);
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
@@ -1091,43 +1093,12 @@ body {
   color: var(--color-text-strong);
 }
 
-.scope-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
-  cursor: pointer;
-  user-select: none;
-}
-
-.scope-item:hover {
-  background: var(--color-hover);
-}
-
+/* Scope-specific: checkbox for variable selection */
 .scope-checkbox {
   width: 16px;
   height: 16px;
   cursor: pointer;
   flex-shrink: 0;
-}
-
-.scope-item-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex: 1;
-}
-
-.scope-var-name {
-  color: var(--color-text-strong);
-  font-weight: var(--weight-normal);
-  flex: 1;
-}
-
-.scope-type {
-  color: var(--color-text-weak);
-  font-size: var(--text-sm);
-  margin-left: auto;
 }
 
 .group-checkbox {
@@ -1301,12 +1272,13 @@ body {
   padding-right: var(--space-sm);
 }
 
-.scope-item.disabled {
+/* Disabled state for tree items with checkboxes */
+.tree-item.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.scope-item.disabled .scope-checkbox {
+.tree-item.disabled .scope-checkbox {
   cursor: not-allowed;
   background: var(--color-border-light);
   border-color: var(--color-border-medium);
@@ -2596,8 +2568,8 @@ body {
           }
           html += `
           <div class="tree-item tree-item-indent-${cappedLevel}">
-            <span class="token-name">${this.escapeHtml(key)}</span>
-            <span class="token-value">${displayValue}</span>
+            <span class="tree-item-label">${this.escapeHtml(key)}</span>
+            <span class="tree-item-meta">${displayValue}</span>
           </div>
         `;
         }
@@ -3278,12 +3250,10 @@ body {
           const escapedKey = this.escapeHtml(key);
           const escapedId = this.escapeHtml(v.id);
           html += `
-          <div class="scope-item tree-indent-${cappedLevel}">
-            <div class="scope-item-content">
-              <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
-              <span class="scope-var-name">${escapedKey}</span>
-              <span class="scope-type">${typeText}</span>
-            </div>
+          <div class="tree-item tree-item-indent-${cappedLevel}">
+            <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
+            <span class="tree-item-label">${escapedKey}</span>
+            <span class="tree-item-meta">${typeText}</span>
           </div>
         `;
         } else {

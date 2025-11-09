@@ -185,8 +185,8 @@ export class TokenScreen extends BaseComponent {
 
         html += `
           <div class="tree-item tree-item-indent-${cappedLevel}">
-            <span class="token-name">${this.escapeHtml(key)}</span>
-            <span class="token-value">${displayValue}</span>
+            <span class="tree-item-label">${this.escapeHtml(key)}</span>
+            <span class="tree-item-meta">${displayValue}</span>
           </div>
         `;
       }
