@@ -669,10 +669,13 @@ body {
   margin-bottom: 0;
 }
 
-.file-tabs-list {
+/* Shared content area for file tabs and collections */
+.file-tabs-content {
+  flex: 1;
   padding: var(--space-lg);
   padding-top: var(--space-sm);
   padding-bottom: 0;
+  overflow-y: auto;
 }
 
 .last-updated-text {
@@ -1325,14 +1328,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-}
-
-.collections-list {
-  flex: 1;
-  padding: var(--space-lg);
-  padding-top: var(--space-sm);
-  padding-bottom: 0;
-  overflow-y: auto;
 }
 
 .empty-collections {

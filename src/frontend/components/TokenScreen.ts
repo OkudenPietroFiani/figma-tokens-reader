@@ -36,7 +36,7 @@ export class TokenScreen extends BaseComponent {
               <div class="file-tabs-title">Files</div>
               <div id="last-updated-text" class="last-updated-text"></div>
             </div>
-            <div id="file-tabs-list" class="file-tabs-list">
+            <div id="file-tabs-list" class="file-tabs-content">
               <!-- Tabs will be dynamically added here -->
             </div>
           </div>
