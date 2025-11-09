@@ -1112,22 +1112,15 @@
   var TokenScreen = class extends BaseComponent {
     constructor(state, bridge) {
       super(state);
+      // Callback for layout to update pull button state
+      this.onPullButtonUpdate = null;
       this.bridge = bridge;
     }
     createElement() {
       const screen = document.createElement("div");
       screen.id = "token-screen";
-      screen.className = "screen token-screen";
+      screen.className = "screen-content token-screen";
       screen.innerHTML = `
-      <!-- Top Bar -->
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab active" id="tokens-tab">Tokens</button>
-          <button class="token-tab" id="scope-tab">Scopes</button>
-        </div>
-        <button class="btn-switch-source" id="switch-source-btn">Switch source</button>
-      </div>
-
       <!-- Tokens View -->
       <div class="token-view active" id="tokens-view">
         <div class="token-layout">
@@ -1150,46 +1143,17 @@
           </div>
         </div>
       </div>
-
-      <!-- Action Footer -->
-      <div class="token-actions">
-        <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
-        <button class="btn btn-secondary hidden" id="pull-changes-btn">
-          Pull changes
-          <span class="badge badge-info hidden" id="change-indicator"></span>
-        </button>
-      </div>
     `;
-      this.syncBtn = screen.querySelector("#sync-to-figma-btn");
-      this.pullChangesBtn = screen.querySelector("#pull-changes-btn");
-      this.switchSourceBtn = screen.querySelector("#switch-source-btn");
       this.fileTabsList = screen.querySelector("#file-tabs-list");
       this.tokenTreeContent = screen.querySelector("#token-tree-content");
       this.lastUpdatedText = screen.querySelector("#last-updated-text");
-      this.changeIndicator = screen.querySelector("#change-indicator");
       return screen;
     }
     bindEvents() {
-      this.addEventListener(this.syncBtn, "click", () => {
-        this.handleSyncToFigma();
-      });
-      this.addEventListener(this.pullChangesBtn, "click", () => {
-        this.handlePullChanges();
-      });
-      this.addEventListener(this.switchSourceBtn, "click", () => {
-        this.state.setCurrentScreen("welcome");
-      });
-      const scopeTab = this.element.querySelector("#scope-tab");
-      if (scopeTab) {
-        this.addEventListener(scopeTab, "click", () => {
-          this.state.setCurrentScreen("scope");
-        });
-      }
       this.subscribeToState("files-loaded", () => {
         this.renderFileList();
-        this.updatePullChangesButton();
+        this.updatePullButton();
         this.updateLastUpdatedText();
-        this.updateChangeIndicator();
       });
       this.subscribeToState("file-selected", (fileName) => {
         this.renderFilePreview(fileName);
@@ -1319,7 +1283,7 @@
       return div.innerHTML;
     }
     /**
-     * Handle sync to Figma
+     * Handle sync to Figma (called from AppLayout)
      */
     async handleSyncToFigma() {
       const files = Array.from(this.state.tokenFiles.values());
@@ -1340,26 +1304,39 @@
         primitives = files[0].content;
       }
       try {
-        this.setEnabled(this.syncBtn, false);
         const message = await this.bridge.send("import-tokens", {
           primitives,
           semantics,
           source: this.state.tokenSource
         });
         this.showNotification(message, "success");
-        this.setEnabled(this.syncBtn, true);
       } catch (error) {
         console.error("Error syncing to Figma:", error);
         this.showNotification("Failed to sync tokens", "error");
-        this.setEnabled(this.syncBtn, true);
       }
     }
     /**
-     * Update pull changes button visibility
-     * Button is always visible for both local and GitHub sources
+     * Update pull button state and notify layout
      */
-    updatePullChangesButton() {
-      this.pullChangesBtn.classList.remove("hidden");
+    updatePullButton() {
+      const shouldShowPullButton = true;
+      const hasChanges = this.shouldShowChangeIndicator();
+      if (this.onPullButtonUpdate) {
+        this.onPullButtonUpdate(shouldShowPullButton, hasChanges);
+      }
+    }
+    /**
+     * Check if change indicator should be shown
+     */
+    shouldShowChangeIndicator() {
+      const lastUpdated = this.state.lastUpdated;
+      if (!lastUpdated) {
+        return false;
+      }
+      const lastUpdateTime = new Date(lastUpdated).getTime();
+      const now = (/* @__PURE__ */ new Date()).getTime();
+      const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 6e4);
+      return minutesSinceUpdate >= 5;
     }
     /**
      * Update last updated timestamp text
@@ -1396,26 +1373,7 @@
       return date.toLocaleDateString("en-US", options);
     }
     /**
-     * Update change indicator visibility
-     * Shows blue dot if last update was more than 5 minutes ago (changes might be available)
-     */
-    updateChangeIndicator() {
-      const lastUpdated = this.state.lastUpdated;
-      if (!lastUpdated) {
-        this.changeIndicator.classList.add("hidden");
-        return;
-      }
-      const lastUpdateTime = new Date(lastUpdated).getTime();
-      const now = (/* @__PURE__ */ new Date()).getTime();
-      const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 6e4);
-      if (minutesSinceUpdate >= 5) {
-        this.changeIndicator.classList.remove("hidden");
-      } else {
-        this.changeIndicator.classList.add("hidden");
-      }
-    }
-    /**
-     * Handle pull changes from source
+     * Handle pull changes from source (called from AppLayout)
      * For GitHub: pulls latest changes from repository
      * For local: navigates to import screen to re-select files
      */
@@ -1429,16 +1387,13 @@
       }
       try {
         this.showNotification("Pulling latest changes from GitHub...", "info");
-        this.setEnabled(this.pullChangesBtn, false);
         const oldFiles = Array.from(this.state.tokenFiles.values());
         const response = await this.bridge.send("github-import-files", githubConfig);
         this.handleFilesImported(response, oldFiles);
-        this.changeIndicator.classList.add("hidden");
-        this.setEnabled(this.pullChangesBtn, true);
+        this.updatePullButton();
       } catch (error) {
         console.error("Error pulling changes:", error);
         this.showNotification("Failed to pull changes", "error");
-        this.setEnabled(this.pullChangesBtn, true);
       }
     }
     /**
@@ -1565,9 +1520,8 @@
     show() {
       super.show();
       this.renderFileList();
-      this.updatePullChangesButton();
+      this.updatePullButton();
       this.updateLastUpdatedText();
-      this.updateChangeIndicator();
       console.log("[TokenScreen] Screen shown");
     }
   };
@@ -1584,16 +1538,8 @@
     }
     createElement() {
       const div = document.createElement("div");
-      div.className = "screen scope-screen";
+      div.className = "screen-content scope-screen";
       div.innerHTML = `
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab" id="back-to-tokens-tab">Tokens</button>
-          <button class="token-tab active" id="scope-tab-active">Scopes</button>
-        </div>
-        <button class="btn-switch-source" id="scope-switch-source-btn">Switch source</button>
-      </div>
-
       <!-- Scope View -->
       <div class="token-view active">
         <div class="token-layout">
@@ -1632,18 +1578,7 @@
           </div>
         </div>
       </div>
-
-      <!-- Action Footer -->
-      <div class="token-actions">
-        <button class="btn btn-primary" id="sync-to-figma-btn-scope">Sync in Figma</button>
-        <button class="btn btn-secondary hidden" id="pull-changes-btn-scope">
-          Pull changes
-        </button>
-      </div>
     `;
-      this.syncBtn = div.querySelector("#sync-to-figma-btn-scope");
-      this.pullChangesBtn = div.querySelector("#pull-changes-btn-scope");
-      this.switchSourceBtn = div.querySelector("#scope-switch-source-btn");
       this.collectionsList = div.querySelector("#collections-list");
       this.scopeContent = div.querySelector("#scope-content");
       this.scopeSelector = div.querySelector("#scope-selector");
@@ -1654,21 +1589,6 @@
       return div;
     }
     bindEvents() {
-      const backToTokensTab = this.element.querySelector("#back-to-tokens-tab");
-      if (backToTokensTab) {
-        this.addEventListener(backToTokensTab, "click", () => {
-          this.state.setCurrentScreen("token");
-        });
-      }
-      this.addEventListener(this.switchSourceBtn, "click", () => {
-        this.state.setCurrentScreen("welcome");
-      });
-      this.addEventListener(this.syncBtn, "click", () => {
-        this.handleSyncScopes();
-      });
-      this.addEventListener(this.pullChangesBtn, "click", () => {
-        this.handlePullChanges();
-      });
       this.addEventListener(this.applyScopesBtn, "click", () => {
         this.handleApplyScopes();
       });
@@ -2113,12 +2033,10 @@
         return;
       }
       try {
-        this.setEnabled(this.applyScopesBtn, false);
         const scopeCheckboxes = this.scopeSelector.querySelectorAll('input[type="checkbox"]:checked');
         const selectedScopes = Array.from(scopeCheckboxes).map((cb) => cb.value);
         if (selectedScopes.length === 0) {
           this.showNotification("Please select at least one scope to apply", "error");
-          this.setEnabled(this.applyScopesBtn, true);
           return;
         }
         const scopeAssignments = {};
@@ -2134,11 +2052,9 @@
         this.selectedVariables.clear();
         this.updateScopeSelector();
         await this.loadVariables();
-        this.setEnabled(this.applyScopesBtn, true);
       } catch (error) {
         console.error("Error applying scopes:", error);
         this.showNotification("Failed to apply scopes", "error");
-        this.setEnabled(this.applyScopesBtn, true);
       }
     }
     /**
@@ -2154,16 +2070,130 @@
       this.updateScopeSelector();
     }
     /**
-     * Handle sync scopes (legacy - keeping for backward compatibility)
+     * Handle sync (called from AppLayout) - redirects to apply scopes
      */
-    async handleSyncScopes() {
+    async handleSyncToFigma() {
       await this.handleApplyScopes();
     }
     /**
-     * Handle pull changes
+     * Handle pull changes (called from AppLayout)
      */
     async handlePullChanges() {
       this.showNotification("Pull changes from scope screen", "info");
+    }
+  };
+
+  // src/frontend/components/AppLayout.ts
+  var AppLayout = class extends BaseComponent {
+    constructor(state) {
+      super(state);
+      // Callbacks for button actions (set by screens)
+      this.onSync = null;
+      this.onPull = null;
+    }
+    createElement() {
+      const layout = document.createElement("div");
+      layout.id = "app-layout";
+      layout.className = "app-layout hidden";
+      layout.innerHTML = `
+      <!-- Top Navigation Bar -->
+      <div class="token-top-bar">
+        <div class="token-top-bar-tabs">
+          <button class="token-tab active" id="app-tokens-tab">Tokens</button>
+          <button class="token-tab" id="app-scopes-tab">Scopes</button>
+        </div>
+        <button class="btn-switch-source" id="app-switch-source-btn">Switch source</button>
+      </div>
+
+      <!-- Content Area (screens will mount here) -->
+      <div id="app-content-area" class="app-content-area"></div>
+
+      <!-- Action Footer -->
+      <div class="token-actions">
+        <button class="btn btn-primary" id="app-sync-btn">Sync in Figma</button>
+        <button class="btn btn-secondary hidden" id="app-pull-btn">
+          Pull changes
+          <span class="badge badge-info hidden" id="app-change-indicator"></span>
+        </button>
+      </div>
+    `;
+      this.topBar = layout.querySelector(".token-top-bar");
+      this.contentArea = layout.querySelector("#app-content-area");
+      this.actionFooter = layout.querySelector(".token-actions");
+      this.tokensTab = layout.querySelector("#app-tokens-tab");
+      this.scopesTab = layout.querySelector("#app-scopes-tab");
+      this.switchSourceBtn = layout.querySelector("#app-switch-source-btn");
+      this.syncBtn = layout.querySelector("#app-sync-btn");
+      this.pullChangesBtn = layout.querySelector("#app-pull-btn");
+      this.changeIndicator = layout.querySelector("#app-change-indicator");
+      return layout;
+    }
+    bindEvents() {
+      this.addEventListener(this.tokensTab, "click", () => {
+        this.state.setCurrentScreen("token");
+      });
+      this.addEventListener(this.scopesTab, "click", () => {
+        this.state.setCurrentScreen("scope");
+      });
+      this.addEventListener(this.switchSourceBtn, "click", () => {
+        this.state.setCurrentScreen("welcome");
+      });
+      this.addEventListener(this.syncBtn, "click", () => {
+        if (this.onSync) {
+          this.onSync();
+        }
+      });
+      this.addEventListener(this.pullChangesBtn, "click", () => {
+        if (this.onPull) {
+          this.onPull();
+        }
+      });
+      this.subscribeToState("screen-changed", (screen) => {
+        this.updateActiveTab(screen);
+        this.updateVisibility(screen);
+      });
+    }
+    /**
+     * Update active tab based on current screen
+     */
+    updateActiveTab(screen) {
+      this.tokensTab.classList.toggle("active", screen === "token");
+      this.scopesTab.classList.toggle("active", screen === "scope");
+    }
+    /**
+     * Show or hide the layout based on current screen
+     */
+    updateVisibility(screen) {
+      const shouldShow = screen === "token" || screen === "scope";
+      if (shouldShow) {
+        this.element.classList.remove("hidden");
+      } else {
+        this.element.classList.add("hidden");
+      }
+    }
+    /**
+     * Get the content area where screens should mount their content
+     */
+    getContentArea() {
+      return this.contentArea;
+    }
+    /**
+     * Update pull button visibility and badge
+     */
+    updatePullButton(visible, hasChanges = false) {
+      if (visible) {
+        this.pullChangesBtn.classList.remove("hidden");
+        this.changeIndicator.classList.toggle("hidden", !hasChanges);
+      } else {
+        this.pullChangesBtn.classList.add("hidden");
+      }
+    }
+    /**
+     * Enable or disable buttons
+     */
+    setButtonsEnabled(enabled) {
+      this.syncBtn.disabled = !enabled;
+      this.pullChangesBtn.disabled = !enabled;
     }
   };
 
@@ -2322,11 +2352,13 @@
       this.importScreen = new ImportScreen(this.state, this.bridge);
       this.tokenScreen = new TokenScreen(this.state, this.bridge);
       this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+      this.appLayout = new AppLayout(this.state);
       this.notificationManager = new NotificationManager();
       this.welcomeScreen.init();
       this.importScreen.init();
       this.tokenScreen.init();
       this.scopeScreen.init();
+      this.appLayout.init();
       this.notificationManager.init();
       this.screens = /* @__PURE__ */ new Map([
         ["welcome", this.welcomeScreen],
@@ -2334,16 +2366,43 @@
         ["token", this.tokenScreen],
         ["scope", this.scopeScreen]
       ]);
+      this.setupLayoutCallbacks();
+    }
+    /**
+     * Setup callbacks between AppLayout and screens
+     */
+    setupLayoutCallbacks() {
+      this.tokenScreen.onPullButtonUpdate = (visible, hasChanges) => {
+        this.appLayout.updatePullButton(visible, hasChanges);
+      };
+      this.appLayout.onSync = () => {
+        const currentScreen = this.state.currentScreen;
+        if (currentScreen === "token") {
+          this.tokenScreen.handleSyncToFigma();
+        } else if (currentScreen === "scope") {
+          this.scopeScreen.handleSyncToFigma();
+        }
+      };
+      this.appLayout.onPull = () => {
+        const currentScreen = this.state.currentScreen;
+        if (currentScreen === "token") {
+          this.tokenScreen.handlePullChanges();
+        } else if (currentScreen === "scope") {
+          this.scopeScreen.handlePullChanges();
+        }
+      };
     }
     /**
      * Initialize and start the application
      */
     async init() {
       const body = document.body;
+      this.appLayout.mount(body);
+      const contentArea = this.appLayout.getContentArea();
+      this.tokenScreen.mount(contentArea);
+      this.scopeScreen.mount(contentArea);
       this.welcomeScreen.mount(body);
       this.importScreen.mount(body);
-      this.tokenScreen.mount(body);
-      this.scopeScreen.mount(body);
       this.notificationManager.mount(body);
       this.welcomeScreen.hide();
       this.importScreen.hide();

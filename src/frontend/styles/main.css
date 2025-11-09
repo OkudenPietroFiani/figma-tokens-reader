@@ -289,6 +289,37 @@ body {
   display: flex;
 }
 
+/* App Layout - Shared layout for Token and Scope screens */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-layout.hidden {
+  display: none;
+}
+
+.app-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Screen Content - Inner content for screens mounted in AppLayout */
+.screen-content {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.screen-content.active {
+  display: flex;
+}
+
 .hidden {
   display: none !important;
 }
@@ -557,11 +588,11 @@ body {
   color: var(--color-text-weak);
 }
 
-/* ==================== TOKEN SCREEN ==================== */
-.token-screen {
-  flex-direction: column;
-  padding: 0;
-  height: 100vh;
+/* ==================== TOKEN & SCOPE SCREENS ==================== */
+/* Note: Top bar and actions are now in AppLayout */
+.token-screen,
+.scope-screen {
+  /* No additional styles needed - layout handled by screen-content */
 }
 
 .token-top-bar {

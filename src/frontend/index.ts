@@ -9,6 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { ImportScreen } from './components/ImportScreen';
 import { TokenScreen } from './components/TokenScreen';
 import { ScopeScreen } from './components/ScopeScreen';
+import { AppLayout } from './components/AppLayout';
 import { NotificationManager } from './components/NotificationManager';
 import { ScreenType } from '../shared/types';
 
@@ -25,6 +26,7 @@ class FrontendApp {
   private importScreen: ImportScreen;
   private tokenScreen: TokenScreen;
   private scopeScreen: ScopeScreen;
+  private appLayout: AppLayout;
   private notificationManager: NotificationManager;
 
   // Screen registry
@@ -40,6 +42,7 @@ class FrontendApp {
     this.importScreen = new ImportScreen(this.state, this.bridge);
     this.tokenScreen = new TokenScreen(this.state, this.bridge);
     this.scopeScreen = new ScopeScreen(this.state, this.bridge);
+    this.appLayout = new AppLayout(this.state);
     this.notificationManager = new NotificationManager();
 
     // Initialize components (bind events after all properties are set)
@@ -47,6 +50,7 @@ class FrontendApp {
     this.importScreen.init();
     this.tokenScreen.init();
     this.scopeScreen.init();
+    this.appLayout.init();
     this.notificationManager.init();
 
     // Register screens
@@ -56,18 +60,58 @@ class FrontendApp {
       ['token', this.tokenScreen],
       ['scope', this.scopeScreen],
     ]);
+
+    // Wire up callbacks between layout and screens
+    this.setupLayoutCallbacks();
+  }
+
+  /**
+   * Setup callbacks between AppLayout and screens
+   */
+  private setupLayoutCallbacks(): void {
+    // TokenScreen callbacks
+    this.tokenScreen.onPullButtonUpdate = (visible: boolean, hasChanges: boolean) => {
+      this.appLayout.updatePullButton(visible, hasChanges);
+    };
+
+    // Layout button callbacks - delegate to current screen
+    this.appLayout.onSync = () => {
+      const currentScreen = this.state.currentScreen;
+      if (currentScreen === 'token') {
+        this.tokenScreen.handleSyncToFigma();
+      } else if (currentScreen === 'scope') {
+        this.scopeScreen.handleSyncToFigma();
+      }
+    };
+
+    this.appLayout.onPull = () => {
+      const currentScreen = this.state.currentScreen;
+      if (currentScreen === 'token') {
+        this.tokenScreen.handlePullChanges();
+      } else if (currentScreen === 'scope') {
+        this.scopeScreen.handlePullChanges();
+      }
+    };
   }
 
   /**
    * Initialize and start the application
    */
   async init(): Promise<void> {
-    // Mount all components
+    // Mount app layout first
     const body = document.body;
+    this.appLayout.mount(body);
+
+    // Mount token and scope screens into the layout's content area
+    const contentArea = this.appLayout.getContentArea();
+    this.tokenScreen.mount(contentArea);
+    this.scopeScreen.mount(contentArea);
+
+    // Mount welcome and import screens directly to body
     this.welcomeScreen.mount(body);
     this.importScreen.mount(body);
-    this.tokenScreen.mount(body);
-    this.scopeScreen.mount(body);
+
+    // Mount notification manager
     this.notificationManager.mount(body);
 
     // Hide all screens initially

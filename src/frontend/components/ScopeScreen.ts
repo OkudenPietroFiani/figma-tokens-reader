@@ -13,9 +13,6 @@ import { PluginBridge } from '../services/PluginBridge';
  */
 export class ScopeScreen extends BaseComponent {
   private bridge: PluginBridge;
-  private syncBtn!: HTMLButtonElement;
-  private pullChangesBtn!: HTMLButtonElement;
-  private switchSourceBtn!: HTMLButtonElement;
   private collectionsList!: HTMLDivElement;
   private scopeContent!: HTMLDivElement;
   private scopeSelector!: HTMLDivElement;
@@ -35,16 +32,8 @@ export class ScopeScreen extends BaseComponent {
 
   protected createElement(): HTMLElement {
     const div = document.createElement('div');
-    div.className = 'screen scope-screen';
+    div.className = 'screen-content scope-screen';
     div.innerHTML = `
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab" id="back-to-tokens-tab">Tokens</button>
-          <button class="token-tab active" id="scope-tab-active">Scopes</button>
-        </div>
-        <button class="btn-switch-source" id="scope-switch-source-btn">Switch source</button>
-      </div>
-
       <!-- Scope View -->
       <div class="token-view active">
         <div class="token-layout">
@@ -83,20 +72,9 @@ export class ScopeScreen extends BaseComponent {
           </div>
         </div>
       </div>
-
-      <!-- Action Footer -->
-      <div class="token-actions">
-        <button class="btn btn-primary" id="sync-to-figma-btn-scope">Sync in Figma</button>
-        <button class="btn btn-secondary hidden" id="pull-changes-btn-scope">
-          Pull changes
-        </button>
-      </div>
     `;
 
     // Cache references
-    this.syncBtn = div.querySelector('#sync-to-figma-btn-scope')!;
-    this.pullChangesBtn = div.querySelector('#pull-changes-btn-scope')!;
-    this.switchSourceBtn = div.querySelector('#scope-switch-source-btn')!;
     this.collectionsList = div.querySelector('#collections-list')!;
     this.scopeContent = div.querySelector('#scope-content')!;
     this.scopeSelector = div.querySelector('#scope-selector')!;
@@ -109,29 +87,6 @@ export class ScopeScreen extends BaseComponent {
   }
 
   protected bindEvents(): void {
-    // Back to tokens button
-    const backToTokensTab = this.element.querySelector('#back-to-tokens-tab');
-    if (backToTokensTab) {
-      this.addEventListener(backToTokensTab as HTMLElement, 'click', () => {
-        this.state.setCurrentScreen('token');
-      });
-    }
-
-    // Switch source button
-    this.addEventListener(this.switchSourceBtn, 'click', () => {
-      this.state.setCurrentScreen('welcome');
-    });
-
-    // Sync button
-    this.addEventListener(this.syncBtn, 'click', () => {
-      this.handleSyncScopes();
-    });
-
-    // Pull changes button
-    this.addEventListener(this.pullChangesBtn, 'click', () => {
-      this.handlePullChanges();
-    });
-
     // Apply scopes button
     this.addEventListener(this.applyScopesBtn, 'click', () => {
       this.handleApplyScopes();
@@ -685,7 +640,7 @@ export class ScopeScreen extends BaseComponent {
     }
 
     try {
-      this.setEnabled(this.applyScopesBtn, false);
+      // Disabled state managed by AppLayout
 
       // Get selected scopes from the scope selector
       const scopeCheckboxes = this.scopeSelector.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked');
@@ -693,7 +648,6 @@ export class ScopeScreen extends BaseComponent {
 
       if (selectedScopes.length === 0) {
         this.showNotification('Please select at least one scope to apply', 'error');
-        this.setEnabled(this.applyScopesBtn, true);
         return;
       }
 
@@ -716,12 +670,9 @@ export class ScopeScreen extends BaseComponent {
       this.selectedVariables.clear();
       this.updateScopeSelector();
       await this.loadVariables();
-
-      this.setEnabled(this.applyScopesBtn, true);
     } catch (error) {
       console.error('Error applying scopes:', error);
       this.showNotification('Failed to apply scopes', 'error');
-      this.setEnabled(this.applyScopesBtn, true);
     }
   }
 
@@ -742,17 +693,16 @@ export class ScopeScreen extends BaseComponent {
   }
 
   /**
-   * Handle sync scopes (legacy - keeping for backward compatibility)
+   * Handle sync (called from AppLayout) - redirects to apply scopes
    */
-  private async handleSyncScopes(): Promise<void> {
-    // Redirect to apply scopes
+  public async handleSyncToFigma(): Promise<void> {
     await this.handleApplyScopes();
   }
 
   /**
-   * Handle pull changes
+   * Handle pull changes (called from AppLayout)
    */
-  private async handlePullChanges(): Promise<void> {
+  public async handlePullChanges(): Promise<void> {
     this.showNotification('Pull changes from scope screen', 'info');
   }
 }
