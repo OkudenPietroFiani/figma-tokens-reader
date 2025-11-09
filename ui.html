@@ -1786,6 +1786,14 @@
     }
   };
 
+  // src/utils/htmlSanitizer.ts
+  function sanitizeId(unsafe) {
+    if (typeof unsafe !== "string") {
+      return String(unsafe);
+    }
+    return unsafe.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+  }
+
   // src/frontend/components/ImportScreen.ts
   var ImportScreen = class extends BaseComponent {
     constructor(state, bridge) {
@@ -1949,18 +1957,33 @@
       }
       const fileList = document.createElement("div");
       fileList.className = "file-list";
-      fileList.innerHTML = `
-      <div class="file-list-header">Select files to sync (${files.length} found)</div>
-      ${files.map((file) => `
-        <div class="file-item">
-          <input type="checkbox" class="file-checkbox" value="${file}" id="file-${file}" checked>
-          <label for="file-${file}">
-            <div class="file-name">${file.split("/").pop()}</div>
-            <div class="file-path">${file}</div>
-          </label>
-        </div>
-      `).join("")}
-    `;
+      const header = document.createElement("div");
+      header.className = "file-list-header";
+      header.textContent = `Select files to sync (${files.length} found)`;
+      fileList.appendChild(header);
+      files.forEach((file) => {
+        const fileItem = document.createElement("div");
+        fileItem.className = "file-item";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "file-checkbox";
+        checkbox.value = file;
+        checkbox.id = `file-${sanitizeId(file)}`;
+        checkbox.checked = true;
+        const label = document.createElement("label");
+        label.htmlFor = checkbox.id;
+        const fileName = document.createElement("div");
+        fileName.className = "file-name";
+        fileName.textContent = file.split("/").pop() || file;
+        const filePath = document.createElement("div");
+        filePath.className = "file-path";
+        filePath.textContent = file;
+        label.appendChild(fileName);
+        label.appendChild(filePath);
+        fileItem.appendChild(checkbox);
+        fileItem.appendChild(label);
+        fileList.appendChild(fileItem);
+      });
       this.githubFilesContainer.innerHTML = "";
       this.githubFilesContainer.appendChild(fileList);
       this.fetchFilesBtn.classList.add(CSS_CLASSES.HIDDEN);
@@ -2099,6 +2122,19 @@
     show() {
       super.show();
       this.updateMode(this.state.importMode);
+      if (this.state.githubConfig) {
+        const config = this.state.githubConfig;
+        if (config.token) {
+          this.githubToken.value = config.token;
+        }
+        if (config.owner && config.repo) {
+          this.repoUrl.value = `https://github.com/${config.owner}/${config.repo}`;
+        }
+        if (config.branch) {
+          this.branchName.value = config.branch;
+        }
+        console.log("[ImportScreen] Auto-filled GitHub credentials from saved config");
+      }
       console.log("[ImportScreen] Screen shown");
     }
   };
@@ -2198,17 +2234,21 @@
         this.fileTabsList.innerHTML = '<div class="empty-state">No files loaded</div>';
         return;
       }
-      this.fileTabsList.innerHTML = files.map((file) => {
-        return `<button class="file-tab" data-file="${file.name}">${file.name}</button>`;
-      }).join("");
-      const fileTabs = this.fileTabsList.querySelectorAll(".file-tab");
-      fileTabs.forEach((tab) => {
+      this.fileTabsList.innerHTML = "";
+      const fileTabs = [];
+      files.forEach((file) => {
+        const tab = document.createElement("button");
+        tab.className = "file-tab";
+        tab.setAttribute("data-file", file.name);
+        tab.textContent = file.name;
         this.addEventListener(tab, "click", () => {
           const fileName = tab.getAttribute("data-file");
           this.state.setSelectedFile(fileName);
           fileTabs.forEach((t) => t.classList.remove("active"));
           tab.classList.add("active");
         });
+        fileTabs.push(tab);
+        this.fileTabsList.appendChild(tab);
       });
       if (files.length > 0 && !this.state.selectedFile) {
         this.state.setSelectedFile(files[0].name);
@@ -2566,18 +2606,20 @@
       if (!this.selectedCollection && collectionNames.length > 0) {
         this.selectedCollection = collectionNames[0];
       }
-      this.collectionsList.innerHTML = collectionNames.map((collectionName) => `
-      <button class="file-tab ${collectionName === this.selectedCollection ? "active" : ""}" data-collection="${collectionName}">${collectionName}</button>
-    `).join("");
-      const collectionButtons = this.collectionsList.querySelectorAll(".file-tab");
-      collectionButtons.forEach((btn) => {
-        this.addEventListener(btn, "click", () => {
-          const collectionName = btn.getAttribute("data-collection");
-          console.log("[ScopeScreen] Switching to collection:", collectionName);
-          this.selectedCollection = collectionName;
+      this.collectionsList.innerHTML = "";
+      collectionNames.forEach((collectionName) => {
+        const button = document.createElement("button");
+        button.className = `file-tab ${collectionName === this.selectedCollection ? "active" : ""}`;
+        button.setAttribute("data-collection", collectionName);
+        button.textContent = collectionName;
+        this.addEventListener(button, "click", () => {
+          const name = button.getAttribute("data-collection");
+          console.log("[ScopeScreen] Switching to collection:", name);
+          this.selectedCollection = name;
           this.renderCollections();
           this.filterVariablesByCollection();
         });
+        this.collectionsList.appendChild(button);
       });
     }
     /**
@@ -2844,11 +2886,13 @@
         if (value._isVariable) {
           const v = value._data;
           const typeText = this.formatTypeText(v.type);
+          const escapedKey = this.escapeHtml(key);
+          const escapedId = this.escapeHtml(v.id);
           html += `
           <div class="scope-item" style="padding-left: ${level * 12}px;">
             <div class="scope-item-content">
-              <input type="checkbox" class="scope-checkbox" data-var-id="${v.id}">
-              <span class="scope-var-name">${key}</span>
+              <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
+              <span class="scope-var-name">${escapedKey}</span>
               <span class="scope-type">${typeText}</span>
             </div>
           </div>
@@ -2856,13 +2900,14 @@
         } else {
           const groupTypes = this.getGroupVariableTypes(value);
           const hasCompatibleTypes = groupTypes.size === 1;
-          const groupId = `group-${level}-${key}`;
+          const escapedKey = this.escapeHtml(key);
+          const groupId = `group-${level}-${escapedKey}`;
           html += `
           <div class="tree-group" style="padding-left: ${level * 12}px;">
             <div class="tree-header">
               ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle"></span>
-              <span class="tree-label">${key}</span>
+              <span class="tree-label">${escapedKey}</span>
             </div>
             <div class="tree-children" data-group-id="${groupId}">
               ${this.renderVariableTree(value, level + 1)}
@@ -2872,6 +2917,14 @@
         }
       }
       return html;
+    }
+    /**
+     * Escape HTML special characters to prevent XSS
+     */
+    escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
     }
     /**
      * Format scope text from Figma scopes array
@@ -3037,21 +3090,27 @@
      */
     async loadSavedTokens() {
       try {
+        console.log("[Frontend] Loading saved tokens...");
         const response = await this.bridge.send("load-tokens");
+        console.log("[Frontend] Load tokens response:", response);
         if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
           const files = Object.values(response.tokenFiles);
+          console.log("[Frontend] Found saved tokens:", files.length, "files");
           this.state.setTokenFiles(files);
           this.state.setTokenSource(response.tokenSource || "local");
           if (response.githubConfig) {
+            console.log("[Frontend] Restoring GitHub config:", response.githubConfig);
             this.state.setGitHubConfig(response.githubConfig);
           }
+          console.log("[Frontend] Navigating to token screen");
           this.state.setCurrentScreen("token");
-          console.log("[Frontend] Restored saved tokens:", files.length, "files");
+          console.log("[Frontend] Restored saved tokens successfully");
         } else {
+          console.log("[Frontend] No saved tokens found, showing welcome screen");
           this.welcomeScreen.show();
         }
       } catch (error) {
-        console.warn("[Frontend] Failed to load saved tokens:", error);
+        console.error("[Frontend] Failed to load saved tokens:", error);
         this.welcomeScreen.show();
       }
     }
