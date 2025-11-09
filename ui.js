@@ -1122,8 +1122,8 @@
       screen.className = "screen-content token-screen";
       screen.innerHTML = `
       <!-- Tokens View -->
-      <div class="token-view active" id="tokens-view">
-        <div class="token-layout">
+      <div class="screen-view active" id="tokens-view">
+        <div class="screen-layout">
           <!-- Left Column: File Tabs -->
           <div class="file-tabs">
             <div class="file-tabs-header">
@@ -1135,8 +1135,8 @@
             </div>
           </div>
 
-          <!-- Right Column: Token Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="token-tree-content">
               <div class="empty-state">Select a token file from the left to preview its contents</div>
             </div>
@@ -1541,8 +1541,8 @@
       div.className = "screen-content scope-screen";
       div.innerHTML = `
       <!-- Scope View -->
-      <div class="token-view active">
-        <div class="token-layout">
+      <div class="screen-view active">
+        <div class="screen-layout">
           <!-- Left Column: Collections List View -->
           <div class="file-tabs" id="collections-view">
             <div class="file-tabs-header">
@@ -1570,8 +1570,8 @@
             </div>
           </div>
 
-          <!-- Right Column: Scope Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="scope-content">
               <div class="empty-state">Loading variables...</div>
             </div>
@@ -1683,7 +1683,7 @@
       console.log("[ScopeScreen] Filtered variables count:", filteredVars.length);
       console.log("[ScopeScreen] Filtered variables:", filteredVars.map((v) => v.name));
       const tree = this.buildVariableTree(filteredVars);
-      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      const html = this.renderVariableTree(tree, 0);
       if (filteredVars.length === 0) {
         this.scopeContent.innerHTML = '<div class="empty-state">No variables found in this collection.</div>';
       } else {
@@ -1700,7 +1700,7 @@
         return;
       }
       const tree = this.buildVariableTree(this.variables);
-      const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + "</div>";
+      const html = this.renderVariableTree(tree, 0);
       this.scopeContent.innerHTML = html;
       this.attachVariableEventHandlers();
     }
@@ -2095,10 +2095,10 @@
       layout.className = "app-layout hidden";
       layout.innerHTML = `
       <!-- Top Navigation Bar -->
-      <div class="token-top-bar">
-        <div class="token-top-bar-tabs">
-          <button class="token-tab active" id="app-tokens-tab">Tokens</button>
-          <button class="token-tab" id="app-scopes-tab">Scopes</button>
+      <div class="app-top-bar">
+        <div class="app-tabs">
+          <button class="app-tab active" id="app-tokens-tab">Tokens</button>
+          <button class="app-tab" id="app-scopes-tab">Scopes</button>
         </div>
         <button class="btn-switch-source" id="app-switch-source-btn">Switch source</button>
       </div>
@@ -2107,7 +2107,7 @@
       <div id="app-content-area" class="app-content-area"></div>
 
       <!-- Action Footer -->
-      <div class="token-actions">
+      <div class="app-actions">
         <button class="btn btn-primary" id="app-sync-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="app-pull-btn">
           Pull changes
@@ -2115,9 +2115,9 @@
         </button>
       </div>
     `;
-      this.topBar = layout.querySelector(".token-top-bar");
+      this.topBar = layout.querySelector(".app-top-bar");
       this.contentArea = layout.querySelector("#app-content-area");
-      this.actionFooter = layout.querySelector(".token-actions");
+      this.actionFooter = layout.querySelector(".app-actions");
       this.tokensTab = layout.querySelector("#app-tokens-tab");
       this.scopesTab = layout.querySelector("#app-scopes-tab");
       this.switchSourceBtn = layout.querySelector("#app-switch-source-btn");

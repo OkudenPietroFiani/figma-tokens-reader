@@ -35,8 +35,8 @@ export class ScopeScreen extends BaseComponent {
     div.className = 'screen-content scope-screen';
     div.innerHTML = `
       <!-- Scope View -->
-      <div class="token-view active">
-        <div class="token-layout">
+      <div class="screen-view active">
+        <div class="screen-layout">
           <!-- Left Column: Collections List View -->
           <div class="file-tabs" id="collections-view">
             <div class="file-tabs-header">
@@ -64,8 +64,8 @@ export class ScopeScreen extends BaseComponent {
             </div>
           </div>
 
-          <!-- Right Column: Scope Tree View -->
-          <div class="token-tree-view">
+          <!-- Right Column: Tree View -->
+          <div class="tree-view">
             <div id="scope-content">
               <div class="empty-state">Loading variables...</div>
             </div>
@@ -210,7 +210,7 @@ export class ScopeScreen extends BaseComponent {
 
     // Build tree with filtered variables
     const tree = this.buildVariableTree(filteredVars);
-    const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + '</div>';
+    const html = this.renderVariableTree(tree, 0);
 
     if (filteredVars.length === 0) {
       this.scopeContent.innerHTML = '<div class="empty-state">No variables found in this collection.</div>';
@@ -233,7 +233,7 @@ export class ScopeScreen extends BaseComponent {
     const tree = this.buildVariableTree(this.variables);
 
     // Render tree
-    const html = '<div class="scope-tree">' + this.renderVariableTree(tree, 0) + '</div>';
+    const html = this.renderVariableTree(tree, 0);
     this.scopeContent.innerHTML = html;
 
     this.attachVariableEventHandlers();
