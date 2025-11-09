@@ -99,6 +99,7 @@ export interface TokenState {
   tokenFiles: { [fileName: string]: TokenFile };
   tokenSource: 'github' | 'local' | null;
   githubConfig?: GitHubConfig;
+  lastUpdated?: string; // ISO timestamp of last token update
 }
 
 // ==================== PLUGIN MESSAGE TYPES ====================

@@ -42,6 +42,7 @@ export class AppState {
   private _githubConfig: GitHubConfig | null = null;
   private _figmaVariables: Map<string, FigmaVariableData> = new Map();
   private _tokenScopesMap: Map<string, string[]> = new Map();
+  private _lastUpdated: string | null = null; // ISO timestamp of last token update
 
   // ==================== OBSERVABLE PATTERN ====================
 
@@ -132,6 +133,10 @@ export class AppState {
     return new Map(this._tokenScopesMap); // Return copy for immutability
   }
 
+  get lastUpdated(): string | null {
+    return this._lastUpdated;
+  }
+
   // ==================== SETTERS WITH EVENTS ====================
 
   /**
@@ -142,6 +147,9 @@ export class AppState {
     files.forEach(file => {
       this._tokenFiles.set(file.name, file);
     });
+
+    // Update last updated timestamp
+    this._lastUpdated = new Date().toISOString();
 
     this.emit('files-loaded', files);
     console.log(`[AppState] Token files updated: ${files.length} files`);
@@ -320,6 +328,7 @@ export class AppState {
       githubConfig: this._githubConfig,
       figmaVariables: Array.from(this._figmaVariables.entries()),
       tokenScopesMap: Array.from(this._tokenScopesMap.entries()),
+      lastUpdated: this._lastUpdated,
     };
   }
 
@@ -361,6 +370,9 @@ export class AppState {
     if (snapshot.tokenScopesMap) {
       this._tokenScopesMap = new Map(snapshot.tokenScopesMap);
     }
+    if (snapshot.lastUpdated !== undefined) {
+      this._lastUpdated = snapshot.lastUpdated;
+    }
 
     console.log(`[AppState] State restored from snapshot`);
   }
@@ -379,6 +391,7 @@ export class AppState {
     this._githubConfig = null;
     this._figmaVariables.clear();
     this._tokenScopesMap.clear();
+    this._lastUpdated = null;
 
     console.log(`[AppState] State reset to initial values`);
   }
