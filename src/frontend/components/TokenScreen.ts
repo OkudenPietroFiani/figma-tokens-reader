@@ -64,12 +64,7 @@ export class TokenScreen extends BaseComponent {
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="pull-changes-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>Pull changes</span>
+          Pull changes
           <span class="badge badge-info hidden" id="change-indicator"></span>
         </button>
       </div>
