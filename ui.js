@@ -817,7 +817,7 @@
 
       <!-- Local Import Content -->
       <div class="import-content" id="local-import-content">
-        <input type="file" id="file-input" multiple accept=".json,.zip" style="display: none;">
+        <input type="file" id="file-input" multiple accept=".json,.zip" class="file-input-hidden">
 
         <div class="file-selector-section">
           <div id="local-files-list" class="file-list-items"></div>
@@ -1135,9 +1135,9 @@
           <div class="file-tabs">
             <div class="file-tabs-header">
               <div class="file-tabs-title">Files</div>
-              <div id="last-updated-text" style="font-size: 12px; color: #787878; margin-top: 4px;"></div>
+              <div id="last-updated-text" class="last-updated-text"></div>
             </div>
-            <div id="file-tabs-list" style="padding: 16px 16px 0 16px;">
+            <div id="file-tabs-list" class="file-tabs-list">
               <!-- Tabs will be dynamically added here -->
             </div>
           </div>
@@ -1155,13 +1155,13 @@
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="pull-changes-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>Pull changes</span>
-          <span class="change-indicator hidden" id="change-indicator" style="width: 8px; height: 8px; background-color: #0066FF; border-radius: 50%; margin-left: 8px; display: inline-block;"></span>
+          <span class="badge badge-info hidden" id="change-indicator"></span>
         </button>
       </div>
     `;
@@ -1261,11 +1261,12 @@
         return `<div class="tree-value">${this.escapeHtml(JSON.stringify(obj))}</div>`;
       }
       let html = "";
+      const cappedLevel = Math.min(level, 6);
       for (const [key, value] of Object.entries(obj)) {
         const isGroup = typeof value === "object" && value !== null && !value.$value;
         if (isGroup) {
           html += `
-          <div class="tree-group" style="padding-left: ${level * 12}px;">
+          <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
               <span class="tree-toggle"></span>
               <span class="tree-label">${this.escapeHtml(key)}</span>
@@ -1283,7 +1284,7 @@
             displayValue = this.formatTokenValue(value);
           }
           html += `
-          <div class="tree-item" style="padding-left: ${level * 12 + 16}px;">
+          <div class="tree-item tree-item-indent-${cappedLevel}">
             <span class="token-name">${this.escapeHtml(key)}</span>
             <span class="token-value">${displayValue}</span>
           </div>
@@ -1602,12 +1603,12 @@
             <div class="file-tabs-header">
               <div class="file-tabs-title">Collections</div>
             </div>
-            <div id="collections-list" style="padding: 16px 16px 0 16px;">
+            <div id="collections-list" class="collections-list">
               <!-- Collection tabs will be dynamically added here -->
             </div>
 
             <!-- Scope Selector (replaces collections when variables selected) -->
-            <div id="scope-selector" class="scope-selector hidden" style="padding: 16px;">
+            <div id="scope-selector" class="scope-selector hidden">
               <div class="scope-selector-header">
                 <h3 class="scope-selector-title" id="scope-title">Color scopes</h3>
                 <div class="scope-selector-count" id="selected-count">0 tokens selected</div>
@@ -1635,7 +1636,7 @@
       <div class="token-actions">
         <button class="btn btn-primary" id="sync-to-figma-btn-scope">Sync in Figma</button>
         <button class="btn btn-secondary hidden" id="pull-changes-btn-scope">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 8V12L14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 4C13.5 2.5 15.5 2 18 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1724,7 +1725,7 @@
       const collectionNames = Array.from(collections);
       console.log("[ScopeScreen] Found Figma collections:", collectionNames);
       if (collectionNames.length === 0) {
-        this.collectionsList.innerHTML = '<div style="color: #999; font-size: 12px;">No collections found</div>';
+        this.collectionsList.innerHTML = '<div class="empty-collections">No collections found</div>';
         return;
       }
       if (!this.selectedCollection && collectionNames.length > 0) {
@@ -2006,6 +2007,7 @@
      */
     renderVariableTree(tree, level) {
       let html = "";
+      const cappedLevel = Math.min(level, 6);
       for (const [key, value] of Object.entries(tree)) {
         if (value._isVariable) {
           const v = value._data;
@@ -2013,7 +2015,7 @@
           const escapedKey = this.escapeHtml(key);
           const escapedId = this.escapeHtml(v.id);
           html += `
-          <div class="scope-item" style="padding-left: ${level * 12}px;">
+          <div class="scope-item tree-indent-${cappedLevel}">
             <div class="scope-item-content">
               <input type="checkbox" class="scope-checkbox" data-var-id="${escapedId}">
               <span class="scope-var-name">${escapedKey}</span>
@@ -2027,7 +2029,7 @@
           const escapedKey = this.escapeHtml(key);
           const groupId = `group-${level}-${escapedKey}`;
           html += `
-          <div class="tree-group" style="padding-left: ${level * 12}px;">
+          <div class="tree-group tree-indent-${cappedLevel}">
             <div class="tree-header">
               ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle"></span>

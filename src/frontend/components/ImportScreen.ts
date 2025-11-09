@@ -98,7 +98,7 @@ export class ImportScreen extends BaseComponent {
 
       <!-- Local Import Content -->
       <div class="import-content" id="local-import-content">
-        <input type="file" id="file-input" multiple accept=".json,.zip" style="display: none;">
+        <input type="file" id="file-input" multiple accept=".json,.zip" class="file-input-hidden">
 
         <div class="file-selector-section">
           <div id="local-files-list" class="file-list-items"></div>
