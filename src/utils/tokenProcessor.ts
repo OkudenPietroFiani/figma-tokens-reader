@@ -111,29 +111,50 @@ export function resolveReference(
   variableMap: Map<string, Variable>
 ): Variable | null {
   console.log(`[Resolve] Attempting to resolve: "${reference}"`);
-  console.log(`[Resolve] Available variables in map:`, Array.from(variableMap.keys()).slice(0, 10));
+  console.log(`[Resolve] Available variables (first 10):`, Array.from(variableMap.keys()).slice(0, 10));
 
   // Clean up the reference (remove "primitive." or "semantic." prefix if present)
   let cleanRef = reference.replace(/^(primitive|semantic)\./, '');
   console.log(`[Resolve] After removing prefix: "${cleanRef}"`);
 
-  // Try direct lookup
+  // Strategy 1: Try direct lookup
   let variable = variableMap.get(cleanRef);
   if (variable) {
     console.log(`[Resolve] ✓ Found via direct lookup: "${cleanRef}"`);
     return variable;
   }
 
-  // Try with different path separators
-  cleanRef = cleanRef.replace(/\./g, '/');
-  console.log(`[Resolve] Trying with slashes: "${cleanRef}"`);
-  variable = variableMap.get(cleanRef);
+  // Strategy 2: Replace ALL dots with slashes (assumes dots = hierarchy)
+  // Example: "color.transparency.75" -> "color/transparency/75"
+  let slashRef = cleanRef.replace(/\./g, '/');
+  console.log(`[Resolve] Trying with slashes: "${slashRef}"`);
+  variable = variableMap.get(slashRef);
   if (variable) {
-    console.log(`[Resolve] ✓ Found via slash conversion: "${cleanRef}"`);
+    console.log(`[Resolve] ✓ Found via slash conversion: "${slashRef}"`);
     return variable;
   }
 
-  // Try all variables
+  // Strategy 3: Try treating last segment as having dots in the name
+  // Example: "color.transparency.75" -> "color/transparency-75"
+  // This handles cases where "transparency.75" is a single token name
+  const parts = cleanRef.split('.');
+  if (parts.length >= 2) {
+    // Try progressively: last 2 segments joined, last 3 segments joined, etc.
+    for (let i = parts.length - 1; i >= 1; i--) {
+      const pathPart = parts.slice(0, i).join('/');
+      const namePart = parts.slice(i).join('-'); // Join with dash (sanitized)
+      const dottedRef = pathPart ? `${pathPart}/${namePart}` : namePart;
+
+      console.log(`[Resolve] Trying with dotted name: "${dottedRef}"`);
+      variable = variableMap.get(dottedRef);
+      if (variable) {
+        console.log(`[Resolve] ✓ Found via dotted name: "${dottedRef}"`);
+        return variable;
+      }
+    }
+  }
+
+  // Strategy 4: Fuzzy match (last resort)
   console.log(`[Resolve] Trying fuzzy match...`);
   for (const [key, val] of variableMap.entries()) {
     if (key.endsWith(cleanRef) || key.includes(cleanRef)) {
@@ -143,5 +164,10 @@ export function resolveReference(
   }
 
   console.warn(`[Resolve] ✗ Could not resolve reference: "${reference}"`);
+  console.warn(`[Resolve] ✗ Tried:`, {
+    direct: cleanRef,
+    slashes: slashRef,
+    variations: 'multiple dotted name variations'
+  });
   return null;
 }
