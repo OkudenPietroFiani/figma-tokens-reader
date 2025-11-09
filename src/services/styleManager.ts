@@ -123,7 +123,8 @@ export class StyleManager {
   /**
    * Remove category prefixes from style path
    * Example: ['typography', 'display'] -> ['display']
-   * Removes first level if it's a category (typography, effect, shadow, etc)
+   * Example: ['color', 'drop-shadow'] -> ['drop-shadow']
+   * Removes first level if it's a category (typography, effect, shadow, color, etc)
    */
   private cleanStylePath(path: string[]): string[] {
     if (path.length === 0) return path;
@@ -132,7 +133,8 @@ export class StyleManager {
 
     // Remove first level if it's a category
     if (firstLevel === 'typography' || firstLevel === 'effect' || firstLevel === 'shadow' ||
-        firstLevel === 'boxshadow' || firstLevel === 'dropshadow' || firstLevel === 'font') {
+        firstLevel === 'boxshadow' || firstLevel === 'dropshadow' || firstLevel === 'font' ||
+        firstLevel === 'color') {
       return path.slice(1);
     }
 
@@ -345,9 +347,15 @@ export class StyleManager {
 
   /**
    * Resolve line height (can be numeric or percentage)
+   * Handles unitless values (1.5 -> 150%) and pixel values
    */
   private resolveLineHeight(value: string | number): LineHeight | null {
     if (typeof value === 'number') {
+      // Unitless line-height (e.g., 1.5) should be converted to percentage
+      // Assume values < 10 are unitless multipliers, values >= 10 are pixels
+      if (value < 10) {
+        return { value: value * 100, unit: 'PERCENT' };
+      }
       return { value: value, unit: 'PIXELS' };
     }
 
@@ -358,6 +366,15 @@ export class StyleManager {
     if (resolved.includes('%')) {
       const percent = parseFloat(resolved);
       return { value: percent, unit: 'PERCENT' };
+    }
+
+    // Check for unitless number (e.g., "1.5")
+    const numValue = parseFloat(resolved);
+    if (!isNaN(numValue) && !resolved.includes('px') && !resolved.includes('rem')) {
+      // Unitless values should be treated as relative (percentage)
+      if (numValue < 10) {
+        return { value: numValue * 100, unit: 'PERCENT' };
+      }
     }
 
     // Parse as pixels

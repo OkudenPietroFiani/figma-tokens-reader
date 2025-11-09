@@ -660,12 +660,13 @@
     /**
      * Remove category prefixes from style path
      * Example: ['typography', 'display'] -> ['display']
-     * Removes first level if it's a category (typography, effect, shadow, etc)
+     * Example: ['color', 'drop-shadow'] -> ['drop-shadow']
+     * Removes first level if it's a category (typography, effect, shadow, color, etc)
      */
     cleanStylePath(path) {
       if (path.length === 0) return path;
       const firstLevel = path[0].toLowerCase();
-      if (firstLevel === "typography" || firstLevel === "effect" || firstLevel === "shadow" || firstLevel === "boxshadow" || firstLevel === "dropshadow" || firstLevel === "font") {
+      if (firstLevel === "typography" || firstLevel === "effect" || firstLevel === "shadow" || firstLevel === "boxshadow" || firstLevel === "dropshadow" || firstLevel === "font" || firstLevel === "color") {
         return path.slice(1);
       }
       return path;
@@ -827,9 +828,13 @@
     }
     /**
      * Resolve line height (can be numeric or percentage)
+     * Handles unitless values (1.5 -> 150%) and pixel values
      */
     resolveLineHeight(value) {
       if (typeof value === "number") {
+        if (value < 10) {
+          return { value: value * 100, unit: "PERCENT" };
+        }
         return { value, unit: "PIXELS" };
       }
       const resolved = this.resolveTokenReference(value);
@@ -837,6 +842,12 @@
       if (resolved.includes("%")) {
         const percent = parseFloat(resolved);
         return { value: percent, unit: "PERCENT" };
+      }
+      const numValue = parseFloat(resolved);
+      if (!isNaN(numValue) && !resolved.includes("px") && !resolved.includes("rem")) {
+        if (numValue < 10) {
+          return { value: numValue * 100, unit: "PERCENT" };
+        }
       }
       const pixels = this.resolveNumericValue(resolved);
       if (pixels) {
