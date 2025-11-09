@@ -319,15 +319,11 @@ export class TokenScreen extends BaseComponent {
 
   /**
    * Update pull changes button visibility
-   * Button shows if we have a GitHub config (connected to GitHub)
+   * Button is always visible for both local and GitHub sources
    */
   private updatePullChangesButton(): void {
-    // Show button if we have GitHub config OR tokenSource is github
-    if (this.state.githubConfig || this.state.tokenSource === 'github') {
-      this.pullChangesBtn.classList.remove('hidden');
-    } else {
-      this.pullChangesBtn.classList.add('hidden');
-    }
+    // Always show the pull changes button
+    this.pullChangesBtn.classList.remove('hidden');
   }
 
   /**
@@ -383,7 +379,7 @@ export class TokenScreen extends BaseComponent {
   private updateChangeIndicator(): void {
     const lastUpdated = this.state.lastUpdated;
 
-    if (!lastUpdated || !this.state.githubConfig) {
+    if (!lastUpdated) {
       this.changeIndicator.classList.add('hidden');
       return;
     }
@@ -393,6 +389,7 @@ export class TokenScreen extends BaseComponent {
     const now = new Date().getTime();
     const minutesSinceUpdate = Math.floor((now - lastUpdateTime) / 60000);
 
+    // Show indicator if it's been more than 5 minutes since last update
     if (minutesSinceUpdate >= 5) {
       this.changeIndicator.classList.remove('hidden');
     } else {

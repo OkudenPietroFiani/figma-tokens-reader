@@ -1356,14 +1356,10 @@
     }
     /**
      * Update pull changes button visibility
-     * Button shows if we have a GitHub config (connected to GitHub)
+     * Button is always visible for both local and GitHub sources
      */
     updatePullChangesButton() {
-      if (this.state.githubConfig || this.state.tokenSource === "github") {
-        this.pullChangesBtn.classList.remove("hidden");
-      } else {
-        this.pullChangesBtn.classList.add("hidden");
-      }
+      this.pullChangesBtn.classList.remove("hidden");
     }
     /**
      * Update last updated timestamp text
@@ -1405,7 +1401,7 @@
      */
     updateChangeIndicator() {
       const lastUpdated = this.state.lastUpdated;
-      if (!lastUpdated || !this.state.githubConfig) {
+      if (!lastUpdated) {
         this.changeIndicator.classList.add("hidden");
         return;
       }
