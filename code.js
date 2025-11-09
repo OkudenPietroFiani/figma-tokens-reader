@@ -3573,8 +3573,8 @@
         const collections = await figma.variables.getLocalVariableCollectionsAsync();
         const metadata = [];
         for (const collection of collections) {
-          const variables = collection.variableIds.map((id) => figma.variables.getVariableById(id));
-          for (const variable of variables) {
+          for (const variableId of collection.variableIds) {
+            const variable = await figma.variables.getVariableByIdAsync(variableId);
             if (!variable) continue;
             const defaultModeId = collection.modes[0].modeId;
             const value = variable.valuesByMode[defaultModeId];
