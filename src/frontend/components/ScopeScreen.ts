@@ -48,21 +48,23 @@ export class ScopeScreen extends BaseComponent {
       <!-- Scope View -->
       <div class="token-view active">
         <div class="token-layout">
-          <!-- Left Column: Collections -->
-          <div class="file-tabs">
+          <!-- Left Column: Collections List View -->
+          <div class="file-tabs" id="collections-view">
             <div class="file-tabs-header">
               <div class="file-tabs-title">Collections</div>
             </div>
             <div id="collections-list" class="collections-list">
               <!-- Collection tabs will be dynamically added here -->
             </div>
+          </div>
 
-            <!-- Scope Selector (replaces collections when variables selected) -->
-            <div id="scope-selector" class="scope-selector hidden">
-              <div class="scope-selector-header">
-                <h3 class="scope-selector-title" id="scope-title">Color scopes</h3>
-                <div class="scope-selector-count" id="selected-count">0 tokens selected</div>
-              </div>
+          <!-- Left Column: Scope Selector View (replaces collections) -->
+          <div class="file-tabs hidden" id="scope-selector">
+            <div class="file-tabs-header">
+              <div class="file-tabs-title" id="scope-title">Color scopes</div>
+              <div class="last-updated-text" id="selected-count">0 tokens selected</div>
+            </div>
+            <div class="scope-selector-content">
               <div class="scope-options" id="scope-options">
                 <!-- Scope options will be dynamically rendered based on variable type -->
               </div>
@@ -369,6 +371,9 @@ export class ScopeScreen extends BaseComponent {
     const count = this.selectedVariables.size;
     this.selectedCountEl.textContent = `${count} tokens selected`;
 
+    // Get the collections view container
+    const collectionsView = this.element.querySelector('#collections-view')!;
+
     if (count > 0) {
       // Determine scope type from selected variables
       const scopeType = this.determineScopeType();
@@ -377,15 +382,13 @@ export class ScopeScreen extends BaseComponent {
       // Update scope options based on variable types
       this.renderScopeOptions();
 
-      // Show scope selector, hide collections
+      // Show scope selector, hide collections view
       this.scopeSelector.classList.remove('hidden');
-      this.collectionsList.parentElement!.querySelector('.file-tabs-header')!.classList.add('hidden');
-      this.collectionsList.classList.add('hidden');
+      collectionsView.classList.add('hidden');
     } else {
-      // Hide scope selector, show collections
+      // Hide scope selector, show collections view
       this.scopeSelector.classList.add('hidden');
-      this.collectionsList.parentElement!.querySelector('.file-tabs-header')!.classList.remove('hidden');
-      this.collectionsList.classList.remove('hidden');
+      collectionsView.classList.remove('hidden');
     }
   }
 
