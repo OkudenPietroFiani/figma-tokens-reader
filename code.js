@@ -42,6 +42,18 @@
     "string": "STRING"
   };
   var REM_TO_PX_RATIO = 16;
+  var FEATURE_FLAGS = {
+    // Use new interface-based architecture (Phase 1)
+    USE_NEW_ARCHITECTURE: true,
+    // Use parallel file fetching (Phase 3)
+    ENABLE_PARALLEL_FETCHING: true,
+    // Maximum concurrent file fetches when parallel fetching enabled
+    PARALLEL_BATCH_SIZE: 10,
+    // Delay between batches (ms) to respect API rate limits
+    BATCH_DELAY_MS: 100,
+    // Auto-detect token format instead of assuming W3C (Phase 4)
+    AUTO_DETECT_FORMAT: true
+  };
   var STORAGE_KEYS = {
     TOKEN_STATE: "tokenState",
     GITHUB_CONFIG: "githubConfig"
@@ -1493,8 +1505,307 @@
     }
   };
 
+  // src/utils/Base64Decoder.ts
+  var Base64Decoder = class {
+    /**
+     * Decode base64 string to UTF-8 text
+     *
+     * @param base64 - Base64 encoded string
+     * @returns Decoded UTF-8 string
+     * @throws Error if decoding fails
+     */
+    static decode(base64) {
+      const cleanBase64 = base64.replace(/\s/g, "");
+      if (cleanBase64.length === 0) {
+        throw new Error("Empty base64 string");
+      }
+      try {
+        if (!this.base64Lookup) {
+          this.initializeLookup();
+        }
+        const bytes = this.decodeToBytes(cleanBase64);
+        return this.bytesToUtf8(bytes);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[Base64Decoder] Decoding failed: ${message}`);
+        throw new Error(`Failed to decode base64: ${message}`);
+      }
+    }
+    /**
+     * Initialize base64 character lookup table
+     * @private
+     */
+    static initializeLookup() {
+      this.base64Lookup = /* @__PURE__ */ new Map();
+      for (let i = 0; i < this.BASE64_CHARS.length; i++) {
+        this.base64Lookup.set(this.BASE64_CHARS[i], i);
+      }
+    }
+    /**
+     * Decode base64 string to byte array
+     * @private
+     */
+    static decodeToBytes(base64) {
+      const bytes = [];
+      for (let i = 0; i < base64.length; i += 4) {
+        const encoded1 = this.base64Lookup.get(base64[i]) || 0;
+        const encoded2 = this.base64Lookup.get(base64[i + 1]) || 0;
+        const encoded3 = this.base64Lookup.get(base64[i + 2]) || 0;
+        const encoded4 = this.base64Lookup.get(base64[i + 3]) || 0;
+        const byte1 = encoded1 << 2 | encoded2 >> 4;
+        const byte2 = (encoded2 & 15) << 4 | encoded3 >> 2;
+        const byte3 = (encoded3 & 3) << 6 | encoded4;
+        bytes.push(byte1);
+        if (base64[i + 2] !== "=") bytes.push(byte2);
+        if (base64[i + 3] !== "=") bytes.push(byte3);
+      }
+      return bytes;
+    }
+    /**
+     * Convert byte array to UTF-8 string
+     * Handles multi-byte characters
+     * @private
+     */
+    static bytesToUtf8(bytes) {
+      let result = "";
+      let i = 0;
+      while (i < bytes.length) {
+        const byte1 = bytes[i++];
+        if (byte1 < 128) {
+          result += String.fromCharCode(byte1);
+        } else if (byte1 >= 192 && byte1 < 224) {
+          const byte2 = bytes[i++];
+          result += String.fromCharCode((byte1 & 31) << 6 | byte2 & 63);
+        } else if (byte1 >= 224 && byte1 < 240) {
+          const byte2 = bytes[i++];
+          const byte3 = bytes[i++];
+          result += String.fromCharCode((byte1 & 15) << 12 | (byte2 & 63) << 6 | byte3 & 63);
+        } else {
+          i += 3;
+        }
+      }
+      return result;
+    }
+  };
+  Base64Decoder.BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  Base64Decoder.base64Lookup = null;
+
+  // src/utils/FileClassifier.ts
+  var FileClassifier = class {
+    /**
+     * Classify a file path or filename
+     *
+     * @param filePath - Full path or filename
+     * @returns Classification with confidence score
+     */
+    static classify(filePath) {
+      const filename = this.extractFilename(filePath);
+      for (const pattern of this.SEMANTIC_PATTERNS) {
+        if (pattern.test(filename)) {
+          return {
+            category: "semantic",
+            confidence: 0.9
+          };
+        }
+      }
+      for (const pattern of this.PRIMITIVE_PATTERNS) {
+        if (pattern.test(filename)) {
+          return {
+            category: "primitive",
+            confidence: 0.9
+          };
+        }
+      }
+      return {
+        category: "primitive",
+        confidence: 0.5
+      };
+    }
+    /**
+     * Check if file is primitive
+     *
+     * @param filePath - Full path or filename
+     * @returns True if file is classified as primitive
+     */
+    static isPrimitive(filePath) {
+      return this.classify(filePath).category === "primitive";
+    }
+    /**
+     * Check if file is semantic
+     *
+     * @param filePath - Full path or filename
+     * @returns True if file is classified as semantic
+     */
+    static isSemantic(filePath) {
+      return this.classify(filePath).category === "semantic";
+    }
+    /**
+     * Extract filename from full path
+     * @private
+     */
+    static extractFilename(filePath) {
+      const parts = filePath.split("/");
+      return parts[parts.length - 1] || filePath;
+    }
+    /**
+     * Classify multiple files into primitives and semantics
+     *
+     * @param filePaths - Array of file paths
+     * @returns Object with primitive and semantic arrays
+     */
+    static classifyBatch(filePaths) {
+      const primitives = [];
+      const semantics = [];
+      for (const path of filePaths) {
+        const classification = this.classify(path);
+        if (classification.category === "semantic") {
+          semantics.push(path);
+        } else {
+          primitives.push(path);
+        }
+      }
+      return { primitives, semantics };
+    }
+  };
+  FileClassifier.PRIMITIVE_PATTERNS = [
+    /primitive/i,
+    /base/i,
+    /core/i,
+    /foundation/i,
+    /tokens/i
+    // Generic token files default to primitives
+  ];
+  FileClassifier.SEMANTIC_PATTERNS = [
+    /semantic/i,
+    /theme/i,
+    /component/i,
+    /alias/i
+  ];
+
+  // src/utils/BatchProcessor.ts
+  var BatchProcessor = class {
+    /**
+     * Process items in parallel batches
+     *
+     * @param items - Array of items to process
+     * @param processor - Async function to process each item
+     * @param options - Batch processing configuration
+     * @returns Promise with results and error information
+     *
+     * @example
+     * ```typescript
+     * const files = ['file1.json', 'file2.json', ...]; // 50 files
+     *
+     * const result = await BatchProcessor.processBatch(
+     *   files,
+     *   async (file) => await fetchFileContent(file),
+     *   {
+     *     batchSize: 10,  // Process 10 files at a time
+     *     delayMs: 100,   // Wait 100ms between batches
+     *     onProgress: (completed, total) => {
+     *       console.log(`Progress: ${completed}/${total}`);
+     *     }
+     *   }
+     * );
+     *
+     * console.log(`Success: ${result.successCount}, Failed: ${result.failureCount}`);
+     * ```
+     */
+    static async processBatch(items, processor, options = {}) {
+      const {
+        batchSize = 10,
+        delayMs = 100,
+        onProgress,
+        onError
+      } = options;
+      const successes = [];
+      const failures = [];
+      let completed = 0;
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchStartIndex = i;
+        const batchResults = await Promise.allSettled(
+          batch.map((item, batchIndex) => {
+            const globalIndex = batchStartIndex + batchIndex;
+            return processor(item, globalIndex);
+          })
+        );
+        batchResults.forEach((result, batchIndex) => {
+          const globalIndex = batchStartIndex + batchIndex;
+          const item = batch[batchIndex];
+          if (result.status === "fulfilled") {
+            successes.push(result.value);
+          } else {
+            const error = result.reason instanceof Error ? result.reason : new Error(String(result.reason));
+            failures.push({
+              index: globalIndex,
+              error,
+              item
+            });
+            if (onError) {
+              onError(error, item, globalIndex);
+            } else {
+              console.error(`[BatchProcessor] Item ${globalIndex} failed:`, error.message);
+            }
+          }
+          completed++;
+        });
+        if (onProgress) {
+          onProgress(completed, items.length);
+        }
+        if (i + batchSize < items.length && delayMs > 0) {
+          await this.delay(delayMs);
+        }
+      }
+      return {
+        successes,
+        failures,
+        total: items.length,
+        successCount: successes.length,
+        failureCount: failures.length
+      };
+    }
+    /**
+     * Process items with automatic retry on failure
+     *
+     * @param items - Array of items to process
+     * @param processor - Async function to process each item
+     * @param options - Batch processing configuration
+     * @param maxRetries - Maximum number of retries per item (default: 2)
+     * @returns Promise with results and error information
+     */
+    static async processBatchWithRetry(items, processor, options = {}, maxRetries = 2) {
+      const processorWithRetry = async (item, index) => {
+        let lastError = null;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            return await processor(item, index);
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            if (attempt < maxRetries) {
+              const backoffMs = Math.pow(2, attempt) * 1e3;
+              await this.delay(backoffMs);
+            }
+          }
+        }
+        throw lastError || new Error("Unknown error");
+      };
+      return this.processBatch(items, processorWithRetry, options);
+    }
+    /**
+     * Simple delay utility
+     * @private
+     */
+    static delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  };
+
   // src/services/githubService.ts
   var GitHubService = class {
+    /**
+     * Fetch list of JSON files from repository
+     */
     async fetchRepositoryFiles(config) {
       try {
         const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
@@ -1523,10 +1834,12 @@
         throw new Error(`Failed to fetch repository files: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     }
+    /**
+     * Fetch content of a single file
+     */
     async fetchFileContent(config, filePath) {
       try {
         const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`;
-        console.log(`Fetching file: ${filePath}`);
         const response = await fetch(url, {
           headers: {
             "Authorization": `token ${config.token}`,
@@ -1540,27 +1853,77 @@
           throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
         }
         const data = await response.json();
-        console.log(`File fetched successfully: ${filePath}, encoding: ${data.encoding}, size: ${data.size}`);
         if (!data.content) {
           throw new Error(`No content field in GitHub response for ${filePath}`);
         }
-        const content = this.decodeBase64(data.content);
-        console.log(`Content decoded, length: ${content.length} chars`);
+        const content = Base64Decoder.decode(data.content);
         return JSON.parse(content);
       } catch (error) {
         console.error(`Error fetching file ${filePath}:`, error);
         throw error;
       }
     }
+    /**
+     * Fetch multiple files and organize by primitives/semantics
+     */
     async fetchMultipleFiles(config, filePaths) {
+      if (FEATURE_FLAGS.ENABLE_PARALLEL_FETCHING) {
+        return this.fetchMultipleFilesParallel(config, filePaths);
+      } else {
+        return this.fetchMultipleFilesSequential(config, filePaths);
+      }
+    }
+    /**
+     * Fetch multiple files in parallel using BatchProcessor (Phase 3)
+     * 5-10x faster than sequential for large file sets
+     * @private
+     */
+    async fetchMultipleFilesParallel(config, filePaths) {
+      const primitivesData = {};
+      const semanticsData = {};
+      const result = await BatchProcessor.processBatch(
+        filePaths,
+        async (filePath) => {
+          const jsonData = await this.fetchFileContent(config, filePath);
+          const fileName = filePath.split("/").pop() || filePath;
+          return { filePath, fileName, jsonData };
+        },
+        {
+          batchSize: FEATURE_FLAGS.PARALLEL_BATCH_SIZE,
+          delayMs: FEATURE_FLAGS.BATCH_DELAY_MS,
+          onProgress: (completed, total) => {
+            if (completed % 10 === 0 || completed === total) {
+              console.log(`[GitHubService] Fetching files: ${completed}/${total}`);
+            }
+          }
+        }
+      );
+      for (const { filePath, fileName, jsonData } of result.successes) {
+        if (FileClassifier.isSemantic(filePath)) {
+          semanticsData[fileName] = jsonData;
+        } else {
+          primitivesData[fileName] = jsonData;
+        }
+      }
+      if (result.failureCount > 0) {
+        console.error(`[GitHubService] Failed to fetch ${result.failureCount} file(s):`);
+        result.failures.forEach((failure) => {
+          console.error(`  - ${failure.item}: ${failure.error.message}`);
+        });
+      }
+      return { primitives: primitivesData, semantics: semanticsData };
+    }
+    /**
+     * Fetch multiple files sequentially (legacy method)
+     * @private
+     */
+    async fetchMultipleFilesSequential(config, filePaths) {
       const primitivesData = {};
       const semanticsData = {};
       for (const filePath of filePaths) {
         const jsonData = await this.fetchFileContent(config, filePath);
         const fileName = filePath.split("/").pop() || filePath;
-        if (filePath.toLowerCase().includes("primitive")) {
-          primitivesData[fileName] = jsonData;
-        } else if (filePath.toLowerCase().includes("semantic")) {
+        if (FileClassifier.isSemantic(filePath)) {
           semanticsData[fileName] = jsonData;
         } else {
           primitivesData[fileName] = jsonData;
@@ -1568,51 +1931,9 @@
       }
       return { primitives: primitivesData, semantics: semanticsData };
     }
-    decodeBase64(base64) {
-      const cleanBase64 = base64.replace(/\s/g, "");
-      try {
-        const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        const base64Lookup = /* @__PURE__ */ new Map();
-        for (let i2 = 0; i2 < base64Chars.length; i2++) {
-          base64Lookup.set(base64Chars[i2], i2);
-        }
-        const bytes = [];
-        for (let i2 = 0; i2 < cleanBase64.length; i2 += 4) {
-          const encoded1 = base64Lookup.get(cleanBase64[i2]) || 0;
-          const encoded2 = base64Lookup.get(cleanBase64[i2 + 1]) || 0;
-          const encoded3 = base64Lookup.get(cleanBase64[i2 + 2]) || 0;
-          const encoded4 = base64Lookup.get(cleanBase64[i2 + 3]) || 0;
-          const byte1 = encoded1 << 2 | encoded2 >> 4;
-          const byte2 = (encoded2 & 15) << 4 | encoded3 >> 2;
-          const byte3 = (encoded3 & 3) << 6 | encoded4;
-          bytes.push(byte1);
-          if (cleanBase64[i2 + 2] !== "=") bytes.push(byte2);
-          if (cleanBase64[i2 + 3] !== "=") bytes.push(byte3);
-        }
-        let result = "";
-        let i = 0;
-        while (i < bytes.length) {
-          const byte1 = bytes[i++];
-          if (byte1 < 128) {
-            result += String.fromCharCode(byte1);
-          } else if (byte1 >= 192 && byte1 < 224) {
-            const byte2 = bytes[i++];
-            result += String.fromCharCode((byte1 & 31) << 6 | byte2 & 63);
-          } else if (byte1 >= 224 && byte1 < 240) {
-            const byte2 = bytes[i++];
-            const byte3 = bytes[i++];
-            result += String.fromCharCode((byte1 & 15) << 12 | (byte2 & 63) << 6 | byte3 & 63);
-          } else {
-            i += 3;
-          }
-        }
-        return result;
-      } catch (error) {
-        console.error("Error decoding base64:", error);
-        console.error("Base64 content (first 100 chars):", base64.substring(0, 100));
-        throw new Error(`Failed to decode file content from GitHub: ${error instanceof Error ? error.message : "Unknown error"}`);
-      }
-    }
+    /**
+     * Parse GitHub repository URL
+     */
     parseRepoUrl(url) {
       const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
       if (!match) {
@@ -2220,9 +2541,553 @@
     }
   };
 
+  // src/core/registries/FileSourceRegistry.ts
+  var FileSourceRegistry = class {
+    /**
+     * Register a file source implementation
+     *
+     * @param source - File source implementation
+     * @throws Error if source with same type already registered
+     */
+    static register(source) {
+      const sourceType = source.getSourceType();
+      if (this.sources.has(sourceType)) {
+        console.error(`[FileSourceRegistry] Source '${sourceType}' is already registered`);
+        throw new Error(`File source '${sourceType}' is already registered`);
+      }
+      this.sources.set(sourceType, source);
+    }
+    /**
+     * Get a file source by type
+     *
+     * @param sourceType - Source identifier (e.g., 'github', 'gitlab')
+     * @returns File source implementation or undefined
+     */
+    static get(sourceType) {
+      const source = this.sources.get(sourceType);
+      if (!source) {
+        console.error(`[FileSourceRegistry] No source registered for type: ${sourceType}`);
+      }
+      return source;
+    }
+    /**
+     * Check if a source type is registered
+     *
+     * @param sourceType - Source identifier
+     * @returns True if registered
+     */
+    static has(sourceType) {
+      return this.sources.has(sourceType);
+    }
+    /**
+     * Get all registered source types
+     *
+     * @returns Array of source type identifiers
+     */
+    static getRegisteredTypes() {
+      return Array.from(this.sources.keys());
+    }
+    /**
+     * Clear all registered sources
+     * Useful for testing
+     */
+    static clear() {
+      this.sources.clear();
+    }
+    /**
+     * Get count of registered sources
+     *
+     * @returns Number of registered sources
+     */
+    static count() {
+      return this.sources.size;
+    }
+  };
+  FileSourceRegistry.sources = /* @__PURE__ */ new Map();
+
+  // src/core/registries/TokenFormatRegistry.ts
+  var TokenFormatRegistry = class {
+    /**
+     * Register a token format strategy
+     *
+     * @param strategy - Token format strategy implementation
+     * @throws Error if strategy with same format name already registered
+     */
+    static register(strategy) {
+      const formatName = strategy.getFormatInfo().name;
+      if (this.strategies.has(formatName)) {
+        console.error(`[TokenFormatRegistry] Format '${formatName}' is already registered`);
+        throw new Error(`Token format '${formatName}' is already registered`);
+      }
+      this.strategies.set(formatName, strategy);
+    }
+    /**
+     * Get a format strategy by name
+     *
+     * @param formatName - Format identifier
+     * @returns Format strategy or undefined
+     */
+    static get(formatName) {
+      const strategy = this.strategies.get(formatName);
+      if (!strategy) {
+        console.error(`[TokenFormatRegistry] No strategy registered for format: ${formatName}`);
+      }
+      return strategy;
+    }
+    /**
+     * Auto-detect which format strategy to use based on token data
+     * Returns strategy with highest confidence score
+     *
+     * @param data - Raw token data to analyze
+     * @returns Best matching strategy or undefined if no match
+     */
+    static detectFormat(data) {
+      let bestStrategy;
+      let bestScore = 0;
+      for (const strategy of this.strategies.values()) {
+        const score = strategy.detectFormat(data);
+        if (score > bestScore) {
+          bestScore = score;
+          bestStrategy = strategy;
+        }
+      }
+      if (!bestStrategy) {
+        console.error("[TokenFormatRegistry] No format strategy could parse the provided data");
+      }
+      return bestStrategy;
+    }
+    /**
+     * Check if a format is registered
+     *
+     * @param formatName - Format identifier
+     * @returns True if registered
+     */
+    static has(formatName) {
+      return this.strategies.has(formatName);
+    }
+    /**
+     * Get all registered format names
+     *
+     * @returns Array of format names
+     */
+    static getRegisteredFormats() {
+      return Array.from(this.strategies.keys());
+    }
+    /**
+     * Clear all registered strategies
+     * Useful for testing
+     */
+    static clear() {
+      this.strategies.clear();
+    }
+    /**
+     * Get count of registered strategies
+     *
+     * @returns Number of registered strategies
+     */
+    static count() {
+      return this.strategies.size;
+    }
+  };
+  TokenFormatRegistry.strategies = /* @__PURE__ */ new Map();
+
+  // src/core/adapters/GitHubFileSource.ts
+  var GitHubFileSource = class {
+    constructor(githubService) {
+      this.githubService = githubService || new GitHubService();
+    }
+    /**
+     * Fetch list of JSON files from GitHub repository
+     */
+    async fetchFileList(config) {
+      try {
+        const ghConfig = this.toGitHubConfig(config);
+        const files = await this.githubService.fetchRepositoryFiles(ghConfig);
+        const metadata = files.map((file) => ({
+          path: file.path,
+          type: file.type,
+          sha: file.sha
+        }));
+        return Success(metadata);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[GitHubFileSource] Failed to fetch file list: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Fetch content of a single file from GitHub
+     */
+    async fetchFileContent(config, filePath) {
+      try {
+        const ghConfig = this.toGitHubConfig(config);
+        const content = await this.githubService.fetchFileContent(ghConfig, filePath);
+        return Success(content);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[GitHubFileSource] Failed to fetch file '${filePath}': ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Fetch content of multiple files from GitHub
+     */
+    async fetchMultipleFiles(config, filePaths) {
+      try {
+        const ghConfig = this.toGitHubConfig(config);
+        const result = await this.githubService.fetchMultipleFiles(ghConfig, filePaths);
+        const files = [];
+        if (result.primitives) {
+          for (const [fileName, content] of Object.entries(result.primitives)) {
+            files.push(content);
+          }
+        }
+        if (result.semantics) {
+          for (const [fileName, content] of Object.entries(result.semantics)) {
+            files.push(content);
+          }
+        }
+        return Success(files);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[GitHubFileSource] Failed to fetch multiple files: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Validate GitHub configuration
+     */
+    async validateConfig(config) {
+      try {
+        const ghConfig = this.toGitHubConfig(config);
+        await this.githubService.fetchRepositoryFiles(ghConfig);
+        return Success(true);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[GitHubFileSource] Config validation failed: ${message}`);
+        return Success(false);
+      }
+    }
+    /**
+     * Get source type identifier
+     */
+    getSourceType() {
+      return "github";
+    }
+    /**
+     * Convert FileSourceConfig to GitHubConfig
+     * Private helper to maintain type safety
+     */
+    toGitHubConfig(config) {
+      const ghConfig = config;
+      return {
+        token: ghConfig.token,
+        owner: ghConfig.owner,
+        repo: ghConfig.repo,
+        branch: ghConfig.branch,
+        files: ghConfig.files
+      };
+    }
+  };
+
+  // src/core/adapters/W3CTokenFormatStrategy.ts
+  var W3CTokenFormatStrategy = class {
+    /**
+     * Detect if data matches W3C format
+     * Looks for characteristic $value, $type properties
+     *
+     * @returns Confidence score 0-1
+     */
+    detectFormat(data) {
+      let tokenCount = 0;
+      let w3cTokenCount = 0;
+      const check = (obj) => {
+        if (typeof obj !== "object" || obj === null) return;
+        for (const key in obj) {
+          if (key.startsWith("$")) continue;
+          const value = obj[key];
+          if (typeof value === "object" && value !== null) {
+            if ("$value" in value) {
+              tokenCount++;
+              if ("$value" in value || "$type" in value) {
+                w3cTokenCount++;
+              }
+            } else {
+              check(value);
+            }
+          }
+        }
+      };
+      check(data);
+      if (tokenCount === 0) return 0;
+      const score = w3cTokenCount / tokenCount;
+      return Math.min(score, 1);
+    }
+    /**
+     * Get format information
+     */
+    getFormatInfo() {
+      return {
+        name: "W3C Design Tokens",
+        version: "1.0",
+        description: "W3C Design Tokens Community Group format"
+      };
+    }
+    /**
+     * Parse tokens from W3C format
+     * Traverses nested structure and extracts token definitions
+     */
+    parseTokens(data) {
+      try {
+        const tokens = [];
+        const traverse = (obj, path = []) => {
+          for (const key in obj) {
+            const value = obj[key];
+            const currentPath = [...path, key];
+            if (key.startsWith("$")) continue;
+            if (typeof value === "object" && value !== null && "$value" in value) {
+              const type = value.$type || this.inferType(value.$value, currentPath);
+              tokens.push({
+                path: currentPath,
+                value: value.$value,
+                type,
+                originalValue: value.$value
+              });
+            } else if (typeof value === "object" && value !== null) {
+              traverse(value, currentPath);
+            }
+          }
+        };
+        traverse(data);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[W3CTokenFormatStrategy] Failed to parse tokens: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Normalize value according to W3C conventions
+     * Currently passes through - format-specific transformations can be added
+     */
+    normalizeValue(value, type) {
+      return value;
+    }
+    /**
+     * Extract token type from W3C token object
+     */
+    extractType(tokenData, path) {
+      if (tokenData.$type) {
+        return tokenData.$type;
+      }
+      if (tokenData.$value !== void 0) {
+        return this.inferType(tokenData.$value, path);
+      }
+      return null;
+    }
+    /**
+     * Check if value is a reference in W3C format
+     * W3C references use {path.to.token} syntax
+     */
+    isReference(value) {
+      if (typeof value !== "string") return false;
+      return /^\{[^}]+\}$/.test(value.trim());
+    }
+    /**
+     * Extract reference path from W3C reference syntax
+     */
+    extractReference(value) {
+      if (!this.isReference(value)) return null;
+      const match = value.trim().match(/^\{([^}]+)\}$/);
+      return match ? match[1] : null;
+    }
+    /**
+     * Infer token type from value and path
+     * Used when $type is not specified
+     *
+     * @private
+     */
+    inferType(value, path) {
+      const pathStr = path.join(".").toLowerCase();
+      if (pathStr.includes("color") || pathStr.includes("colour")) return "color";
+      if (pathStr.includes("spacing") || pathStr.includes("space")) return "spacing";
+      if (pathStr.includes("font-size") || pathStr.includes("fontsize")) return "fontSize";
+      if (pathStr.includes("font-weight") || pathStr.includes("fontweight")) return "fontWeight";
+      if (pathStr.includes("font-family") || pathStr.includes("fontfamily")) return "fontFamily";
+      if (pathStr.includes("line-height") || pathStr.includes("lineheight")) return "lineHeight";
+      if (pathStr.includes("dimension") || pathStr.includes("size")) return "dimension";
+      if (pathStr.includes("shadow")) return "shadow";
+      if (typeof value === "number") return "number";
+      if (typeof value === "string") {
+        if (/^#[0-9a-f]{3,8}$/i.test(value)) return "color";
+        if (/^rgb/.test(value)) return "color";
+        if (/^hsl/.test(value)) return "color";
+        if (/^\d+(\.\d+)?(px|rem|em)$/.test(value)) return "dimension";
+        return "string";
+      }
+      if (typeof value === "object" && value !== null) {
+        if ("colorSpace" in value || "components" in value && "alpha" in value) return "color";
+        if ("blur" in value || "offsetX" in value) return "shadow";
+        if ("fontFamily" in value || "fontSize" in value) return "typography";
+      }
+      return "string";
+    }
+  };
+
+  // src/core/adapters/StyleDictionaryFormatStrategy.ts
+  var StyleDictionaryFormatStrategy = class {
+    /**
+     * Detect if data matches Style Dictionary format
+     * Looks for characteristic "value" properties (not "$value")
+     *
+     * @returns Confidence score 0-1
+     */
+    detectFormat(data) {
+      let tokenCount = 0;
+      let styleDictTokenCount = 0;
+      const check = (obj) => {
+        if (typeof obj !== "object" || obj === null) return;
+        for (const key in obj) {
+          if (key.startsWith("$")) continue;
+          const value = obj[key];
+          if (typeof value === "object" && value !== null) {
+            if ("value" in value && !("$value" in value)) {
+              tokenCount++;
+              if ("value" in value) {
+                styleDictTokenCount++;
+              }
+            } else if (!("value" in value) && !("$value" in value)) {
+              check(value);
+            }
+          }
+        }
+      };
+      check(data);
+      if (tokenCount === 0) return 0;
+      const score = styleDictTokenCount / tokenCount;
+      return Math.min(score, 1);
+    }
+    /**
+     * Get format information
+     */
+    getFormatInfo() {
+      return {
+        name: "Style Dictionary",
+        version: "3.0",
+        description: "Amazon Style Dictionary format"
+      };
+    }
+    /**
+     * Parse tokens from Style Dictionary format
+     * Traverses nested structure and extracts token definitions
+     */
+    parseTokens(data) {
+      try {
+        const tokens = [];
+        const traverse = (obj, path = []) => {
+          for (const key in obj) {
+            const value = obj[key];
+            const currentPath = [...path, key];
+            if (key.startsWith("$")) continue;
+            if (typeof value === "object" && value !== null && "value" in value) {
+              const type = this.inferType(value.value, currentPath);
+              tokens.push({
+                path: currentPath,
+                value: value.value,
+                type,
+                originalValue: value.value
+              });
+            } else if (typeof value === "object" && value !== null) {
+              traverse(value, currentPath);
+            }
+          }
+        };
+        traverse(data);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[StyleDictionaryFormatStrategy] Failed to parse tokens: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Normalize value according to Style Dictionary conventions
+     */
+    normalizeValue(value, type) {
+      return value;
+    }
+    /**
+     * Extract token type from Style Dictionary token object
+     */
+    extractType(tokenData, path) {
+      if (tokenData.value !== void 0) {
+        return this.inferType(tokenData.value, path);
+      }
+      return null;
+    }
+    /**
+     * Check if value is a reference in Style Dictionary format
+     * Style Dictionary uses {path.to.token} syntax (same as W3C)
+     */
+    isReference(value) {
+      if (typeof value !== "string") return false;
+      return /^\{[^}]+\}$/.test(value.trim());
+    }
+    /**
+     * Extract reference path from Style Dictionary reference syntax
+     */
+    extractReference(value) {
+      if (!this.isReference(value)) return null;
+      const match = value.trim().match(/^\{([^}]+)\}$/);
+      return match ? match[1] : null;
+    }
+    /**
+     * Infer token type from value and path
+     * Style Dictionary organizes tokens as category/type/item
+     *
+     * @private
+     */
+    inferType(value, path) {
+      const pathStr = path.join(".").toLowerCase();
+      if (path.length > 0) {
+        const category = path[0].toLowerCase();
+        if (category === "color" || category === "colors") return "color";
+        if (category === "size" || category === "sizing") return "dimension";
+        if (category === "space" || category === "spacing") return "spacing";
+        if (category === "font") {
+          if (pathStr.includes("size")) return "fontSize";
+          if (pathStr.includes("weight")) return "fontWeight";
+          if (pathStr.includes("family")) return "fontFamily";
+          return "fontFamily";
+        }
+        if (category === "time" || category === "duration") return "duration";
+      }
+      if (pathStr.includes("color")) return "color";
+      if (pathStr.includes("size")) return "fontSize";
+      if (pathStr.includes("spacing") || pathStr.includes("space")) return "spacing";
+      if (pathStr.includes("radius")) return "dimension";
+      if (pathStr.includes("shadow")) return "shadow";
+      if (typeof value === "number") return "number";
+      if (typeof value === "string") {
+        if (/^#[0-9a-f]{3,8}$/i.test(value)) return "color";
+        if (/^rgb/.test(value)) return "color";
+        if (/^hsl/.test(value)) return "color";
+        if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(value)) return "dimension";
+        return "string";
+      }
+      if (typeof value === "object" && value !== null) {
+        if ("r" in value && "g" in value && "b" in value) return "color";
+        if ("x" in value || "offsetX" in value) return "shadow";
+        if ("fontFamily" in value || "fontSize" in value) return "typography";
+      }
+      return "string";
+    }
+  };
+
   // src/backend/main.ts
   var PluginBackend = class {
     constructor() {
+      this.registerArchitectureComponents();
       this.variableManager = new VariableManager();
       this.githubService = new GitHubService();
       this.storage = new StorageService();
@@ -2230,6 +3095,19 @@
       this.githubController = new GitHubController(this.githubService, this.storage);
       this.scopeController = new ScopeController();
       ErrorHandler.info("Plugin backend initialized", "PluginBackend");
+    }
+    /**
+     * Register new architecture components
+     * Phase 1: File sources and token formats
+     * Phase 3: Parallel processing (enabled via FEATURE_FLAGS)
+     * Phase 4: Format auto-detection (enabled via FEATURE_FLAGS)
+     * @private
+     */
+    registerArchitectureComponents() {
+      FileSourceRegistry.register(new GitHubFileSource());
+      TokenFormatRegistry.register(new W3CTokenFormatStrategy());
+      TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
+      ErrorHandler.info("Architecture components registered", "PluginBackend");
     }
     /**
      * Initialize the plugin
