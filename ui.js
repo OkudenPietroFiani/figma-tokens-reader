@@ -1872,9 +1872,9 @@
         return;
       }
       scopeOptionsContainer.innerHTML = scopes.map((scope) => `
-      <label class="scope-option">
-        <span>${scope.label}</span>
-        <input type="checkbox" value="${scope.value}" data-scope="${scope.value}">
+      <label class="scope-option-item">
+        <input type="checkbox" class="scope-option-checkbox" value="${scope.value}" data-scope="${scope.value}">
+        <span class="scope-option-label">${scope.label}</span>
       </label>
     `).join("");
     }
@@ -1942,7 +1942,7 @@
           const escapedKey = this.escapeHtml(key);
           const groupId = `group-${level}-${escapedKey}`;
           html += `
-          <div class="tree-group tree-indent-${cappedLevel}">
+          <div class="tree-group tree-indent-${cappedLevel} collapsed">
             <div class="tree-header">
               ${hasCompatibleTypes ? `<input type="checkbox" class="group-checkbox" data-group-id="${groupId}">` : `<span class="group-checkbox-spacer"></span>`}
               <span class="tree-toggle">
@@ -2061,6 +2061,10 @@
     handleResetSelection() {
       const checkboxes = this.scopeContent.querySelectorAll(".scope-checkbox");
       checkboxes.forEach((cb) => {
+        cb.checked = false;
+      });
+      const groupCheckboxes = this.scopeContent.querySelectorAll(".group-checkbox");
+      groupCheckboxes.forEach((cb) => {
         cb.checked = false;
       });
       this.selectedVariables.clear();

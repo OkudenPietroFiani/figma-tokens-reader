@@ -1172,7 +1172,7 @@ body {
 .scope-option-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-sm);
   padding: var(--space-xs);
   cursor: pointer;
   user-select: none;
@@ -1187,6 +1187,8 @@ body {
   font-size: var(--text-lg);
   font-weight: var(--weight-normal);
   color: var(--color-text-strong);
+  flex: 1;
+  text-align: left;
 }
 
 .scope-option-checkbox {
@@ -1289,6 +1291,9 @@ body {
   flex: 1;
   overflow-y: auto;
   margin-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .scope-actions {
