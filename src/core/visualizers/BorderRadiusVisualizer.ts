@@ -15,7 +15,7 @@ import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions } from '..
  * - Strategy Pattern: Implements ITokenVisualizer
  *
  * Visual output:
- * - 40x40 square with the token's border radius applied
+ * - 100x100 square with the token's border radius applied
  * - Centered in the cell
  * - Light border to show the shape clearly
  */
@@ -51,9 +51,9 @@ export class BorderRadiusVisualizer implements ITokenVisualizer {
     container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
     container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
 
-    // Create 40x40 square
+    // Create 100x100 square
     const square = figma.createRectangle();
-    square.resize(40, 40);
+    square.resize(100, 100);
 
     // Apply border radius
     const radius = this.parseBorderRadius(token.value);
