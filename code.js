@@ -3241,8 +3241,16 @@
     }
     const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
     const widthMap = /* @__PURE__ */ new Map();
-    columns.forEach((col) => {
-      widthMap.set(col.key, Math.floor(col.widthRatio / totalRatio * tableWidth));
+    let allocatedWidth = 0;
+    columns.forEach((col, index) => {
+      if (index === columns.length - 1) {
+        const width = tableWidth - allocatedWidth;
+        widthMap.set(col.key, width);
+      } else {
+        const width = Math.floor(col.widthRatio / totalRatio * tableWidth);
+        widthMap.set(col.key, width);
+        allocatedWidth += width;
+      }
     });
     return widthMap;
   };
@@ -3361,11 +3369,13 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
+        console.log(`[ColorVisualizer] Parsing color for ${token.name}, value:`, token.value);
         const color = this.parseColor(token.value);
+        console.log(`[ColorVisualizer] Parsed color:`, color);
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
         square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
-        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
+        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}, value:`, token.value, "error:", error);
       }
       container.appendChild(square);
       return container;
@@ -3681,12 +3691,23 @@
             const variable = await figma.variables.getVariableByIdAsync(variableId);
             if (!variable) continue;
             const defaultModeId = collection.modes[0].modeId;
-            const value = variable.valuesByMode[defaultModeId];
+            let value = variable.valuesByMode[defaultModeId];
+            if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
+              const aliasedVariable = await figma.variables.getVariableByIdAsync(value.id);
+              if (aliasedVariable) {
+                value = aliasedVariable.valuesByMode[defaultModeId];
+                console.log(`[DocumentationGenerator] Resolved alias for ${variable.name} to:`, value);
+              }
+            }
             const tokenName = variable.name.replace(/\//g, ".");
+            const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
+            if (tokenType === "color") {
+              console.log(`[DocumentationGenerator] Color token: ${tokenName}, value:`, value);
+            }
             metadata.push({
               name: tokenName,
               fullPath: tokenName,
-              type: this.mapVariableTypeToTokenType(variable.resolvedType),
+              type: tokenType,
               value,
               originalValue: value,
               description: variable.description || "",
@@ -3703,21 +3724,32 @@
       }
     }
     /**
-     * Map Figma variable type to token type
+     * Map Figma variable type to token type with intelligent detection
      */
-    mapVariableTypeToTokenType(variableType) {
-      switch (variableType) {
-        case "COLOR":
-          return "color";
-        case "FLOAT":
-          return "number";
-        case "STRING":
-          return "string";
-        case "BOOLEAN":
-          return "boolean";
-        default:
-          return "string";
+    mapVariableTypeToTokenType(variableType, variableName, value) {
+      if (variableType === "COLOR") {
+        return "color";
       }
+      if (variableType === "FLOAT") {
+        const nameLower = variableName.toLowerCase();
+        if (nameLower.includes("spacing") || nameLower.includes("space") || nameLower.includes("gap") || nameLower.includes("margin") || nameLower.includes("padding") || nameLower.includes("dimension")) {
+          return "spacing";
+        }
+        if (nameLower.includes("fontsize") || nameLower.includes("font-size") || nameLower.includes("size") && (nameLower.includes("text") || nameLower.includes("font"))) {
+          return "fontSize";
+        }
+        if (nameLower.includes("radius") || nameLower.includes("corner")) {
+          return "dimension";
+        }
+        return "number";
+      }
+      if (variableType === "STRING") {
+        return "string";
+      }
+      if (variableType === "BOOLEAN") {
+        return "boolean";
+      }
+      return "string";
     }
     /**
      * Filter tokens by selected file names
@@ -3934,6 +3966,8 @@
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
+      cellFrame.primaryAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "FIXED";
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -3997,6 +4031,8 @@
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
+      cellFrame.primaryAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "FIXED";
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4017,7 +4053,13 @@
       cellFrame.name = "Visualization Cell";
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       cellFrame.fills = [];
+      cellFrame.layoutMode = "HORIZONTAL";
+      cellFrame.primaryAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "FIXED";
+      cellFrame.primaryAxisAlignItems = "CENTER";
+      cellFrame.counterAxisAlignItems = "CENTER";
       const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
+      console.log(`[DocumentationGenerator] Token: ${row.originalToken.name}, Type: ${row.originalToken.type}, Visualizer: ${visualizer.getType()}`);
       const visualization = visualizer.renderVisualization(
         row.originalToken,
         width,
