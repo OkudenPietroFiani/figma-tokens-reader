@@ -5,7 +5,7 @@
 
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
-import { DOCUMENTATION_LAYOUT_CONFIG } from '../../shared/documentation-config';
+import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions, validateDimension } from '../../shared/documentation-config';
 
 /**
  * SpacingVisualizer - Renders spacing tokens as rectangles
@@ -33,9 +33,12 @@ export class SpacingVisualizer implements ITokenVisualizer {
     width: number,
     height: number
   ): FrameNode {
+    // Validate dimensions before creating container
+    const dims = validateVisualizationDimensions(width, height);
+
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(width, height);
+    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 
@@ -43,15 +46,20 @@ export class SpacingVisualizer implements ITokenVisualizer {
     container.layoutMode = 'HORIZONTAL';
     container.primaryAxisAlignItems = 'CENTER';
     container.counterAxisAlignItems = 'CENTER';
-    container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-    container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-    container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-    container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+
+    const padding = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+    const availableWidth = Math.max(10, dims.width - (padding * 2)); // Ensure positive space
+
+    container.paddingLeft = padding;
+    container.paddingRight = padding;
+    container.paddingTop = padding;
+    container.paddingBottom = padding;
 
     // Create rectangle with width = spacing value
     const rectangle = figma.createRectangle();
     const spacingValue = this.parseSpacingValue(token.value);
-    const rectWidth = Math.min(spacingValue, width - 16); // Max width is cell width minus padding
+    // Ensure rectangle width is valid (between 1px and available width)
+    const rectWidth = validateDimension(Math.min(spacingValue, availableWidth), 1, availableWidth);
     const rectHeight = DOCUMENTATION_LAYOUT_CONFIG.visualization.spacingBarHeight;
 
     rectangle.resize(rectWidth, rectHeight);

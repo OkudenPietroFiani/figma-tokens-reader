@@ -5,6 +5,7 @@
 
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
+import { validateVisualizationDimensions } from '../../shared/documentation-config';
 
 /**
  * DefaultVisualizer - Fallback for tokens without specific visualizers
@@ -33,9 +34,12 @@ export class DefaultVisualizer implements ITokenVisualizer {
     width: number,
     height: number
   ): FrameNode {
+    // Validate dimensions before creating container
+    const dims = validateVisualizationDimensions(width, height);
+
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(width, height);
+    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 

@@ -5,7 +5,7 @@
 
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
-import { DOCUMENTATION_LAYOUT_CONFIG } from '../../shared/documentation-config';
+import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions } from '../../shared/documentation-config';
 
 /**
  * ColorVisualizer - Renders color tokens as colored squares
@@ -32,9 +32,12 @@ export class ColorVisualizer implements ITokenVisualizer {
     width: number,
     height: number
   ): FrameNode {
+    // Validate dimensions before creating container
+    const dims = validateVisualizationDimensions(width, height);
+
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(width, height);
+    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 
@@ -55,14 +58,12 @@ export class ColorVisualizer implements ITokenVisualizer {
 
     // Apply color
     try {
-      console.log(`[ColorVisualizer] Parsing color for ${token.name}, value:`, token.value);
       const color = this.parseColor(token.value);
-      console.log(`[ColorVisualizer] Parsed color:`, color);
       square.fills = [{ type: 'SOLID', color }];
     } catch (error) {
       // If color parsing fails, use gray placeholder
       square.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
-      console.error(`[ColorVisualizer] Failed to parse color for ${token.name}, value:`, token.value, 'error:', error);
+      console.warn(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
     }
 
     container.appendChild(square);

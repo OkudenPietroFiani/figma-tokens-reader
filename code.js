@@ -3239,23 +3239,30 @@
     if (!includeDescriptions) {
       columns = columns.filter((col) => col.key !== "description");
     }
-    console.log("[calculateColumnWidths] Table width:", tableWidth, "Columns:", columns.map((c) => c.key));
+    const minWidth = DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
     const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
+    const requiredMinWidth = columns.length * minWidth;
+    if (requiredMinWidth > tableWidth) {
+      console.warn(`[calculateColumnWidths] Required min width (${requiredMinWidth}px) exceeds table width (${tableWidth}px)`);
+      const equalWidth = Math.max(minWidth, Math.floor(tableWidth / columns.length));
+      const widthMap2 = /* @__PURE__ */ new Map();
+      columns.forEach((col) => widthMap2.set(col.key, equalWidth));
+      return widthMap2;
+    }
     const widthMap = /* @__PURE__ */ new Map();
     let allocatedWidth = 0;
     columns.forEach((col, index) => {
       if (index === columns.length - 1) {
-        const width = Math.max(0, tableWidth - allocatedWidth);
-        console.log(`[calculateColumnWidths] Last column ${col.key}: ${width}px (remaining from ${tableWidth} - ${allocatedWidth})`);
+        const remaining = tableWidth - allocatedWidth;
+        const width = Math.max(minWidth, remaining);
         widthMap.set(col.key, width);
       } else {
-        const width = Math.floor(col.widthRatio / totalRatio * tableWidth);
-        console.log(`[calculateColumnWidths] Column ${col.key}: ${width}px`);
+        const idealWidth = Math.floor(col.widthRatio / totalRatio * tableWidth);
+        const width = Math.max(minWidth, idealWidth);
         widthMap.set(col.key, width);
         allocatedWidth += width;
       }
     });
-    console.log("[calculateColumnWidths] Final widths:", Array.from(widthMap.entries()));
     return widthMap;
   };
   var DOCUMENTATION_LAYOUT_CONFIG = {
@@ -3263,6 +3270,8 @@
     table: {
       width: 1200,
       // Fixed table width - all columns will distribute this width
+      minColumnWidth: 80,
+      // Minimum width for any column
       rowHeight: 40,
       headerHeight: 48,
       padding: 16,
@@ -3346,6 +3355,21 @@
     }
     return String(value);
   };
+  var validateDimension = (value, min = 0.01, max = 1e5) => {
+    if (typeof value !== "number" || isNaN(value) || !isFinite(value)) {
+      console.warn(`[validateDimension] Invalid dimension value: ${value}, using minimum: ${min}`);
+      return min;
+    }
+    return Math.max(min, Math.min(max, value));
+  };
+  var validateVisualizationDimensions = (width, height) => {
+    const minWidth = 20;
+    const minHeight = 20;
+    return {
+      width: validateDimension(width, minWidth),
+      height: validateDimension(height, minHeight)
+    };
+  };
 
   // src/core/visualizers/ColorVisualizer.ts
   var ColorVisualizer = class {
@@ -3356,9 +3380,10 @@
       return token.type === "color";
     }
     renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(width, height);
+      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
@@ -3373,13 +3398,11 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
-        console.log(`[ColorVisualizer] Parsing color for ${token.name}, value:`, token.value);
         const color = this.parseColor(token.value);
-        console.log(`[ColorVisualizer] Parsed color:`, color);
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
         square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
-        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}, value:`, token.value, "error:", error);
+        console.warn(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
       }
       container.appendChild(square);
       return container;
@@ -3491,21 +3514,24 @@
       return token.type === "spacing" || token.type === "dimension";
     }
     renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(width, height);
+      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
-      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
-      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const padding = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const availableWidth = Math.max(10, dims.width - padding * 2);
+      container.paddingLeft = padding;
+      container.paddingRight = padding;
+      container.paddingTop = padding;
+      container.paddingBottom = padding;
       const rectangle = figma.createRectangle();
       const spacingValue = this.parseSpacingValue(token.value);
-      const rectWidth = Math.min(spacingValue, width - 16);
+      const rectWidth = validateDimension(Math.min(spacingValue, availableWidth), 1, availableWidth);
       const rectHeight = DOCUMENTATION_LAYOUT_CONFIG.visualization.spacingBarHeight;
       rectangle.resize(rectWidth, rectHeight);
       rectangle.cornerRadius = 2;
@@ -3538,9 +3564,10 @@
       return token.type === "fontSize" || token.type === "fontSizes";
     }
     renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(width, height);
+      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
@@ -3588,9 +3615,10 @@
       return true;
     }
     renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(width, height);
+      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
@@ -3700,14 +3728,10 @@
               const aliasedVariable = await figma.variables.getVariableByIdAsync(value.id);
               if (aliasedVariable) {
                 value = aliasedVariable.valuesByMode[defaultModeId];
-                console.log(`[DocumentationGenerator] Resolved alias for ${variable.name} to:`, value);
               }
             }
             const tokenName = variable.name.replace(/\//g, ".");
             const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
-            if (tokenType === "color") {
-              console.log(`[DocumentationGenerator] Color token: ${tokenName}, value:`, value);
-            }
             metadata.push({
               name: tokenName,
               fullPath: tokenName,
@@ -3965,10 +3989,6 @@
      * Create header cell
      */
     createHeaderCell(label, width) {
-      if (width < 0) {
-        console.error(`[DocumentationGenerator] Invalid width for header cell ${label}: ${width}`);
-        width = 100;
-      }
       const cellFrame = figma.createFrame();
       cellFrame.name = `Header: ${label}`;
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
@@ -4001,13 +4021,7 @@
       rowFrame.counterAxisSizingMode = "FIXED";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       for (const column of columns) {
-        const width = columnWidths.get(column.key);
-        if (width === void 0) {
-          console.error(`[DocumentationGenerator] No width found for column: ${column.key}`);
-          console.error("[DocumentationGenerator] Available widths:", Array.from(columnWidths.entries()));
-        }
-        const cellWidth = width !== void 0 ? width : 200;
-        console.log(`[DocumentationGenerator] Creating cell for column ${column.key} with width ${cellWidth}`);
+        const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
         let cell;
         if (column.key === "visualization") {
           cell = await this.createVisualizationCell(row, cellWidth);
@@ -4040,10 +4054,6 @@
      * Create text cell
      */
     createTextCell(value, width) {
-      if (width < 0) {
-        console.error(`[DocumentationGenerator] Invalid width for text cell: ${width}`);
-        width = 100;
-      }
       const cellFrame = figma.createFrame();
       cellFrame.name = "Cell";
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -4067,10 +4077,6 @@
      * Create visualization cell
      */
     async createVisualizationCell(row, width) {
-      if (width < 0) {
-        console.error(`[DocumentationGenerator] Invalid width for visualization cell: ${width}`);
-        width = 100;
-      }
       const cellFrame = figma.createFrame();
       cellFrame.name = "Visualization Cell";
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -4081,7 +4087,6 @@
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
-      console.log(`[DocumentationGenerator] Token: ${row.originalToken.name}, Type: ${row.originalToken.type}, Visualizer: ${visualizer.getType()}`);
       const visualization = visualizer.renderVisualization(
         row.originalToken,
         width,

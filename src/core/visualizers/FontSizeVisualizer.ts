@@ -5,7 +5,7 @@
 
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
-import { DOCUMENTATION_LAYOUT_CONFIG } from '../../shared/documentation-config';
+import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions } from '../../shared/documentation-config';
 
 /**
  * FontSizeVisualizer - Renders font size tokens as text
@@ -32,9 +32,12 @@ export class FontSizeVisualizer implements ITokenVisualizer {
     width: number,
     height: number
   ): FrameNode {
+    // Validate dimensions before creating container
+    const dims = validateVisualizationDimensions(width, height);
+
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(width, height);
+    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 
