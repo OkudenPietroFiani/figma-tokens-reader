@@ -98,8 +98,8 @@ export const DOCUMENTATION_LAYOUT_CONFIG = {
   // Cell styling
   cell: {
     padding: 12,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     cornerRadius: 4,
   },
 
