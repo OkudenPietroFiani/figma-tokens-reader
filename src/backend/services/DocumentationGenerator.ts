@@ -140,14 +140,32 @@ export class DocumentationGenerator {
    */
   private async resolveVariableValue(variable: Variable, modeId: string): Promise<any> {
     let currentValue = variable.valuesByMode[modeId];
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loops
+
+    console.log(`[resolveVariableValue] Starting resolution for ${variable.name}`);
+    console.log(`[resolveVariableValue] Initial value:`, JSON.stringify(currentValue));
 
     // Keep resolving until we get a non-alias value
     while (typeof currentValue === 'object' && currentValue !== null && 'type' in currentValue && currentValue.type === 'VARIABLE_ALIAS') {
+      iterations++;
+      if (iterations > maxIterations) {
+        console.warn(`[resolveVariableValue] Max iterations reached for ${variable.name}, stopping`);
+        break;
+      }
+
       const aliasedVar = await figma.variables.getVariableByIdAsync((currentValue as VariableAlias).id);
-      if (!aliasedVar) break;
+      if (!aliasedVar) {
+        console.warn(`[resolveVariableValue] Could not resolve alias for ${variable.name}`);
+        break;
+      }
+
+      console.log(`[resolveVariableValue] Iteration ${iterations}: Resolved to ${aliasedVar.name}`);
       currentValue = aliasedVar.valuesByMode[modeId];
+      console.log(`[resolveVariableValue] New value:`, JSON.stringify(currentValue));
     }
 
+    console.log(`[resolveVariableValue] Final resolved value for ${variable.name}:`, JSON.stringify(currentValue));
     return currentValue;
   }
 
@@ -174,13 +192,16 @@ export class DocumentationGenerator {
 
           // If value is a VariableAlias, keep reference and resolve it recursively
           if (typeof value === 'object' && value !== null && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+            console.log(`[buildMetadata] Token ${variable.name} is an alias`);
             const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
             if (aliasedVariable) {
               // Store reference as {token.name} format
               const referenceName = aliasedVariable.name.replace(/\//g, '.');
               originalValue = `{${referenceName}}`;
+              console.log(`[buildMetadata] Reference name: ${originalValue}`);
               // Recursively resolve the value until we get a non-alias
               resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
+              console.log(`[buildMetadata] Resolved value:`, JSON.stringify(resolvedValue));
               // Use resolved value for type detection and visualization
               value = resolvedValue;
             }
@@ -190,6 +211,8 @@ export class DocumentationGenerator {
           // Convert Figma variable name (with /) to token nomenclature (with .)
           const tokenName = variable.name.replace(/\//g, '.');
           const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
+
+          console.log(`[buildMetadata] Token ${tokenName}: type=${tokenType}, originalValue=${typeof originalValue === 'string' ? originalValue : 'object'}, value=${typeof value === 'object' ? 'object' : value}`);
 
           metadata.push({
             name: tokenName,
@@ -295,16 +318,25 @@ export class DocumentationGenerator {
    * Convert token metadata to documentation rows
    */
   private convertToRows(metadata: TokenMetadata[]): DocumentationTokenRow[] {
-    return metadata.map(token => ({
-      name: token.name,
-      value: this.formatValue(token.originalValue || token.value, token.type),
-      resolvedValue: this.formatResolvedValue(token.value, token.type),
-      type: token.type,
-      description: token.description || '',
-      category: extractCategoryFromPath(token.fullPath),
-      path: token.fullPath,
-      originalToken: token,
-    }));
+    return metadata.map(token => {
+      const row = {
+        name: token.name,
+        value: this.formatValue(token.originalValue || token.value, token.type),
+        resolvedValue: this.formatResolvedValue(token.value, token.type),
+        type: token.type,
+        description: token.description || '',
+        category: extractCategoryFromPath(token.fullPath),
+        path: token.fullPath,
+        originalToken: token,
+      };
+
+      console.log(`[convertToRows] Row for ${token.name}:`);
+      console.log(`  - value: ${row.value}`);
+      console.log(`  - resolvedValue: ${row.resolvedValue}`);
+      console.log(`  - originalToken.value:`, JSON.stringify(token.value));
+
+      return row;
+    });
   }
 
   /**

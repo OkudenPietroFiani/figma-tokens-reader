@@ -3402,11 +3402,17 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
+        console.log(`[ColorVisualizer] Parsing color for ${token.name}`);
+        console.log(`[ColorVisualizer] Token value type:`, typeof token.value);
+        console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
         const color = this.parseColor(token.value);
+        console.log(`[ColorVisualizer] Parsed color:`, JSON.stringify(color));
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
         square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
-        console.warn(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
+        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}`);
+        console.error(`[ColorVisualizer] Token value was:`, JSON.stringify(token.value));
+        console.error(`[ColorVisualizer] Error:`, error);
       }
       container.appendChild(square);
       return container;
@@ -3712,7 +3718,7 @@
       container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
       container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
       const square = figma.createRectangle();
-      square.resize(40, 40);
+      square.resize(100, 100);
       const radius = this.parseBorderRadius(token.value);
       square.cornerRadius = radius;
       square.fills = [{ type: "SOLID", color: { r: 0.95, g: 0.95, b: 0.95 } }];
@@ -3847,11 +3853,26 @@
      */
     async resolveVariableValue(variable, modeId) {
       let currentValue = variable.valuesByMode[modeId];
+      let iterations = 0;
+      const maxIterations = 10;
+      console.log(`[resolveVariableValue] Starting resolution for ${variable.name}`);
+      console.log(`[resolveVariableValue] Initial value:`, JSON.stringify(currentValue));
       while (typeof currentValue === "object" && currentValue !== null && "type" in currentValue && currentValue.type === "VARIABLE_ALIAS") {
+        iterations++;
+        if (iterations > maxIterations) {
+          console.warn(`[resolveVariableValue] Max iterations reached for ${variable.name}, stopping`);
+          break;
+        }
         const aliasedVar = await figma.variables.getVariableByIdAsync(currentValue.id);
-        if (!aliasedVar) break;
+        if (!aliasedVar) {
+          console.warn(`[resolveVariableValue] Could not resolve alias for ${variable.name}`);
+          break;
+        }
+        console.log(`[resolveVariableValue] Iteration ${iterations}: Resolved to ${aliasedVar.name}`);
         currentValue = aliasedVar.valuesByMode[modeId];
+        console.log(`[resolveVariableValue] New value:`, JSON.stringify(currentValue));
       }
+      console.log(`[resolveVariableValue] Final resolved value for ${variable.name}:`, JSON.stringify(currentValue));
       return currentValue;
     }
     /**
@@ -3871,16 +3892,20 @@
             let originalValue = value;
             let resolvedValue = value;
             if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
+              console.log(`[buildMetadata] Token ${variable.name} is an alias`);
               const aliasedVariable = await figma.variables.getVariableByIdAsync(value.id);
               if (aliasedVariable) {
                 const referenceName = aliasedVariable.name.replace(/\//g, ".");
                 originalValue = `{${referenceName}}`;
+                console.log(`[buildMetadata] Reference name: ${originalValue}`);
                 resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
+                console.log(`[buildMetadata] Resolved value:`, JSON.stringify(resolvedValue));
                 value = resolvedValue;
               }
             }
             const tokenName = variable.name.replace(/\//g, ".");
             const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
+            console.log(`[buildMetadata] Token ${tokenName}: type=${tokenType}, originalValue=${typeof originalValue === "string" ? originalValue : "object"}, value=${typeof value === "object" ? "object" : value}`);
             metadata.push({
               name: tokenName,
               fullPath: tokenName,
@@ -3952,16 +3977,23 @@
      * Convert token metadata to documentation rows
      */
     convertToRows(metadata) {
-      return metadata.map((token) => ({
-        name: token.name,
-        value: this.formatValue(token.originalValue || token.value, token.type),
-        resolvedValue: this.formatResolvedValue(token.value, token.type),
-        type: token.type,
-        description: token.description || "",
-        category: extractCategoryFromPath(token.fullPath),
-        path: token.fullPath,
-        originalToken: token
-      }));
+      return metadata.map((token) => {
+        const row = {
+          name: token.name,
+          value: this.formatValue(token.originalValue || token.value, token.type),
+          resolvedValue: this.formatResolvedValue(token.value, token.type),
+          type: token.type,
+          description: token.description || "",
+          category: extractCategoryFromPath(token.fullPath),
+          path: token.fullPath,
+          originalToken: token
+        };
+        console.log(`[convertToRows] Row for ${token.name}:`);
+        console.log(`  - value: ${row.value}`);
+        console.log(`  - resolvedValue: ${row.resolvedValue}`);
+        console.log(`  - originalToken.value:`, JSON.stringify(token.value));
+        return row;
+      });
     }
     /**
      * Group rows by collection (primitive, semantic, etc.)
