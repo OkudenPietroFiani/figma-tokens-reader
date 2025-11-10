@@ -72,12 +72,19 @@ export class ColorVisualizer implements ITokenVisualizer {
 
   /**
    * Parse color value to RGB
-   * Supports hex, rgb, hsl formats
+   * Supports Figma RGB objects, hex, rgb, hsl formats
    */
   private parseColor(value: any): RGB {
-    // If already RGB object
-    if (typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
-      return value as RGB;
+    // If already RGB object (Figma format: 0-1 floats)
+    if (typeof value === 'object' && value !== null && 'r' in value && 'g' in value && 'b' in value) {
+      // Validate RGB values are numbers
+      if (typeof value.r === 'number' && typeof value.g === 'number' && typeof value.b === 'number') {
+        return {
+          r: value.r,
+          g: value.g,
+          b: value.b,
+        } as RGB;
+      }
     }
 
     // If string, parse it
@@ -100,8 +107,8 @@ export class ColorVisualizer implements ITokenVisualizer {
       }
     }
 
-    // Default to gray if can't parse
-    return { r: 0.8, g: 0.8, b: 0.8 };
+    // If we get here, something went wrong - throw error for better debugging
+    throw new Error(`Unable to parse color value: ${JSON.stringify(value)}`);
   }
 
   /**

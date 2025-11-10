@@ -180,6 +180,16 @@ export const extractCategoryFromPath = (path: string): string => {
 
 // ==================== VALUE FORMATTERS ====================
 /**
+ * Format number to remove floating point precision issues
+ * e.g., 0.15000000596046448 => 0.15
+ */
+export const formatNumber = (value: number, maxDecimals: number = 4): string => {
+  // Round to max decimals and remove trailing zeros
+  const rounded = Number(value.toFixed(maxDecimals));
+  return rounded.toString();
+};
+
+/**
  * Format values for display in table cells
  */
 export const formatTokenValue = (value: any, type?: string): string => {
@@ -192,7 +202,7 @@ export const formatTokenValue = (value: any, type?: string): string => {
   }
 
   if (typeof value === 'number') {
-    return String(value);
+    return formatNumber(value);
   }
 
   if (typeof value === 'boolean') {
