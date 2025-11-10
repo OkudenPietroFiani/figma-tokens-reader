@@ -30,6 +30,8 @@ import { TokenVisualizerRegistry } from '../core/registries/TokenVisualizerRegis
 import { ColorVisualizer } from '../core/visualizers/ColorVisualizer';
 import { SpacingVisualizer } from '../core/visualizers/SpacingVisualizer';
 import { FontSizeVisualizer } from '../core/visualizers/FontSizeVisualizer';
+import { FontWeightVisualizer } from '../core/visualizers/FontWeightVisualizer';
+import { BorderRadiusVisualizer } from '../core/visualizers/BorderRadiusVisualizer';
 import { DefaultVisualizer } from '../core/visualizers/DefaultVisualizer';
 import { DocumentationGenerator } from './services/DocumentationGenerator';
 
@@ -99,6 +101,8 @@ class PluginBackend {
     TokenVisualizerRegistry.register(new ColorVisualizer());
     TokenVisualizerRegistry.register(new SpacingVisualizer());
     TokenVisualizerRegistry.register(new FontSizeVisualizer());
+    TokenVisualizerRegistry.register(new FontWeightVisualizer());
+    TokenVisualizerRegistry.register(new BorderRadiusVisualizer());
     TokenVisualizerRegistry.register(new DefaultVisualizer());
 
     ErrorHandler.info('Architecture components registered', 'PluginBackend');

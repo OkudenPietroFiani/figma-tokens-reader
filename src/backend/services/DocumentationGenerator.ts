@@ -135,6 +135,22 @@ export class DocumentationGenerator {
   }
 
   /**
+   * Recursively resolve a variable value until we get a non-alias value
+   */
+  private async resolveVariableValue(variable: Variable, modeId: string): Promise<any> {
+    let currentValue = variable.valuesByMode[modeId];
+
+    // Keep resolving until we get a non-alias value
+    while (typeof currentValue === 'object' && currentValue !== null && 'type' in currentValue && currentValue.type === 'VARIABLE_ALIAS') {
+      const aliasedVar = await figma.variables.getVariableByIdAsync((currentValue as VariableAlias).id);
+      if (!aliasedVar) break;
+      currentValue = aliasedVar.valuesByMode[modeId];
+    }
+
+    return currentValue;
+  }
+
+  /**
    * Build metadata from Figma variables
    * Used when no metadata is provided from VariableManager
    */
@@ -155,15 +171,15 @@ export class DocumentationGenerator {
           let originalValue = value;
           let resolvedValue = value;
 
-          // If value is a VariableAlias, keep reference and resolve it
+          // If value is a VariableAlias, keep reference and resolve it recursively
           if (typeof value === 'object' && value !== null && 'type' in value && value.type === 'VARIABLE_ALIAS') {
             const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
             if (aliasedVariable) {
               // Store reference as {token.name} format
               const referenceName = aliasedVariable.name.replace(/\//g, '.');
               originalValue = `{${referenceName}}`;
-              // Get the resolved value
-              resolvedValue = aliasedVariable.valuesByMode[defaultModeId];
+              // Recursively resolve the value until we get a non-alias
+              resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
               // Use resolved value for type detection and visualization
               value = resolvedValue;
             }
@@ -208,6 +224,18 @@ export class DocumentationGenerator {
     if (variableType === 'FLOAT') {
       const nameLower = variableName.toLowerCase();
 
+      // Detect font weight tokens (check before fontSize)
+      if (nameLower.includes('fontweight') || nameLower.includes('font-weight') ||
+          nameLower.includes('weight') && (nameLower.includes('font') || nameLower.includes('text'))) {
+        return 'fontWeight';
+      }
+
+      // Detect border radius tokens
+      if (nameLower.includes('borderradius') || nameLower.includes('border-radius') ||
+          nameLower.includes('radius') || nameLower.includes('corner')) {
+        return 'borderRadius';
+      }
+
       // Detect spacing/dimension tokens
       if (nameLower.includes('spacing') || nameLower.includes('space') ||
           nameLower.includes('gap') || nameLower.includes('margin') ||
@@ -219,11 +247,6 @@ export class DocumentationGenerator {
       if (nameLower.includes('fontsize') || nameLower.includes('font-size') ||
           nameLower.includes('size') && (nameLower.includes('text') || nameLower.includes('font'))) {
         return 'fontSize';
-      }
-
-      // Detect border radius
-      if (nameLower.includes('radius') || nameLower.includes('corner')) {
-        return 'dimension';
       }
 
       // Default to number for other FLOAT types
