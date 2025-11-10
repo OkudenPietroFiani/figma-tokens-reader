@@ -10,6 +10,7 @@ import {
   DOCUMENTATION_LAYOUT_CONFIG,
   extractCategoryFromPath,
   formatTokenValue,
+  formatNumber,
   DOCUMENTATION_TYPOGRAPHY,
 } from '../../shared/documentation-config';
 import { TokenVisualizerRegistry } from '../../core/registries/TokenVisualizerRegistry';
@@ -151,12 +152,20 @@ export class DocumentationGenerator {
           // Get the default mode value
           const defaultModeId = collection.modes[0].modeId;
           let value = variable.valuesByMode[defaultModeId];
+          let originalValue = value;
+          let resolvedValue = value;
 
-          // If value is a VariableAlias, resolve it
+          // If value is a VariableAlias, keep reference and resolve it
           if (typeof value === 'object' && value !== null && 'type' in value && value.type === 'VARIABLE_ALIAS') {
             const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
             if (aliasedVariable) {
-              value = aliasedVariable.valuesByMode[defaultModeId];
+              // Store reference as {token.name} format
+              const referenceName = aliasedVariable.name.replace(/\//g, '.');
+              originalValue = `{${referenceName}}`;
+              // Get the resolved value
+              resolvedValue = aliasedVariable.valuesByMode[defaultModeId];
+              // Use resolved value for type detection and visualization
+              value = resolvedValue;
             }
           }
 
@@ -169,8 +178,8 @@ export class DocumentationGenerator {
             name: tokenName,
             fullPath: tokenName,
             type: tokenType,
-            value: value,
-            originalValue: value,
+            value: resolvedValue, // Use resolved value for visualization
+            originalValue: originalValue, // Keep original (reference or actual value)
             description: variable.description || '',
             collection: collection.name,
           });
@@ -323,13 +332,15 @@ export class DocumentationGenerator {
     if (typeof value === 'number') {
       // Check if it should be in rem
       if (type === 'fontSize' || type === 'lineHeight') {
-        return `${value / 16}rem`; // Assuming 16px base
+        const remValue = value / 16;
+        return `${formatNumber(remValue)}rem`;
       }
       // Otherwise show as px
       if (type === 'dimension' || type === 'spacing') {
-        return `${value}px`;
+        return `${formatNumber(value)}px`;
       }
-      return String(value);
+      // Other numbers with precision formatting
+      return formatNumber(value);
     }
 
     // Handle string values
@@ -372,14 +383,19 @@ export class DocumentationGenerator {
 
   /**
    * Convert RGB object to hex string
+   * Handles both Figma format (0-1 floats) and standard format (0-255 integers)
    */
   private rgbToHex(rgb: RGB): string {
-    const r = Math.round(rgb.r * 255);
-    const g = Math.round(rgb.g * 255);
-    const b = Math.round(rgb.b * 255);
+    // Figma uses 0-1 range, check if values are in that range
+    const isFigmaFormat = rgb.r <= 1 && rgb.g <= 1 && rgb.b <= 1;
+
+    const r = Math.round(isFigmaFormat ? rgb.r * 255 : rgb.r);
+    const g = Math.round(isFigmaFormat ? rgb.g * 255 : rgb.g);
+    const b = Math.round(isFigmaFormat ? rgb.b * 255 : rgb.b);
 
     const toHex = (n: number) => {
-      const hex = n.toString(16);
+      const clamped = Math.max(0, Math.min(255, n)); // Clamp to valid range
+      const hex = clamped.toString(16);
       return hex.length === 1 ? '0' + hex : hex;
     };
 

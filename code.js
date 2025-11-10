@@ -3333,6 +3333,10 @@
     const filteredParts = parts.filter((p) => !skipPrefixes.includes(p.toLowerCase()));
     return filteredParts[0] || "other";
   };
+  var formatNumber = (value, maxDecimals = 4) => {
+    const rounded = Number(value.toFixed(maxDecimals));
+    return rounded.toString();
+  };
   var formatTokenValue = (value, type) => {
     if (value === null || value === void 0) {
       return "\u2014";
@@ -3341,7 +3345,7 @@
       return value;
     }
     if (typeof value === "number") {
-      return String(value);
+      return formatNumber(value);
     }
     if (typeof value === "boolean") {
       return value ? "true" : "false";
@@ -3409,11 +3413,17 @@
     }
     /**
      * Parse color value to RGB
-     * Supports hex, rgb, hsl formats
+     * Supports Figma RGB objects, hex, rgb, hsl formats
      */
     parseColor(value) {
-      if (typeof value === "object" && "r" in value && "g" in value && "b" in value) {
-        return value;
+      if (typeof value === "object" && value !== null && "r" in value && "g" in value && "b" in value) {
+        if (typeof value.r === "number" && typeof value.g === "number" && typeof value.b === "number") {
+          return {
+            r: value.r,
+            g: value.g,
+            b: value.b
+          };
+        }
       }
       if (typeof value === "string") {
         const trimmed = value.trim();
@@ -3427,7 +3437,7 @@
           return this.parseHsl(trimmed);
         }
       }
-      return { r: 0.8, g: 0.8, b: 0.8 };
+      throw new Error(`Unable to parse color value: ${JSON.stringify(value)}`);
     }
     /**
      * Parse hex color to RGB
@@ -3724,10 +3734,15 @@
             if (!variable) continue;
             const defaultModeId = collection.modes[0].modeId;
             let value = variable.valuesByMode[defaultModeId];
+            let originalValue = value;
+            let resolvedValue = value;
             if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
               const aliasedVariable = await figma.variables.getVariableByIdAsync(value.id);
               if (aliasedVariable) {
-                value = aliasedVariable.valuesByMode[defaultModeId];
+                const referenceName = aliasedVariable.name.replace(/\//g, ".");
+                originalValue = `{${referenceName}}`;
+                resolvedValue = aliasedVariable.valuesByMode[defaultModeId];
+                value = resolvedValue;
               }
             }
             const tokenName = variable.name.replace(/\//g, ".");
@@ -3736,8 +3751,10 @@
               name: tokenName,
               fullPath: tokenName,
               type: tokenType,
-              value,
-              originalValue: value,
+              value: resolvedValue,
+              // Use resolved value for visualization
+              originalValue,
+              // Keep original (reference or actual value)
               description: variable.description || "",
               collection: collection.name
             });
@@ -3846,12 +3863,13 @@
       }
       if (typeof value === "number") {
         if (type === "fontSize" || type === "lineHeight") {
-          return `${value / 16}rem`;
+          const remValue = value / 16;
+          return `${formatNumber(remValue)}rem`;
         }
         if (type === "dimension" || type === "spacing") {
-          return `${value}px`;
+          return `${formatNumber(value)}px`;
         }
-        return String(value);
+        return formatNumber(value);
       }
       if (typeof value === "string") {
         return value;
@@ -3881,13 +3899,16 @@
     }
     /**
      * Convert RGB object to hex string
+     * Handles both Figma format (0-1 floats) and standard format (0-255 integers)
      */
     rgbToHex(rgb) {
-      const r = Math.round(rgb.r * 255);
-      const g = Math.round(rgb.g * 255);
-      const b = Math.round(rgb.b * 255);
+      const isFigmaFormat = rgb.r <= 1 && rgb.g <= 1 && rgb.b <= 1;
+      const r = Math.round(isFigmaFormat ? rgb.r * 255 : rgb.r);
+      const g = Math.round(isFigmaFormat ? rgb.g * 255 : rgb.g);
+      const b = Math.round(isFigmaFormat ? rgb.b * 255 : rgb.b);
       const toHex = (n) => {
-        const hex = n.toString(16);
+        const clamped = Math.max(0, Math.min(255, n));
+        const hex = clamped.toString(16);
         return hex.length === 1 ? "0" + hex : hex;
       };
       return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
