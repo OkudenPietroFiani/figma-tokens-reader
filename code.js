@@ -3239,19 +3239,23 @@
     if (!includeDescriptions) {
       columns = columns.filter((col) => col.key !== "description");
     }
+    console.log("[calculateColumnWidths] Table width:", tableWidth, "Columns:", columns.map((c) => c.key));
     const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
     const widthMap = /* @__PURE__ */ new Map();
     let allocatedWidth = 0;
     columns.forEach((col, index) => {
       if (index === columns.length - 1) {
-        const width = tableWidth - allocatedWidth;
+        const width = Math.max(0, tableWidth - allocatedWidth);
+        console.log(`[calculateColumnWidths] Last column ${col.key}: ${width}px (remaining from ${tableWidth} - ${allocatedWidth})`);
         widthMap.set(col.key, width);
       } else {
         const width = Math.floor(col.widthRatio / totalRatio * tableWidth);
+        console.log(`[calculateColumnWidths] Column ${col.key}: ${width}px`);
         widthMap.set(col.key, width);
         allocatedWidth += width;
       }
     });
+    console.log("[calculateColumnWidths] Final widths:", Array.from(widthMap.entries()));
     return widthMap;
   };
   var DOCUMENTATION_LAYOUT_CONFIG = {
@@ -3961,6 +3965,10 @@
      * Create header cell
      */
     createHeaderCell(label, width) {
+      if (width < 0) {
+        console.error(`[DocumentationGenerator] Invalid width for header cell ${label}: ${width}`);
+        width = 100;
+      }
       const cellFrame = figma.createFrame();
       cellFrame.name = `Header: ${label}`;
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
@@ -3993,13 +4001,19 @@
       rowFrame.counterAxisSizingMode = "FIXED";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       for (const column of columns) {
-        const width = columnWidths.get(column.key) || 200;
+        const width = columnWidths.get(column.key);
+        if (width === void 0) {
+          console.error(`[DocumentationGenerator] No width found for column: ${column.key}`);
+          console.error("[DocumentationGenerator] Available widths:", Array.from(columnWidths.entries()));
+        }
+        const cellWidth = width !== void 0 ? width : 200;
+        console.log(`[DocumentationGenerator] Creating cell for column ${column.key} with width ${cellWidth}`);
         let cell;
         if (column.key === "visualization") {
-          cell = await this.createVisualizationCell(row, width);
+          cell = await this.createVisualizationCell(row, cellWidth);
         } else {
           const value = this.getCellValue(row, column.key);
-          cell = this.createTextCell(value, width);
+          cell = this.createTextCell(value, cellWidth);
         }
         rowFrame.appendChild(cell);
       }
@@ -4026,6 +4040,10 @@
      * Create text cell
      */
     createTextCell(value, width) {
+      if (width < 0) {
+        console.error(`[DocumentationGenerator] Invalid width for text cell: ${width}`);
+        width = 100;
+      }
       const cellFrame = figma.createFrame();
       cellFrame.name = "Cell";
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -4049,6 +4067,10 @@
      * Create visualization cell
      */
     async createVisualizationCell(row, width) {
+      if (width < 0) {
+        console.error(`[DocumentationGenerator] Invalid width for visualization cell: ${width}`);
+        width = 100;
+      }
       const cellFrame = figma.createFrame();
       cellFrame.name = "Visualization Cell";
       cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);

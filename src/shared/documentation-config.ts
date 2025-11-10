@@ -37,6 +37,8 @@ export const calculateColumnWidths = (tableWidth: number, includeDescriptions: b
     columns = columns.filter(col => col.key !== 'description');
   }
 
+  console.log('[calculateColumnWidths] Table width:', tableWidth, 'Columns:', columns.map(c => c.key));
+
   const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
   const widthMap = new Map<string, number>();
   let allocatedWidth = 0;
@@ -45,15 +47,18 @@ export const calculateColumnWidths = (tableWidth: number, includeDescriptions: b
   columns.forEach((col, index) => {
     if (index === columns.length - 1) {
       // Last column gets remaining width to ensure exact total
-      const width = tableWidth - allocatedWidth;
+      const width = Math.max(0, tableWidth - allocatedWidth); // Ensure non-negative
+      console.log(`[calculateColumnWidths] Last column ${col.key}: ${width}px (remaining from ${tableWidth} - ${allocatedWidth})`);
       widthMap.set(col.key, width);
     } else {
       const width = Math.floor((col.widthRatio / totalRatio) * tableWidth);
+      console.log(`[calculateColumnWidths] Column ${col.key}: ${width}px`);
       widthMap.set(col.key, width);
       allocatedWidth += width;
     }
   });
 
+  console.log('[calculateColumnWidths] Final widths:', Array.from(widthMap.entries()));
   return widthMap;
 };
 

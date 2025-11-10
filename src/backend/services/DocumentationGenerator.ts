@@ -536,6 +536,12 @@ export class DocumentationGenerator {
    * Create header cell
    */
   private createHeaderCell(label: string, width: number): FrameNode {
+    // Validate width
+    if (width < 0) {
+      console.error(`[DocumentationGenerator] Invalid width for header cell ${label}: ${width}`);
+      width = 100; // Fallback minimum width
+    }
+
     const cellFrame = figma.createFrame();
     cellFrame.name = `Header: ${label}`;
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
@@ -585,14 +591,22 @@ export class DocumentationGenerator {
     rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
 
     for (const column of columns) {
-      const width = columnWidths.get(column.key) || 200; // Get width from map
+      const width = columnWidths.get(column.key);
+      if (width === undefined) {
+        console.error(`[DocumentationGenerator] No width found for column: ${column.key}`);
+        console.error('[DocumentationGenerator] Available widths:', Array.from(columnWidths.entries()));
+      }
+      const cellWidth = width !== undefined ? width : 200; // Get width from map with fallback
+
+      console.log(`[DocumentationGenerator] Creating cell for column ${column.key} with width ${cellWidth}`);
+
       let cell: FrameNode;
 
       if (column.key === 'visualization') {
-        cell = await this.createVisualizationCell(row, width);
+        cell = await this.createVisualizationCell(row, cellWidth);
       } else {
         const value = this.getCellValue(row, column.key);
-        cell = this.createTextCell(value, width);
+        cell = this.createTextCell(value, cellWidth);
       }
 
       rowFrame.appendChild(cell);
@@ -623,6 +637,12 @@ export class DocumentationGenerator {
    * Create text cell
    */
   private createTextCell(value: string, width: number): FrameNode {
+    // Validate width
+    if (width < 0) {
+      console.error(`[DocumentationGenerator] Invalid width for text cell: ${width}`);
+      width = 100; // Fallback minimum width
+    }
+
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Cell';
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -651,6 +671,12 @@ export class DocumentationGenerator {
    * Create visualization cell
    */
   private async createVisualizationCell(row: DocumentationTokenRow, width: number): Promise<FrameNode> {
+    // Validate width
+    if (width < 0) {
+      console.error(`[DocumentationGenerator] Invalid width for visualization cell: ${width}`);
+      width = 100; // Fallback minimum width
+    }
+
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Visualization Cell';
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
