@@ -3616,6 +3616,134 @@
     }
   };
 
+  // src/core/visualizers/FontWeightVisualizer.ts
+  var FontWeightVisualizer = class {
+    getType() {
+      return "fontWeight";
+    }
+    canVisualize(token) {
+      return token.type === "fontWeight" || token.type === "fontWeights";
+    }
+    renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(dims.width, dims.height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const text = figma.createText();
+      text.characters = "Aa";
+      text.fontSize = 20;
+      const fontWeight = this.parseFontWeight(token.value);
+      text.fontName = { family: "Inter", style: this.getFontStyle(fontWeight) };
+      text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      container.appendChild(text);
+      return container;
+    }
+    /**
+     * Parse font weight value
+     */
+    parseFontWeight(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const namedWeights = {
+          "thin": 100,
+          "extra-light": 200,
+          "extralight": 200,
+          "light": 300,
+          "normal": 400,
+          "regular": 400,
+          "medium": 500,
+          "semi-bold": 600,
+          "semibold": 600,
+          "bold": 700,
+          "extra-bold": 800,
+          "extrabold": 800,
+          "black": 900
+        };
+        const normalized = value.toLowerCase().trim();
+        if (namedWeights[normalized]) {
+          return namedWeights[normalized];
+        }
+        const parsed = parseInt(value);
+        return isNaN(parsed) ? 400 : parsed;
+      }
+      return 400;
+    }
+    /**
+     * Get font style name from weight number
+     * Maps to common Inter font styles
+     */
+    getFontStyle(weight) {
+      if (weight <= 100) return "Thin";
+      if (weight <= 200) return "ExtraLight";
+      if (weight <= 300) return "Light";
+      if (weight <= 400) return "Regular";
+      if (weight <= 500) return "Medium";
+      if (weight <= 600) return "SemiBold";
+      if (weight <= 700) return "Bold";
+      if (weight <= 800) return "ExtraBold";
+      return "Black";
+    }
+  };
+
+  // src/core/visualizers/BorderRadiusVisualizer.ts
+  var BorderRadiusVisualizer = class {
+    getType() {
+      return "borderRadius";
+    }
+    canVisualize(token) {
+      return token.type === "borderRadius" || token.type === "radius";
+    }
+    renderVisualization(token, width, height) {
+      const dims = validateVisualizationDimensions(width, height);
+      const container = figma.createFrame();
+      container.name = `viz-${token.name}`;
+      container.resize(dims.width, dims.height);
+      container.fills = [];
+      container.clipsContent = false;
+      container.layoutMode = "HORIZONTAL";
+      container.primaryAxisAlignItems = "CENTER";
+      container.counterAxisAlignItems = "CENTER";
+      container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
+      const square = figma.createRectangle();
+      square.resize(40, 40);
+      const radius = this.parseBorderRadius(token.value);
+      square.cornerRadius = radius;
+      square.fills = [{ type: "SOLID", color: { r: 0.95, g: 0.95, b: 0.95 } }];
+      square.strokes = [{ type: "SOLID", color: { r: 0.7, g: 0.7, b: 0.7 } }];
+      square.strokeWeight = 1;
+      container.appendChild(square);
+      return container;
+    }
+    /**
+     * Parse border radius value to pixels
+     */
+    parseBorderRadius(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const numStr = value.replace("px", "").trim();
+        const parsed = parseFloat(numStr);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    }
+  };
+
   // src/core/visualizers/DefaultVisualizer.ts
   var DefaultVisualizer = class {
     getType() {
@@ -3721,6 +3849,18 @@
       }
     }
     /**
+     * Recursively resolve a variable value until we get a non-alias value
+     */
+    async resolveVariableValue(variable, modeId) {
+      let currentValue = variable.valuesByMode[modeId];
+      while (typeof currentValue === "object" && currentValue !== null && "type" in currentValue && currentValue.type === "VARIABLE_ALIAS") {
+        const aliasedVar = await figma.variables.getVariableByIdAsync(currentValue.id);
+        if (!aliasedVar) break;
+        currentValue = aliasedVar.valuesByMode[modeId];
+      }
+      return currentValue;
+    }
+    /**
      * Build metadata from Figma variables
      * Used when no metadata is provided from VariableManager
      */
@@ -3741,7 +3881,7 @@
               if (aliasedVariable) {
                 const referenceName = aliasedVariable.name.replace(/\//g, ".");
                 originalValue = `{${referenceName}}`;
-                resolvedValue = aliasedVariable.valuesByMode[defaultModeId];
+                resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
                 value = resolvedValue;
               }
             }
@@ -3777,14 +3917,17 @@
       }
       if (variableType === "FLOAT") {
         const nameLower = variableName.toLowerCase();
+        if (nameLower.includes("fontweight") || nameLower.includes("font-weight") || nameLower.includes("weight") && (nameLower.includes("font") || nameLower.includes("text"))) {
+          return "fontWeight";
+        }
+        if (nameLower.includes("borderradius") || nameLower.includes("border-radius") || nameLower.includes("radius") || nameLower.includes("corner")) {
+          return "borderRadius";
+        }
         if (nameLower.includes("spacing") || nameLower.includes("space") || nameLower.includes("gap") || nameLower.includes("margin") || nameLower.includes("padding") || nameLower.includes("dimension")) {
           return "spacing";
         }
         if (nameLower.includes("fontsize") || nameLower.includes("font-size") || nameLower.includes("size") && (nameLower.includes("text") || nameLower.includes("font"))) {
           return "fontSize";
-        }
-        if (nameLower.includes("radius") || nameLower.includes("corner")) {
-          return "dimension";
         }
         return "number";
       }
@@ -4151,6 +4294,8 @@
       TokenVisualizerRegistry.register(new ColorVisualizer());
       TokenVisualizerRegistry.register(new SpacingVisualizer());
       TokenVisualizerRegistry.register(new FontSizeVisualizer());
+      TokenVisualizerRegistry.register(new FontWeightVisualizer());
+      TokenVisualizerRegistry.register(new BorderRadiusVisualizer());
       TokenVisualizerRegistry.register(new DefaultVisualizer());
       ErrorHandler.info("Architecture components registered", "PluginBackend");
     }
