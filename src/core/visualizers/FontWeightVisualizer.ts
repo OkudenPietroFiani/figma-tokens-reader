@@ -50,15 +50,31 @@ export class FontWeightVisualizer implements ITokenVisualizer {
     container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
     container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
 
-    // Create text with font weight
+    // Create text showing the weight value
     const text = figma.createText();
-    text.characters = 'Aa';
-    text.fontSize = 20; // Fixed 20px as requested
     const fontWeight = this.parseFontWeight(token.value);
-    text.fontName = { family: 'Inter', style: this.getFontStyle(fontWeight) };
-    text.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
+
+    // Display weight number + "Aa" sample
+    text.characters = `${fontWeight}`;
+    text.fontSize = 14;
+    text.fontName = { family: 'Inter', style: 'Regular' };
+    text.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
+
+    // Create sample text "Aa" at 20px with the weight if possible
+    const sample = figma.createText();
+    sample.characters = 'Aa';
+    sample.fontSize = 20; // Fixed 20px as requested
+
+    // Use Bold for weights >= 600, Regular for < 600 (only use loaded fonts)
+    const style = fontWeight >= 600 ? 'Bold' : 'Regular';
+    sample.fontName = { family: 'Inter', style };
+    sample.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
+
+    // Add spacing between weight number and sample
+    container.itemSpacing = 8;
 
     container.appendChild(text);
+    container.appendChild(sample);
     return container;
   }
 
@@ -102,21 +118,5 @@ export class FontWeightVisualizer implements ITokenVisualizer {
 
     // Default to regular
     return 400;
-  }
-
-  /**
-   * Get font style name from weight number
-   * Maps to common Inter font styles
-   */
-  private getFontStyle(weight: number): string {
-    if (weight <= 100) return 'Thin';
-    if (weight <= 200) return 'ExtraLight';
-    if (weight <= 300) return 'Light';
-    if (weight <= 400) return 'Regular';
-    if (weight <= 500) return 'Medium';
-    if (weight <= 600) return 'SemiBold';
-    if (weight <= 700) return 'Bold';
-    if (weight <= 800) return 'ExtraBold';
-    return 'Black';
   }
 }

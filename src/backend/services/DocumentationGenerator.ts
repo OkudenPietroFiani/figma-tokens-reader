@@ -112,6 +112,7 @@ export class DocumentationGenerator {
 
   /**
    * Load font for documentation
+   * Loads Regular and Bold styles needed for all visualizations
    */
   private async loadFont(): Promise<void> {
     try {
