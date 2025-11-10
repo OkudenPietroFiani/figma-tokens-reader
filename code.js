@@ -3639,12 +3639,20 @@
       container.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
       container.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
       const text = figma.createText();
-      text.characters = "Aa";
-      text.fontSize = 20;
       const fontWeight = this.parseFontWeight(token.value);
-      text.fontName = { family: "Inter", style: this.getFontStyle(fontWeight) };
-      text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      text.characters = `${fontWeight}`;
+      text.fontSize = 14;
+      text.fontName = { family: "Inter", style: "Regular" };
+      text.fills = [{ type: "SOLID", color: { r: 0.4, g: 0.4, b: 0.4 } }];
+      const sample = figma.createText();
+      sample.characters = "Aa";
+      sample.fontSize = 20;
+      const style = fontWeight >= 600 ? "Bold" : "Regular";
+      sample.fontName = { family: "Inter", style };
+      sample.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      container.itemSpacing = 8;
       container.appendChild(text);
+      container.appendChild(sample);
       return container;
     }
     /**
@@ -3678,21 +3686,6 @@
         return isNaN(parsed) ? 400 : parsed;
       }
       return 400;
-    }
-    /**
-     * Get font style name from weight number
-     * Maps to common Inter font styles
-     */
-    getFontStyle(weight) {
-      if (weight <= 100) return "Thin";
-      if (weight <= 200) return "ExtraLight";
-      if (weight <= 300) return "Light";
-      if (weight <= 400) return "Regular";
-      if (weight <= 500) return "Medium";
-      if (weight <= 600) return "SemiBold";
-      if (weight <= 700) return "Bold";
-      if (weight <= 800) return "ExtraBold";
-      return "Black";
     }
   };
 
@@ -3828,6 +3821,7 @@
     }
     /**
      * Load font for documentation
+     * Loads Regular and Bold styles needed for all visualizations
      */
     async loadFont() {
       try {
