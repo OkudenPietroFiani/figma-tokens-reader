@@ -143,9 +143,6 @@ export class DocumentationGenerator {
     let iterations = 0;
     const maxIterations = 10; // Prevent infinite loops
 
-    console.log(`[resolveVariableValue] Starting resolution for ${variable.name}`);
-    console.log(`[resolveVariableValue] Initial value:`, JSON.stringify(currentValue));
-
     // Keep resolving until we get a non-alias value
     while (typeof currentValue === 'object' && currentValue !== null && 'type' in currentValue && currentValue.type === 'VARIABLE_ALIAS') {
       iterations++;
@@ -160,12 +157,9 @@ export class DocumentationGenerator {
         break;
       }
 
-      console.log(`[resolveVariableValue] Iteration ${iterations}: Resolved to ${aliasedVar.name}`);
       currentValue = aliasedVar.valuesByMode[modeId];
-      console.log(`[resolveVariableValue] New value:`, JSON.stringify(currentValue));
     }
 
-    console.log(`[resolveVariableValue] Final resolved value for ${variable.name}:`, JSON.stringify(currentValue));
     return currentValue;
   }
 
@@ -192,16 +186,13 @@ export class DocumentationGenerator {
 
           // If value is a VariableAlias, keep reference and resolve it recursively
           if (typeof value === 'object' && value !== null && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-            console.log(`[buildMetadata] Token ${variable.name} is an alias`);
             const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
             if (aliasedVariable) {
               // Store reference as {token.name} format
               const referenceName = aliasedVariable.name.replace(/\//g, '.');
               originalValue = `{${referenceName}}`;
-              console.log(`[buildMetadata] Reference name: ${originalValue}`);
               // Recursively resolve the value until we get a non-alias
               resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
-              console.log(`[buildMetadata] Resolved value:`, JSON.stringify(resolvedValue));
               // Use resolved value for type detection and visualization
               value = resolvedValue;
             }
@@ -211,8 +202,6 @@ export class DocumentationGenerator {
           // Convert Figma variable name (with /) to token nomenclature (with .)
           const tokenName = variable.name.replace(/\//g, '.');
           const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
-
-          console.log(`[buildMetadata] Token ${tokenName}: type=${tokenType}, originalValue=${typeof originalValue === 'string' ? originalValue : 'object'}, value=${typeof value === 'object' ? 'object' : value}`);
 
           metadata.push({
             name: tokenName,
@@ -318,25 +307,16 @@ export class DocumentationGenerator {
    * Convert token metadata to documentation rows
    */
   private convertToRows(metadata: TokenMetadata[]): DocumentationTokenRow[] {
-    return metadata.map(token => {
-      const row = {
-        name: token.name,
-        value: this.formatValue(token.originalValue || token.value, token.type),
-        resolvedValue: this.formatResolvedValue(token.value, token.type),
-        type: token.type,
-        description: token.description || '',
-        category: extractCategoryFromPath(token.fullPath),
-        path: token.fullPath,
-        originalToken: token,
-      };
-
-      console.log(`[convertToRows] Row for ${token.name}:`);
-      console.log(`  - value: ${row.value}`);
-      console.log(`  - resolvedValue: ${row.resolvedValue}`);
-      console.log(`  - originalToken.value:`, JSON.stringify(token.value));
-
-      return row;
-    });
+    return metadata.map(token => ({
+      name: token.name,
+      value: this.formatValue(token.originalValue || token.value, token.type),
+      resolvedValue: this.formatResolvedValue(token.value, token.type),
+      type: token.type,
+      description: token.description || '',
+      category: extractCategoryFromPath(token.fullPath),
+      path: token.fullPath,
+      originalToken: token,
+    }));
   }
 
   /**
@@ -583,11 +563,11 @@ export class DocumentationGenerator {
     rowFrame.name = 'Header Row';
     rowFrame.fills = [{ type: 'SOLID', color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
 
-    // Auto-layout horizontal with fixed width
+    // Auto-layout horizontal with fixed width, auto height
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
-    rowFrame.counterAxisSizingMode = 'FIXED';
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+    rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Initial height
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
@@ -607,14 +587,16 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
     cellFrame.fills = [];
 
-    // Auto-layout with FIXED width
+    // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
     cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
 
     const text = figma.createText();
     text.characters = label;
@@ -644,11 +626,11 @@ export class DocumentationGenerator {
       : DOCUMENTATION_LAYOUT_CONFIG.row.backgroundColor;
     rowFrame.fills = [{ type: 'SOLID', color: bgColor }];
 
-    // Auto-layout horizontal with fixed width
+    // Auto-layout horizontal with fixed width, auto height
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
-    rowFrame.counterAxisSizingMode = 'FIXED';
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+    rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Initial height
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -694,14 +676,16 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
-    // Auto-layout with FIXED width
+    // Auto-layout with FIXED width, HUG height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
     cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
 
     const text = figma.createText();
     text.characters = value;
@@ -722,12 +706,14 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
-    // Auto-layout with FIXED width
+    // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
+    cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+    cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
 
     // Get visualizer
     const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;

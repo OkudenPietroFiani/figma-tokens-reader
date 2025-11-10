@@ -1464,12 +1464,37 @@
           variable.description = token.$description;
         }
         const fullPath = `${collectionName.toLowerCase()}.${path.join(".")}`;
+        let resolvedValue = processedValue.value;
+        if (processedValue.isAlias && processedValue.aliasVariable) {
+          const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
+          resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
+          if (typeof resolvedValue === "object" && resolvedValue !== null && "type" in resolvedValue && resolvedValue.type === "VARIABLE_ALIAS") {
+            let currentAlias = resolvedValue;
+            let iterations = 0;
+            const maxIterations = 10;
+            while (iterations < maxIterations) {
+              const nextVar = await figma.variables.getVariableByIdAsync(currentAlias.id);
+              if (!nextVar) break;
+              const nextModeId = Object.keys(nextVar.valuesByMode)[0];
+              const nextValue = nextVar.valuesByMode[nextModeId];
+              if (typeof nextValue === "object" && nextValue !== null && "type" in nextValue && nextValue.type === "VARIABLE_ALIAS") {
+                currentAlias = nextValue;
+                iterations++;
+              } else {
+                resolvedValue = nextValue;
+                break;
+              }
+            }
+          }
+        }
         const metadata = {
           name: path[path.length - 1],
           fullPath,
           type: tokenType,
-          value: processedValue.value,
+          value: resolvedValue,
+          // Now contains the actual resolved value, not null
           originalValue: token.$value,
+          // Original token value (can be a reference)
           description: token.$description,
           aliasTo: processedValue.isAlias && processedValue.aliasVariable ? processedValue.aliasVariable.name : void 0,
           collection: collectionName
@@ -3287,8 +3312,8 @@
     // Cell styling
     cell: {
       padding: 12,
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: 16,
+      lineHeight: 24,
       cornerRadius: 4
     },
     // Header styling
@@ -3402,17 +3427,11 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
-        console.log(`[ColorVisualizer] Parsing color for ${token.name}`);
-        console.log(`[ColorVisualizer] Token value type:`, typeof token.value);
-        console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
         const color = this.parseColor(token.value);
-        console.log(`[ColorVisualizer] Parsed color:`, JSON.stringify(color));
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
         square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
-        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}`);
-        console.error(`[ColorVisualizer] Token value was:`, JSON.stringify(token.value));
-        console.error(`[ColorVisualizer] Error:`, error);
+        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
       }
       container.appendChild(square);
       return container;
@@ -3855,8 +3874,6 @@
       let currentValue = variable.valuesByMode[modeId];
       let iterations = 0;
       const maxIterations = 10;
-      console.log(`[resolveVariableValue] Starting resolution for ${variable.name}`);
-      console.log(`[resolveVariableValue] Initial value:`, JSON.stringify(currentValue));
       while (typeof currentValue === "object" && currentValue !== null && "type" in currentValue && currentValue.type === "VARIABLE_ALIAS") {
         iterations++;
         if (iterations > maxIterations) {
@@ -3868,11 +3885,8 @@
           console.warn(`[resolveVariableValue] Could not resolve alias for ${variable.name}`);
           break;
         }
-        console.log(`[resolveVariableValue] Iteration ${iterations}: Resolved to ${aliasedVar.name}`);
         currentValue = aliasedVar.valuesByMode[modeId];
-        console.log(`[resolveVariableValue] New value:`, JSON.stringify(currentValue));
       }
-      console.log(`[resolveVariableValue] Final resolved value for ${variable.name}:`, JSON.stringify(currentValue));
       return currentValue;
     }
     /**
@@ -3892,20 +3906,16 @@
             let originalValue = value;
             let resolvedValue = value;
             if (typeof value === "object" && value !== null && "type" in value && value.type === "VARIABLE_ALIAS") {
-              console.log(`[buildMetadata] Token ${variable.name} is an alias`);
               const aliasedVariable = await figma.variables.getVariableByIdAsync(value.id);
               if (aliasedVariable) {
                 const referenceName = aliasedVariable.name.replace(/\//g, ".");
                 originalValue = `{${referenceName}}`;
-                console.log(`[buildMetadata] Reference name: ${originalValue}`);
                 resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
-                console.log(`[buildMetadata] Resolved value:`, JSON.stringify(resolvedValue));
                 value = resolvedValue;
               }
             }
             const tokenName = variable.name.replace(/\//g, ".");
             const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
-            console.log(`[buildMetadata] Token ${tokenName}: type=${tokenType}, originalValue=${typeof originalValue === "string" ? originalValue : "object"}, value=${typeof value === "object" ? "object" : value}`);
             metadata.push({
               name: tokenName,
               fullPath: tokenName,
@@ -3977,23 +3987,16 @@
      * Convert token metadata to documentation rows
      */
     convertToRows(metadata) {
-      return metadata.map((token) => {
-        const row = {
-          name: token.name,
-          value: this.formatValue(token.originalValue || token.value, token.type),
-          resolvedValue: this.formatResolvedValue(token.value, token.type),
-          type: token.type,
-          description: token.description || "",
-          category: extractCategoryFromPath(token.fullPath),
-          path: token.fullPath,
-          originalToken: token
-        };
-        console.log(`[convertToRows] Row for ${token.name}:`);
-        console.log(`  - value: ${row.value}`);
-        console.log(`  - resolvedValue: ${row.resolvedValue}`);
-        console.log(`  - originalToken.value:`, JSON.stringify(token.value));
-        return row;
-      });
+      return metadata.map((token) => ({
+        name: token.name,
+        value: this.formatValue(token.originalValue || token.value, token.type),
+        resolvedValue: this.formatResolvedValue(token.value, token.type),
+        type: token.type,
+        description: token.description || "",
+        category: extractCategoryFromPath(token.fullPath),
+        path: token.fullPath,
+        originalToken: token
+      }));
     }
     /**
      * Group rows by collection (primitive, semantic, etc.)
@@ -4166,7 +4169,7 @@
       rowFrame.fills = [{ type: "SOLID", color: DOCUMENTATION_LAYOUT_CONFIG.header.backgroundColor }];
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
-      rowFrame.counterAxisSizingMode = "FIXED";
+      rowFrame.counterAxisSizingMode = "AUTO";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
       for (const column of columns) {
         const width = columnWidths.get(column.key) || 200;
@@ -4185,11 +4188,13 @@
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
-      cellFrame.counterAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "AUTO";
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
       cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
       const text = figma.createText();
       text.characters = label;
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
@@ -4208,7 +4213,7 @@
       rowFrame.fills = [{ type: "SOLID", color: bgColor }];
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
-      rowFrame.counterAxisSizingMode = "FIXED";
+      rowFrame.counterAxisSizingMode = "AUTO";
       rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       for (const column of columns) {
         const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -4250,11 +4255,13 @@
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
-      cellFrame.counterAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "AUTO";
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
       cellFrame.paddingRight = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
       const text = figma.createText();
       text.characters = value;
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
@@ -4273,9 +4280,11 @@
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
-      cellFrame.counterAxisSizingMode = "FIXED";
+      cellFrame.counterAxisSizingMode = "AUTO";
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
+      cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
+      cellFrame.paddingBottom = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
       const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
       const visualization = visualizer.renderVisualization(
         row.originalToken,

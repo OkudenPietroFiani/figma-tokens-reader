@@ -409,12 +409,46 @@ export class VariableManager {
 
       // Store token metadata for documentation
       const fullPath = `${collectionName.toLowerCase()}.${path.join('.')}`;
+
+      // For aliases, resolve the actual value from the referenced variable
+      let resolvedValue = processedValue.value;
+      if (processedValue.isAlias && processedValue.aliasVariable) {
+        // Get the value from the aliased variable
+        const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
+        resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
+
+        // If the aliased value is also an alias, we need to resolve recursively
+        // This is handled by Figma automatically when we read the value
+        if (typeof resolvedValue === 'object' && resolvedValue !== null && 'type' in resolvedValue && resolvedValue.type === 'VARIABLE_ALIAS') {
+          // Recursively resolve aliases
+          let currentAlias = resolvedValue as VariableAlias;
+          let iterations = 0;
+          const maxIterations = 10;
+
+          while (iterations < maxIterations) {
+            const nextVar = await figma.variables.getVariableByIdAsync(currentAlias.id);
+            if (!nextVar) break;
+
+            const nextModeId = Object.keys(nextVar.valuesByMode)[0];
+            const nextValue = nextVar.valuesByMode[nextModeId];
+
+            if (typeof nextValue === 'object' && nextValue !== null && 'type' in nextValue && nextValue.type === 'VARIABLE_ALIAS') {
+              currentAlias = nextValue as VariableAlias;
+              iterations++;
+            } else {
+              resolvedValue = nextValue;
+              break;
+            }
+          }
+        }
+      }
+
       const metadata: TokenMetadata = {
         name: path[path.length - 1],
         fullPath: fullPath,
         type: tokenType,
-        value: processedValue.value,
-        originalValue: token.$value,
+        value: resolvedValue,  // Now contains the actual resolved value, not null
+        originalValue: token.$value,  // Original token value (can be a reference)
         description: token.$description,
         aliasTo: processedValue.isAlias && processedValue.aliasVariable ? processedValue.aliasVariable.name : undefined,
         collection: collectionName
