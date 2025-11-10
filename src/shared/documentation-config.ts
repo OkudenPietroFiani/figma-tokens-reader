@@ -39,9 +39,19 @@ export const calculateColumnWidths = (tableWidth: number, includeDescriptions: b
 
   const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
   const widthMap = new Map<string, number>();
+  let allocatedWidth = 0;
 
-  columns.forEach(col => {
-    widthMap.set(col.key, Math.floor((col.widthRatio / totalRatio) * tableWidth));
+  // Calculate widths using floor, track allocated
+  columns.forEach((col, index) => {
+    if (index === columns.length - 1) {
+      // Last column gets remaining width to ensure exact total
+      const width = tableWidth - allocatedWidth;
+      widthMap.set(col.key, width);
+    } else {
+      const width = Math.floor((col.widthRatio / totalRatio) * tableWidth);
+      widthMap.set(col.key, width);
+      allocatedWidth += width;
+    }
   });
 
   return widthMap;

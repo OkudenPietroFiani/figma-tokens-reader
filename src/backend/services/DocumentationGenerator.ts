@@ -150,16 +150,31 @@ export class DocumentationGenerator {
 
           // Get the default mode value
           const defaultModeId = collection.modes[0].modeId;
-          const value = variable.valuesByMode[defaultModeId];
+          let value = variable.valuesByMode[defaultModeId];
+
+          // If value is a VariableAlias, resolve it
+          if (typeof value === 'object' && value !== null && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+            const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
+            if (aliasedVariable) {
+              value = aliasedVariable.valuesByMode[defaultModeId];
+              console.log(`[DocumentationGenerator] Resolved alias for ${variable.name} to:`, value);
+            }
+          }
 
           // Build metadata
           // Convert Figma variable name (with /) to token nomenclature (with .)
           const tokenName = variable.name.replace(/\//g, '.');
+          const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
+
+          // Log color tokens to debug visualization
+          if (tokenType === 'color') {
+            console.log(`[DocumentationGenerator] Color token: ${tokenName}, value:`, value);
+          }
 
           metadata.push({
             name: tokenName,
             fullPath: tokenName,
-            type: this.mapVariableTypeToTokenType(variable.resolvedType),
+            type: tokenType,
             value: value,
             originalValue: value,
             description: variable.description || '',
@@ -178,21 +193,50 @@ export class DocumentationGenerator {
   }
 
   /**
-   * Map Figma variable type to token type
+   * Map Figma variable type to token type with intelligent detection
    */
-  private mapVariableTypeToTokenType(variableType: VariableResolvedDataType): string {
-    switch (variableType) {
-      case 'COLOR':
-        return 'color';
-      case 'FLOAT':
-        return 'number';
-      case 'STRING':
-        return 'string';
-      case 'BOOLEAN':
-        return 'boolean';
-      default:
-        return 'string';
+  private mapVariableTypeToTokenType(variableType: VariableResolvedDataType, variableName: string, value: any): string {
+    // Handle color type
+    if (variableType === 'COLOR') {
+      return 'color';
     }
+
+    // For FLOAT type, detect specific token types based on name and value
+    if (variableType === 'FLOAT') {
+      const nameLower = variableName.toLowerCase();
+
+      // Detect spacing/dimension tokens
+      if (nameLower.includes('spacing') || nameLower.includes('space') ||
+          nameLower.includes('gap') || nameLower.includes('margin') ||
+          nameLower.includes('padding') || nameLower.includes('dimension')) {
+        return 'spacing';
+      }
+
+      // Detect fontSize tokens
+      if (nameLower.includes('fontsize') || nameLower.includes('font-size') ||
+          nameLower.includes('size') && (nameLower.includes('text') || nameLower.includes('font'))) {
+        return 'fontSize';
+      }
+
+      // Detect border radius
+      if (nameLower.includes('radius') || nameLower.includes('corner')) {
+        return 'dimension';
+      }
+
+      // Default to number for other FLOAT types
+      return 'number';
+    }
+
+    // Handle other types
+    if (variableType === 'STRING') {
+      return 'string';
+    }
+
+    if (variableType === 'BOOLEAN') {
+      return 'boolean';
+    }
+
+    return 'string';
   }
 
   /**
@@ -497,8 +541,10 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
     cellFrame.fills = [];
 
-    // Auto-layout
+    // Auto-layout with FIXED width
     cellFrame.layoutMode = 'HORIZONTAL';
+    cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
+    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -582,8 +628,10 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
-    // Auto-layout
+    // Auto-layout with FIXED width
     cellFrame.layoutMode = 'HORIZONTAL';
+    cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
+    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -608,8 +656,17 @@ export class DocumentationGenerator {
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
+    // Auto-layout with FIXED width
+    cellFrame.layoutMode = 'HORIZONTAL';
+    cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
+    cellFrame.counterAxisSizingMode = 'FIXED'; // Fix height
+    cellFrame.primaryAxisAlignItems = 'CENTER';
+    cellFrame.counterAxisAlignItems = 'CENTER';
+
     // Get visualizer
     const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
+
+    console.log(`[DocumentationGenerator] Token: ${row.originalToken.name}, Type: ${row.originalToken.type}, Visualizer: ${visualizer.getType()}`);
 
     // Render visualization
     const visualization = visualizer.renderVisualization(
