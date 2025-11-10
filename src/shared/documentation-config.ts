@@ -37,28 +37,38 @@ export const calculateColumnWidths = (tableWidth: number, includeDescriptions: b
     columns = columns.filter(col => col.key !== 'description');
   }
 
-  console.log('[calculateColumnWidths] Table width:', tableWidth, 'Columns:', columns.map(c => c.key));
-
+  const minWidth = DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
   const totalRatio = columns.reduce((sum, col) => sum + col.widthRatio, 0);
+
+  // Check if minimum widths would exceed table width
+  const requiredMinWidth = columns.length * minWidth;
+  if (requiredMinWidth > tableWidth) {
+    console.warn(`[calculateColumnWidths] Required min width (${requiredMinWidth}px) exceeds table width (${tableWidth}px)`);
+    // Distribute table width equally, clamped to minimum
+    const equalWidth = Math.max(minWidth, Math.floor(tableWidth / columns.length));
+    const widthMap = new Map<string, number>();
+    columns.forEach(col => widthMap.set(col.key, equalWidth));
+    return widthMap;
+  }
+
   const widthMap = new Map<string, number>();
   let allocatedWidth = 0;
 
-  // Calculate widths using floor, track allocated
+  // Calculate widths respecting minimum
   columns.forEach((col, index) => {
     if (index === columns.length - 1) {
-      // Last column gets remaining width to ensure exact total
-      const width = Math.max(0, tableWidth - allocatedWidth); // Ensure non-negative
-      console.log(`[calculateColumnWidths] Last column ${col.key}: ${width}px (remaining from ${tableWidth} - ${allocatedWidth})`);
+      // Last column gets remaining width, but at least minimum
+      const remaining = tableWidth - allocatedWidth;
+      const width = Math.max(minWidth, remaining);
       widthMap.set(col.key, width);
     } else {
-      const width = Math.floor((col.widthRatio / totalRatio) * tableWidth);
-      console.log(`[calculateColumnWidths] Column ${col.key}: ${width}px`);
+      const idealWidth = Math.floor((col.widthRatio / totalRatio) * tableWidth);
+      const width = Math.max(minWidth, idealWidth);
       widthMap.set(col.key, width);
       allocatedWidth += width;
     }
   });
 
-  console.log('[calculateColumnWidths] Final widths:', Array.from(widthMap.entries()));
   return widthMap;
 };
 
@@ -70,6 +80,7 @@ export const DOCUMENTATION_LAYOUT_CONFIG = {
   // Table layout
   table: {
     width: 1200, // Fixed table width - all columns will distribute this width
+    minColumnWidth: 80, // Minimum width for any column
     rowHeight: 40,
     headerHeight: 48,
     padding: 16,
@@ -198,4 +209,43 @@ export const formatTokenValue = (value: any, type?: string): string => {
   }
 
   return String(value);
+};
+
+// ==================== DIMENSION VALIDATION ====================
+/**
+ * Validate and clamp dimensions to ensure they're valid for Figma
+ *
+ * Architecture principle: Defensive programming at boundaries
+ * Single utility for consistent validation across all components
+ */
+export const validateDimension = (value: number, min: number = 0.01, max: number = 100000): number => {
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    console.warn(`[validateDimension] Invalid dimension value: ${value}, using minimum: ${min}`);
+    return min;
+  }
+  return Math.max(min, Math.min(max, value));
+};
+
+/**
+ * Validate width specifically for table columns
+ */
+export const validateColumnWidth = (width: number): number => {
+  return validateDimension(width, DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth);
+};
+
+/**
+ * Validate dimensions for visualization containers
+ * Ensures containers have enough space for content with padding
+ */
+export const validateVisualizationDimensions = (
+  width: number,
+  height: number
+): { width: number; height: number } => {
+  const minWidth = 20; // Minimum for any visualization
+  const minHeight = 20;
+
+  return {
+    width: validateDimension(width, minWidth),
+    height: validateDimension(height, minHeight),
+  };
 };

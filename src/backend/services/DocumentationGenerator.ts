@@ -157,7 +157,6 @@ export class DocumentationGenerator {
             const aliasedVariable = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
             if (aliasedVariable) {
               value = aliasedVariable.valuesByMode[defaultModeId];
-              console.log(`[DocumentationGenerator] Resolved alias for ${variable.name} to:`, value);
             }
           }
 
@@ -165,11 +164,6 @@ export class DocumentationGenerator {
           // Convert Figma variable name (with /) to token nomenclature (with .)
           const tokenName = variable.name.replace(/\//g, '.');
           const tokenType = this.mapVariableTypeToTokenType(variable.resolvedType, variable.name, value);
-
-          // Log color tokens to debug visualization
-          if (tokenType === 'color') {
-            console.log(`[DocumentationGenerator] Color token: ${tokenName}, value:`, value);
-          }
 
           metadata.push({
             name: tokenName,
@@ -536,12 +530,6 @@ export class DocumentationGenerator {
    * Create header cell
    */
   private createHeaderCell(label: string, width: number): FrameNode {
-    // Validate width
-    if (width < 0) {
-      console.error(`[DocumentationGenerator] Invalid width for header cell ${label}: ${width}`);
-      width = 100; // Fallback minimum width
-    }
-
     const cellFrame = figma.createFrame();
     cellFrame.name = `Header: ${label}`;
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
@@ -591,15 +579,7 @@ export class DocumentationGenerator {
     rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
 
     for (const column of columns) {
-      const width = columnWidths.get(column.key);
-      if (width === undefined) {
-        console.error(`[DocumentationGenerator] No width found for column: ${column.key}`);
-        console.error('[DocumentationGenerator] Available widths:', Array.from(columnWidths.entries()));
-      }
-      const cellWidth = width !== undefined ? width : 200; // Get width from map with fallback
-
-      console.log(`[DocumentationGenerator] Creating cell for column ${column.key} with width ${cellWidth}`);
-
+      const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
       let cell: FrameNode;
 
       if (column.key === 'visualization') {
@@ -637,12 +617,6 @@ export class DocumentationGenerator {
    * Create text cell
    */
   private createTextCell(value: string, width: number): FrameNode {
-    // Validate width
-    if (width < 0) {
-      console.error(`[DocumentationGenerator] Invalid width for text cell: ${width}`);
-      width = 100; // Fallback minimum width
-    }
-
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Cell';
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -671,12 +645,6 @@ export class DocumentationGenerator {
    * Create visualization cell
    */
   private async createVisualizationCell(row: DocumentationTokenRow, width: number): Promise<FrameNode> {
-    // Validate width
-    if (width < 0) {
-      console.error(`[DocumentationGenerator] Invalid width for visualization cell: ${width}`);
-      width = 100; // Fallback minimum width
-    }
-
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Visualization Cell';
     cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
@@ -691,8 +659,6 @@ export class DocumentationGenerator {
 
     // Get visualizer
     const visualizer = TokenVisualizerRegistry.getForToken(row.originalToken) || this.defaultVisualizer;
-
-    console.log(`[DocumentationGenerator] Token: ${row.originalToken.name}, Type: ${row.originalToken.type}, Visualizer: ${visualizer.getType()}`);
 
     // Render visualization
     const visualization = visualizer.renderVisualization(
