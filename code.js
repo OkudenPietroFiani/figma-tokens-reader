@@ -3901,25 +3901,44 @@
     }
     /**
      * Recursively resolve a variable value until we get a non-alias value
+     * Each variable uses its own collection's default mode for lookup
      */
-    async resolveVariableValue(variable, modeId) {
-      let currentValue = variable.valuesByMode[modeId];
-      let iterations = 0;
+    async resolveVariableValue(variable) {
+      var _a;
       const maxIterations = 10;
-      while (typeof currentValue === "object" && currentValue !== null && "type" in currentValue && currentValue.type === "VARIABLE_ALIAS") {
+      let currentVar = variable;
+      let iterations = 0;
+      console.log(`[DocumentationGenerator.resolveVariableValue] Starting resolution for ${variable.name}`);
+      while (iterations < maxIterations) {
         iterations++;
-        if (iterations > maxIterations) {
-          console.warn(`[resolveVariableValue] Max iterations reached for ${variable.name}, stopping`);
-          break;
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const varCollection = collections.find((c) => c.variableIds.includes(currentVar.id));
+        if (!varCollection) {
+          console.warn(`[DocumentationGenerator.resolveVariableValue] Could not find collection for ${currentVar.name}`);
+          return void 0;
         }
-        const aliasedVar = await figma.variables.getVariableByIdAsync(currentValue.id);
-        if (!aliasedVar) {
-          console.warn(`[resolveVariableValue] Could not resolve alias for ${variable.name}`);
-          break;
+        const varModeId = (_a = varCollection.modes[0]) == null ? void 0 : _a.modeId;
+        if (!varModeId) {
+          console.warn(`[DocumentationGenerator.resolveVariableValue] No mode found for ${currentVar.name}`);
+          return void 0;
         }
-        currentValue = aliasedVar.valuesByMode[modeId];
+        console.log(`[DocumentationGenerator.resolveVariableValue] Iteration ${iterations}: ${currentVar.name} in collection ${varCollection.name}, mode ${varModeId}`);
+        const value = currentVar.valuesByMode[varModeId];
+        console.log(`[DocumentationGenerator.resolveVariableValue] Value type: ${typeof value}`);
+        if (typeof value !== "object" || value === null || !("type" in value) || value.type !== "VARIABLE_ALIAS") {
+          console.log(`[DocumentationGenerator.resolveVariableValue] Found final value for ${variable.name}`);
+          return value;
+        }
+        const nextVar = await figma.variables.getVariableByIdAsync(value.id);
+        if (!nextVar) {
+          console.warn(`[DocumentationGenerator.resolveVariableValue] Could not resolve alias at iteration ${iterations}`);
+          return void 0;
+        }
+        console.log(`[DocumentationGenerator.resolveVariableValue] Following alias to ${nextVar.name}`);
+        currentVar = nextVar;
       }
-      return currentValue;
+      console.warn(`[DocumentationGenerator.resolveVariableValue] Max iterations reached for ${variable.name}`);
+      return void 0;
     }
     /**
      * Build metadata from Figma variables
@@ -3942,7 +3961,7 @@
               if (aliasedVariable) {
                 const referenceName = aliasedVariable.name.replace(/\//g, ".");
                 originalValue = `{${referenceName}}`;
-                resolvedValue = await this.resolveVariableValue(aliasedVariable, defaultModeId);
+                resolvedValue = await this.resolveVariableValue(aliasedVariable);
                 value = resolvedValue;
               }
             }
