@@ -486,10 +486,48 @@ body {
   border-color: var(--color-info);
 }
 
+.input-group select,
+.select-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-family: inherit;
+  background-color: var(--color-background);
+  cursor: pointer;
+  transition: border-color var(--transition-base);
+}
+
+.input-group select:focus,
+.select-input:focus {
+  outline: none;
+  border-color: var(--color-info);
+}
+
 .input-hint {
   font-size: var(--text-sm);
   color: var(--color-text-weak);
   margin-top: var(--space-xs);
+}
+
+/* Documentation Sections */
+.doc-section {
+  margin-bottom: var(--space-2xl);
+  padding-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.doc-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: var(--space-lg);
+}
+
+.doc-section-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-strong);
+  margin-bottom: var(--space-md);
 }
 
 /* File List */

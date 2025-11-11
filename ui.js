@@ -2090,6 +2090,8 @@
     constructor(state, bridge) {
       super(state);
       this.selectedFiles = /* @__PURE__ */ new Set();
+      // Available fonts for documentation
+      this.AVAILABLE_FONTS = ["Inter", "DM Sans", "Karla", "Roboto", "Space Grotesk"];
       // Callback for layout to manage button states
       this.onButtonUpdate = null;
       this.bridge = bridge;
@@ -2105,31 +2107,41 @@
       </div>
 
       <div class="import-content active">
-        <!-- File Selection -->
-        <div class="input-group">
-          <label>Select Token Files</label>
-          <div class="file-selection-list" id="file-selection-list">
-            <div class="empty-state">No token files loaded. Import tokens first.</div>
+        <!-- Section: Files to Select -->
+        <div class="doc-section">
+          <h3 class="doc-section-title">Files to Select</h3>
+          <div class="input-group">
+            <label>Token Files</label>
+            <div class="file-selection-list" id="file-selection-list">
+              <div class="empty-state">No token files loaded. Import tokens first.</div>
+            </div>
           </div>
         </div>
 
-        <!-- Font Family -->
-        <div class="input-group">
-          <label for="doc-font-family">Font Family</label>
-          <input
-            type="text"
-            id="doc-font-family"
-            placeholder="Inter"
-            value="Inter"
-          />
+        <!-- Section: Parameters -->
+        <div class="doc-section">
+          <h3 class="doc-section-title">Parameters</h3>
+          <div class="input-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="doc-include-descriptions" checked />
+              <span>Include descriptions column</span>
+            </label>
+          </div>
         </div>
 
-        <!-- Options -->
-        <div class="input-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="doc-include-descriptions" checked />
-            <span>Include descriptions column</span>
-          </label>
+        <!-- Section: Customization -->
+        <div class="doc-section">
+          <h3 class="doc-section-title">Customization</h3>
+          <div class="input-group">
+            <label for="doc-font-family">Font Family</label>
+            <select id="doc-font-family" class="select-input">
+              <option value="Inter">Inter</option>
+              <option value="DM Sans">DM Sans</option>
+              <option value="Karla">Karla</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Space Grotesk">Space Grotesk</option>
+            </select>
+          </div>
         </div>
 
         <!-- Generate Button -->
@@ -2139,7 +2151,7 @@
       </div>
     `;
       this.fileSelectionList = screen.querySelector("#file-selection-list");
-      this.fontFamilyInput = screen.querySelector("#doc-font-family");
+      this.fontFamilySelect = screen.querySelector("#doc-font-family");
       this.includeDescriptionsCheckbox = screen.querySelector("#doc-include-descriptions");
       this.generateBtn = screen.querySelector("#doc-generate-btn");
       return screen;
@@ -2152,7 +2164,7 @@
       this.addEventListener(this.generateBtn, "click", () => {
         this.handleGenerateDocumentation();
       });
-      this.addEventListener(this.fontFamilyInput, "input", () => {
+      this.addEventListener(this.fontFamilySelect, "change", () => {
         this.updateGenerateButtonState();
       });
     }
@@ -2198,7 +2210,7 @@
     updateGenerateButtonState() {
       const tokenFilesLoaded = this.state.tokenFiles.size > 0;
       const hasValidSelection = !tokenFilesLoaded || this.selectedFiles.size > 0;
-      const hasFont = this.fontFamilyInput.value.trim().length > 0;
+      const hasFont = this.fontFamilySelect.value.trim().length > 0;
       const isValid = hasValidSelection && hasFont;
       this.generateBtn.disabled = !isValid;
       if (this.onButtonUpdate) {
@@ -2214,9 +2226,9 @@
         this.showNotification("Please select at least one token file", "error");
         return;
       }
-      const fontFamily = this.fontFamilyInput.value.trim();
+      const fontFamily = this.fontFamilySelect.value.trim();
       if (!fontFamily) {
-        this.showNotification("Please enter a font family", "error");
+        this.showNotification("Please select a font family", "error");
         return;
       }
       const fileNames = tokenFilesLoaded ? Array.from(this.selectedFiles) : [];
