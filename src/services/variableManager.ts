@@ -414,10 +414,11 @@ export class VariableManager {
       let resolvedValue = processedValue.value;
       if (processedValue.isAlias && processedValue.aliasVariable) {
         console.log(`[VariableManager] Token ${path.join('.')} is an alias to ${processedValue.aliasVariable.name}`);
+        console.log(`[VariableManager] Using mode ID: ${modeId}`);
 
-        // Get the value from the aliased variable
-        const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
-        resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
+        // Get the value from the aliased variable using the SAME mode ID as the current token
+        // This is important - we need to use the same mode, not pick a random one from the aliased variable
+        resolvedValue = processedValue.aliasVariable.valuesByMode[modeId];
 
         console.log(`[VariableManager] Initial resolved value type: ${typeof resolvedValue}`);
         console.log(`[VariableManager] Initial resolved value:`, JSON.stringify(resolvedValue));
@@ -440,8 +441,8 @@ export class VariableManager {
             }
 
             console.log(`[VariableManager] Iteration ${iterations}: Resolved to ${nextVar.name}`);
-            const nextModeId = Object.keys(nextVar.valuesByMode)[0];
-            const nextValue = nextVar.valuesByMode[nextModeId];
+            // Use the SAME mode ID throughout the resolution chain
+            const nextValue = nextVar.valuesByMode[modeId];
             console.log(`[VariableManager] Next value type: ${typeof nextValue}`);
             console.log(`[VariableManager] Next value:`, JSON.stringify(nextValue));
 

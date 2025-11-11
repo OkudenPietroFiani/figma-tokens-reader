@@ -1467,8 +1467,8 @@
         let resolvedValue = processedValue.value;
         if (processedValue.isAlias && processedValue.aliasVariable) {
           console.log(`[VariableManager] Token ${path.join(".")} is an alias to ${processedValue.aliasVariable.name}`);
-          const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
-          resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
+          console.log(`[VariableManager] Using mode ID: ${modeId}`);
+          resolvedValue = processedValue.aliasVariable.valuesByMode[modeId];
           console.log(`[VariableManager] Initial resolved value type: ${typeof resolvedValue}`);
           console.log(`[VariableManager] Initial resolved value:`, JSON.stringify(resolvedValue));
           if (typeof resolvedValue === "object" && resolvedValue !== null && "type" in resolvedValue && resolvedValue.type === "VARIABLE_ALIAS") {
@@ -1484,8 +1484,7 @@
                 break;
               }
               console.log(`[VariableManager] Iteration ${iterations}: Resolved to ${nextVar.name}`);
-              const nextModeId = Object.keys(nextVar.valuesByMode)[0];
-              const nextValue = nextVar.valuesByMode[nextModeId];
+              const nextValue = nextVar.valuesByMode[modeId];
               console.log(`[VariableManager] Next value type: ${typeof nextValue}`);
               console.log(`[VariableManager] Next value:`, JSON.stringify(nextValue));
               if (typeof nextValue === "object" && nextValue !== null && "type" in nextValue && nextValue.type === "VARIABLE_ALIAS") {
