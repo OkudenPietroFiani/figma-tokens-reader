@@ -4319,7 +4319,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.width = width;
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
