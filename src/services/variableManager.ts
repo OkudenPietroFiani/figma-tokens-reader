@@ -414,54 +414,12 @@ export class VariableManager {
       let resolvedValue = processedValue.value;
       if (processedValue.isAlias && processedValue.aliasVariable) {
         console.log(`[VariableManager] Token ${path.join('.')} is an alias to ${processedValue.aliasVariable.name}`);
-        console.log(`[VariableManager] Using mode ID: ${modeId}`);
 
-        // Get the value from the aliased variable using the SAME mode ID as the current token
-        // This is important - we need to use the same mode, not pick a random one from the aliased variable
-        resolvedValue = processedValue.aliasVariable.valuesByMode[modeId];
+        // Resolve the alias recursively - each variable uses its own collection's default mode
+        resolvedValue = await this.resolveVariableValueForMetadata(processedValue.aliasVariable);
 
-        console.log(`[VariableManager] Initial resolved value type: ${typeof resolvedValue}`);
-        console.log(`[VariableManager] Initial resolved value:`, JSON.stringify(resolvedValue));
-
-        // If the aliased value is also an alias, we need to resolve recursively
-        if (typeof resolvedValue === 'object' && resolvedValue !== null && 'type' in resolvedValue && resolvedValue.type === 'VARIABLE_ALIAS') {
-          console.log(`[VariableManager] Value is still an alias, resolving recursively...`);
-
-          // Recursively resolve aliases
-          let currentAlias = resolvedValue as VariableAlias;
-          let iterations = 0;
-          const maxIterations = 10;
-
-          while (iterations < maxIterations) {
-            iterations++;
-            const nextVar = await figma.variables.getVariableByIdAsync(currentAlias.id);
-            if (!nextVar) {
-              console.warn(`[VariableManager] Could not resolve alias at iteration ${iterations}`);
-              break;
-            }
-
-            console.log(`[VariableManager] Iteration ${iterations}: Resolved to ${nextVar.name}`);
-            // Use the SAME mode ID throughout the resolution chain
-            const nextValue = nextVar.valuesByMode[modeId];
-            console.log(`[VariableManager] Next value type: ${typeof nextValue}`);
-            console.log(`[VariableManager] Next value:`, JSON.stringify(nextValue));
-
-            if (typeof nextValue === 'object' && nextValue !== null && 'type' in nextValue && nextValue.type === 'VARIABLE_ALIAS') {
-              currentAlias = nextValue as VariableAlias;
-              console.log(`[VariableManager] Still an alias, continuing...`);
-            } else {
-              resolvedValue = nextValue;
-              console.log(`[VariableManager] Final resolved value found:`, JSON.stringify(resolvedValue));
-              break;
-            }
-          }
-
-          if (iterations >= maxIterations) {
-            console.warn(`[VariableManager] Max iterations reached for ${path.join('.')}`);
-          }
-        }
-
-        console.log(`[VariableManager] Storing metadata with value:`, JSON.stringify(resolvedValue));
+        console.log(`[VariableManager] Final resolved value type: ${typeof resolvedValue}`);
+        console.log(`[VariableManager] Final resolved value:`, JSON.stringify(resolvedValue));
       }
 
       const metadata: TokenMetadata = {
@@ -500,6 +458,63 @@ export class VariableManager {
     } catch (error) {
       // Non-fatal - continue import
     }
+  }
+
+  /**
+   * Resolve a variable's value recursively, handling aliases across different collections
+   * Each variable uses its own collection's default mode for lookup
+   */
+  private async resolveVariableValueForMetadata(variable: Variable): Promise<any> {
+    const maxIterations = 10;
+    let currentVar = variable;
+    let iterations = 0;
+
+    console.log(`[resolveVariableValueForMetadata] Starting resolution for ${variable.name}`);
+
+    while (iterations < maxIterations) {
+      iterations++;
+
+      // Get the variable's collection to find its default mode
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      const varCollection = collections.find(c => c.variableIds.includes(currentVar.id));
+
+      if (!varCollection) {
+        console.warn(`[resolveVariableValueForMetadata] Could not find collection for ${currentVar.name}`);
+        return undefined;
+      }
+
+      // Use this variable's collection's default mode
+      const varModeId = varCollection.modes[0]?.modeId;
+      if (!varModeId) {
+        console.warn(`[resolveVariableValueForMetadata] No mode found for ${currentVar.name}`);
+        return undefined;
+      }
+
+      console.log(`[resolveVariableValueForMetadata] Iteration ${iterations}: ${currentVar.name} in collection ${varCollection.name}, mode ${varModeId}`);
+
+      const value = currentVar.valuesByMode[varModeId];
+      console.log(`[resolveVariableValueForMetadata] Value type: ${typeof value}`);
+      console.log(`[resolveVariableValueForMetadata] Value:`, JSON.stringify(value));
+
+      // If it's not an alias, we're done
+      if (typeof value !== 'object' || value === null || !('type' in value) || value.type !== 'VARIABLE_ALIAS') {
+        console.log(`[resolveVariableValueForMetadata] Found final value:`, JSON.stringify(value));
+        return value;
+      }
+
+      // It's still an alias, continue resolving
+      const nextVar = await figma.variables.getVariableByIdAsync((value as VariableAlias).id);
+      if (!nextVar) {
+        console.warn(`[resolveVariableValueForMetadata] Could not resolve alias at iteration ${iterations}`);
+        return undefined;
+      }
+
+      console.log(`[resolveVariableValueForMetadata] Following alias to ${nextVar.name}`);
+      currentVar = nextVar;
+    }
+
+    console.warn(`[resolveVariableValueForMetadata] Max iterations reached for ${variable.name}`);
+    return undefined;
   }
 
   private async findVariableByName(name: string, collection: VariableCollection): Promise<Variable | null> {
