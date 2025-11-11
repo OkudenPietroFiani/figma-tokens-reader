@@ -723,11 +723,11 @@ export class DocumentationGenerator {
     cellFrame.name = 'Cell';
     cellFrame.fills = [];
 
-    // Auto-layout with FIXED width, HUG height
+    // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.width = width; // Set width directly, height will hug children
+    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
