@@ -95,11 +95,41 @@ export interface FigmaVariableData {
 }
 
 // ==================== STORAGE TYPES ====================
+
+/**
+ * Legacy storage format (v1.x)
+ * @deprecated Will be auto-migrated to ProjectStorage
+ */
 export interface TokenState {
   tokenFiles: { [fileName: string]: TokenFile };
   tokenSource: 'github' | 'local' | null;
   githubConfig?: GitHubConfig;
   lastUpdated?: string; // ISO timestamp of last token update
+}
+
+/**
+ * New storage format (v2.0+)
+ * Uses Token[] model with full metadata
+ */
+export interface ProjectStorage {
+  version: '2.0';
+  projectId: string;
+  tokens: import('../core/models/Token').Token[];
+  metadata: {
+    lastSync: string;
+    source: FileSourceConfig;
+    importStats: ImportStats;
+  };
+}
+
+/**
+ * File source configuration for storage
+ */
+export interface FileSourceConfig {
+  type: 'github' | 'gitlab' | 'local' | 'api' | 'figma';
+  location: string;
+  branch?: string;
+  commit?: string;
 }
 
 // ==================== PLUGIN MESSAGE TYPES ====================
