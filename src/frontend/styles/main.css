@@ -320,6 +320,35 @@ body {
   display: flex;
 }
 
+/* Screen Header */
+.screen-header {
+  flex-shrink: 0;
+  padding: var(--space-2xl) var(--space-2xl) var(--space-lg);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-background);
+}
+
+.screen-title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-strong);
+  margin-bottom: var(--space-xs);
+}
+
+.screen-subtitle {
+  font-size: var(--text-base);
+  color: var(--color-text-weak);
+  margin: 0;
+}
+
+/* Screen Body - Scrollable content area */
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2xl);
+}
+
 .hidden {
   display: none !important;
 }

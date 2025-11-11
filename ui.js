@@ -2101,12 +2101,12 @@
       screen.id = "documentation-screen";
       screen.className = "screen-content documentation-screen";
       screen.innerHTML = `
-      <div class="import-header">
-        <h1 class="import-title">Generate Documentation</h1>
-        <p class="import-subtitle">Create a visual table of your design tokens in Figma</p>
+      <div class="screen-header">
+        <h1 class="screen-title">Generate Documentation</h1>
+        <p class="screen-subtitle">Create a visual table of your design tokens in Figma</p>
       </div>
 
-      <div class="import-content active">
+      <div class="screen-body">
         <!-- Section: Files to Select -->
         <div class="doc-section">
           <h3 class="doc-section-title">Files to Select</h3>
