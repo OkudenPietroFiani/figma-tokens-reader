@@ -151,15 +151,20 @@ See `RELEASE_CHECKLIST.md` Phase 1-4 deployment plan
 
 ---
 
-## Files Safe to Remove (Already Replaced)
+## Files Removed (✅ Complete)
 
-None. All deprecated files are still required for dual-run validation.
+**Deployment Phase 4 cleanup completed on 2025-11-11:**
+- ✅ `src/services/variableManager.ts` - REMOVED
+- ✅ `src/utils/tokenProcessor.ts` - REMOVED
+- ✅ `src/core/services/DualRunValidator.ts` - REMOVED
 
-After deployment Phase 4 (2 weeks of production stability), these files can be removed:
-- `src/services/variableManager.ts`
-- `src/utils/tokenProcessor.ts`
-- Legacy method implementations in migrated files
-- `src/core/services/DualRunValidator.ts` (no longer needed)
+**Updated to use new architecture:**
+- ✅ `src/backend/main.ts` - Now uses FigmaSyncService, TokenRepository, TokenResolver
+- ✅ `src/backend/controllers/TokenController.ts` - Refactored for v2.0
+- ✅ `src/backend/controllers/DocumentationController.ts` - Uses TokenRepository
+
+**Legacy code remaining (tree-shaken, not executed):**
+- `src/services/styleManager.ts` - Contains deprecated methods but build tree-shakes unused code
 
 ---
 

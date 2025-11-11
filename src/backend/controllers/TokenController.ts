@@ -3,19 +3,21 @@
 // Orchestrates token import/export operations
 // ====================================================================================
 
-import { Result, Success, TokenData, ImportStats, TokenState, TokenImportData } from '../../shared/types';
+import { Result, Success, Failure, TokenData, ImportStats, TokenState, TokenImportData } from '../../shared/types';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { StorageService } from '../services/StorageService';
-import { VariableManager } from '../../services/variableManager';
+import { FigmaSyncService } from '../../core/services/FigmaSyncService';
+import { TokenRepository } from '../../core/services/TokenRepository';
+import { TokenProcessor } from '../../core/services/TokenProcessor';
 import { SUCCESS_MESSAGES } from '../../shared/constants';
 
 /**
- * Controller for token operations
+ * Controller for token operations (v2.0)
  *
  * Responsibilities:
  * - Orchestrate token import to Figma variables
  * - Manage token state persistence
- * - Coordinate between VariableManager and StorageService
+ * - Coordinate between FigmaSyncService and StorageService
  *
  * Principles:
  * - Dependency Injection: Receives services via constructor
@@ -23,20 +25,23 @@ import { SUCCESS_MESSAGES } from '../../shared/constants';
  * - Result Pattern: All public methods return Result<T>
  */
 export class TokenController {
-  private variableManager: VariableManager;
+  private figmaSyncService: FigmaSyncService;
   private storage: StorageService;
+  private tokenRepository: TokenRepository;
 
   constructor(
-    variableManager: VariableManager,
-    storage: StorageService
+    figmaSyncService: FigmaSyncService,
+    storage: StorageService,
+    tokenRepository: TokenRepository
   ) {
-    this.variableManager = variableManager;
+    this.figmaSyncService = figmaSyncService;
     this.storage = storage;
+    this.tokenRepository = tokenRepository;
   }
 
   /**
-   * Import tokens to Figma variables
-   * Creates/updates variables and text styles
+   * Import tokens to Figma variables (v2.0)
+   * Converts legacy TokenData format to Token[] and syncs via FigmaSyncService
    *
    * @param data - Token import data with primitives and semantics
    * @returns Import statistics
@@ -55,21 +60,65 @@ export class TokenController {
         'TokenController'
       );
 
-      // Import tokens via VariableManager
-      // This creates both variables and text styles
-      const stats = await this.variableManager.importTokens(
-        primitives || {},
-        semantics || {}
-      );
+      // Process tokens using new TokenProcessor
+      const processor = new TokenProcessor();
+      const allTokens = [];
+      let stats: ImportStats = { added: 0, updated: 0, skipped: 0 };
+
+      // Process primitives
+      if (primitives) {
+        const primResult = await processor.processTokenData(primitives, {
+          projectId: 'default',
+          collection: 'primitive',
+          sourceType: 'local',
+          sourceLocation: 'primitives',
+        });
+        if (primResult.success && primResult.data) {
+          allTokens.push(...primResult.data);
+        } else if (!primResult.success) {
+          throw new Error(`Failed to process primitives: ${primResult.error}`);
+        }
+      }
+
+      // Process semantics
+      if (semantics) {
+        const semResult = await processor.processTokenData(semantics, {
+          projectId: 'default',
+          collection: 'semantic',
+          sourceType: 'local',
+          sourceLocation: 'semantics',
+        });
+        if (semResult.success && semResult.data) {
+          allTokens.push(...semResult.data);
+        } else if (!semResult.success) {
+          throw new Error(`Failed to process semantics: ${semResult.error}`);
+        }
+      }
+
+      // Add to repository
+      for (const token of allTokens) {
+        this.tokenRepository.add(token);
+      }
+
+      // Sync to Figma using FigmaSyncService
+      const syncResult = await this.figmaSyncService.syncTokens(allTokens);
+
+      if (!syncResult.success) {
+        throw new Error(syncResult.error || 'Failed to sync tokens to Figma');
+      }
+
+      // Calculate stats (for now, all tokens are considered "added")
+      // TODO: Track actual add vs update in FigmaSyncService
+      stats.added = allTokens.length;
 
       ErrorHandler.info(
-        `Import completed: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`,
+        `Import completed: ${stats.added} tokens synced to Figma`,
         'TokenController'
       );
 
       // Notify user
       ErrorHandler.notifyUser(
-        `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} added, ${stats.updated} updated`,
+        `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} tokens synced`,
         'success'
       );
 
@@ -149,10 +198,10 @@ export class TokenController {
   }
 
   /**
-   * Get token metadata from last import
-   * Useful for debugging and UI display
+   * Get all tokens from repository (v2.0)
+   * Returns Token[] array instead of legacy TokenMetadata[]
    */
-  getTokenMetadata() {
-    return this.variableManager.getTokenMetadata();
+  getTokens() {
+    return this.tokenRepository.getAll();
   }
 }

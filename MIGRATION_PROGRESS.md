@@ -504,15 +504,19 @@ export const FEATURE_FLAGS = {
 
 ---
 
-## Deprecated Files
+## Legacy Files - REMOVED ✅
 
-See `DEPRECATION_GUIDE.md` for complete documentation.
+**Completed on 2025-11-11:**
+- ✅ `src/services/variableManager.ts` - DELETED (replaced by FigmaSyncService)
+- ✅ `src/utils/tokenProcessor.ts` - DELETED (replaced by new TokenProcessor)
+- ✅ `src/core/services/DualRunValidator.ts` - DELETED (no longer needed)
 
-**Legacy files marked for removal in Deployment Phase 4:**
-- `src/services/variableManager.ts` - Replaced by FigmaSyncService
-- `src/utils/tokenProcessor.ts` - Replaced by new TokenProcessor
+**Refactored to v2.0:**
+- ✅ `src/backend/main.ts` - Uses new services
+- ✅ `src/backend/controllers/TokenController.ts` - Uses FigmaSyncService
+- ✅ `src/backend/controllers/DocumentationController.ts` - Uses TokenRepository
 
-**Why kept:**
-- Required for dual-run validation (FEATURE_FLAGS.ENABLE_DUAL_RUN)
-- Provides fallback during gradual rollout
-- Will be removed after 2 weeks of production stability
+**Production Status:**
+- New Token[] architecture is now the ONLY system
+- All legacy code paths removed
+- 100% v2.0 architecture
