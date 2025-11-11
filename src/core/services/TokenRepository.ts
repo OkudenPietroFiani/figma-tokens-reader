@@ -191,6 +191,16 @@ export class TokenRepository {
   }
 
   /**
+   * Get all tokens in the repository
+   * Convenience method for query({})
+   *
+   * @returns Array of all tokens
+   */
+  getAll(): Token[] {
+    return Array.from(this.tokens.values());
+  }
+
+  /**
    * Query tokens with filters
    * Supports multiple filter criteria
    *
