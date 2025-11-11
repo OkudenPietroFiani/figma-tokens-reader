@@ -819,6 +819,14 @@
       <div class="import-content" id="local-import-content">
         <input type="file" id="file-input" multiple accept=".json,.zip" class="file-input-hidden">
 
+        <button class="btn btn-primary btn-full" id="select-files-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V9L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 2V9H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Select token files
+        </button>
+
         <div class="file-selector-section">
           <div id="local-files-list" class="file-list-items"></div>
         </div>
@@ -838,6 +846,7 @@
       this.syncTokensBtn = screen.querySelector("#sync-tokens-btn");
       this.localContent = screen.querySelector("#local-import-content");
       this.fileInput = screen.querySelector("#file-input");
+      this.selectFilesBtn = screen.querySelector("#select-files-btn");
       this.localFilesList = screen.querySelector("#local-files-list");
       return screen;
     }
@@ -851,6 +860,9 @@
       });
       this.addEventListener(this.syncTokensBtn, "click", () => {
         this.handleSyncTokens();
+      });
+      this.addEventListener(this.selectFilesBtn, "click", () => {
+        this.fileInput.click();
       });
       this.addEventListener(this.fileInput, "change", (e) => {
         const target = e.target;
