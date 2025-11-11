@@ -596,7 +596,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Initial height
+    rowFrame.resize(tableWidth, 1); // Set width only, height will hug contents
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
@@ -613,13 +613,13 @@ export class DocumentationGenerator {
   private createHeaderCell(label: string, width: number): FrameNode {
     const cellFrame = figma.createFrame();
     cellFrame.name = `Header: ${label}`;
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
     cellFrame.fills = [];
 
     // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
+    cellFrame.resize(width, 1); // Set width only, height will hug contents
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -632,6 +632,8 @@ export class DocumentationGenerator {
     text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
     text.fontName = { family: this.fontFamily, style: 'Bold' };
     text.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
+    text.textAutoResize = 'HEIGHT'; // Allow text to wrap and grow in height
+    text.layoutAlign = 'STRETCH'; // Stretch to fill cell width
 
     cellFrame.appendChild(text);
     return cellFrame;
@@ -659,7 +661,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Initial height
+    rowFrame.resize(tableWidth, 1); // Set width only, height will hug contents
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -702,13 +704,13 @@ export class DocumentationGenerator {
   private createTextCell(value: string, width: number): FrameNode {
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Cell';
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
     // Auto-layout with FIXED width, HUG height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
+    cellFrame.resize(width, 1); // Set width only, height will hug contents
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -721,6 +723,8 @@ export class DocumentationGenerator {
     text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
     text.fontName = { family: this.fontFamily, style: 'Regular' };
     text.fills = [{ type: 'SOLID', color: { r: 0.3, g: 0.3, b: 0.3 } }];
+    text.textAutoResize = 'HEIGHT'; // Allow text to wrap and grow in height
+    text.layoutAlign = 'STRETCH'; // Stretch to fill cell width
 
     cellFrame.appendChild(text);
     return cellFrame;
@@ -732,13 +736,13 @@ export class DocumentationGenerator {
   private async createVisualizationCell(row: DocumentationTokenRow, width: number): Promise<FrameNode> {
     const cellFrame = figma.createFrame();
     cellFrame.name = 'Visualization Cell';
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
     cellFrame.fills = [];
 
     // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
+    cellFrame.resize(width, 1); // Set width only, height will hug contents
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
