@@ -1844,6 +1844,8 @@
       if (!scopeOptionsContainer) return;
       const scopesByType = {
         "COLOR": [
+          { label: "No scope", value: "" },
+          // Empty scope option
           { label: "All fills", value: "ALL_FILLS" },
           { label: "Frame fill", value: "FRAME_FILL" },
           { label: "Shape fill", value: "SHAPE_FILL" },
@@ -1855,6 +1857,8 @@
           { label: "Effect color", value: "EFFECT_COLOR" }
         ],
         "FLOAT": [
+          { label: "No scope", value: "" },
+          // Empty scope option
           { label: "Corner radius", value: "CORNER_RADIUS" },
           { label: "Width & height", value: "WIDTH_HEIGHT" },
           { label: "Gap", value: "GAP" },
@@ -1866,12 +1870,17 @@
           { label: "Paragraph indent", value: "PARAGRAPH_INDENT" }
         ],
         "STRING": [
+          { label: "No scope", value: "" },
+          // Empty scope option
           { label: "Text content", value: "TEXT_CONTENT" },
           { label: "Font family", value: "FONT_FAMILY" },
           { label: "Font style", value: "FONT_STYLE" },
           { label: "Font weight", value: "FONT_WEIGHT" }
         ],
-        "BOOLEAN": []
+        "BOOLEAN": [
+          { label: "No scope", value: "" }
+          // Empty scope option
+        ]
       };
       if (types.size > 1) {
         scopeOptionsContainer.innerHTML = '<div class="empty-state">Select variables of the same type to assign scopes</div>';
@@ -2044,11 +2053,7 @@
       }
       try {
         const scopeCheckboxes = this.scopeSelector.querySelectorAll('input[type="checkbox"]:checked');
-        const selectedScopes = Array.from(scopeCheckboxes).map((cb) => cb.value);
-        if (selectedScopes.length === 0) {
-          this.showNotification("Please select at least one scope to apply", "error");
-          return;
-        }
+        const selectedScopes = Array.from(scopeCheckboxes).map((cb) => cb.value).filter((value) => value !== "");
         const scopeAssignments = {};
         this.selectedVariables.forEach((varId) => {
           const variable = this.variables.find((v) => v.id === varId);
