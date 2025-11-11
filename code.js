@@ -3878,12 +3878,16 @@
     }
     /**
      * Load font for documentation
-     * Loads Regular and Bold styles needed for all visualizations
+     * Loads Regular and Bold styles for selected font + Inter (for visualizers)
      */
     async loadFont() {
       try {
         await figma.loadFontAsync({ family: this.fontFamily, style: "Regular" });
         await figma.loadFontAsync({ family: this.fontFamily, style: "Bold" });
+        if (this.fontFamily !== "Inter") {
+          await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+          await figma.loadFontAsync({ family: "Inter", style: "Bold" });
+        }
       } catch (error) {
         for (const fallback of DOCUMENTATION_TYPOGRAPHY.fallbackFonts) {
           try {
@@ -3891,6 +3895,13 @@
             await figma.loadFontAsync({ family: fallback, style: "Bold" });
             this.fontFamily = fallback;
             console.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
+            if (fallback !== "Inter") {
+              try {
+                await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+                await figma.loadFontAsync({ family: "Inter", style: "Bold" });
+              } catch (e) {
+              }
+            }
             return;
           } catch (e) {
             continue;
@@ -4221,7 +4232,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.width = tableWidth;
+      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const width = columnWidths.get(column.key) || 200;
         const cell = this.createHeaderCell(column.label, width);
@@ -4239,7 +4250,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.width = width;
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4267,7 +4278,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.width = tableWidth;
+      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
         let cell;
@@ -4335,7 +4346,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.width = width;
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;

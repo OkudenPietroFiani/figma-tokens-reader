@@ -112,12 +112,19 @@ export class DocumentationGenerator {
 
   /**
    * Load font for documentation
-   * Loads Regular and Bold styles needed for all visualizations
+   * Loads Regular and Bold styles for selected font + Inter (for visualizers)
    */
   private async loadFont(): Promise<void> {
     try {
+      // Load the selected documentation font
       await figma.loadFontAsync({ family: this.fontFamily, style: 'Regular' });
       await figma.loadFontAsync({ family: this.fontFamily, style: 'Bold' });
+
+      // Always load Inter for visualizers (if not already the selected font)
+      if (this.fontFamily !== 'Inter') {
+        await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+        await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+      }
     } catch (error) {
       // Try fallback fonts
       for (const fallback of DOCUMENTATION_TYPOGRAPHY.fallbackFonts) {
@@ -126,6 +133,16 @@ export class DocumentationGenerator {
           await figma.loadFontAsync({ family: fallback, style: 'Bold' });
           this.fontFamily = fallback;
           console.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
+
+          // Still try to load Inter for visualizers
+          if (fallback !== 'Inter') {
+            try {
+              await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+              await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+            } catch {
+              // If Inter fails, that's okay - visualizers will use fallback
+            }
+          }
           return;
         } catch {
           continue;
@@ -596,7 +613,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    rowFrame.width = tableWidth; // Set width directly, height will hug children
+    rowFrame.resize(tableWidth, 1); // Width fixed, height will auto-adjust to children
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
@@ -619,7 +636,7 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.width = width; // Set width directly, height will hug children
+    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -661,7 +678,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    rowFrame.width = tableWidth; // Set width directly, height will hug children
+    rowFrame.resize(tableWidth, 1); // Width fixed, height will auto-adjust to children
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -742,7 +759,7 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.width = width; // Set width directly, height will hug children
+    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
