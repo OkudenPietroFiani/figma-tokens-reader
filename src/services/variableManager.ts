@@ -413,34 +413,54 @@ export class VariableManager {
       // For aliases, resolve the actual value from the referenced variable
       let resolvedValue = processedValue.value;
       if (processedValue.isAlias && processedValue.aliasVariable) {
+        console.log(`[VariableManager] Token ${path.join('.')} is an alias to ${processedValue.aliasVariable.name}`);
+
         // Get the value from the aliased variable
         const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
         resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
 
+        console.log(`[VariableManager] Initial resolved value type: ${typeof resolvedValue}`);
+        console.log(`[VariableManager] Initial resolved value:`, JSON.stringify(resolvedValue));
+
         // If the aliased value is also an alias, we need to resolve recursively
-        // This is handled by Figma automatically when we read the value
         if (typeof resolvedValue === 'object' && resolvedValue !== null && 'type' in resolvedValue && resolvedValue.type === 'VARIABLE_ALIAS') {
+          console.log(`[VariableManager] Value is still an alias, resolving recursively...`);
+
           // Recursively resolve aliases
           let currentAlias = resolvedValue as VariableAlias;
           let iterations = 0;
           const maxIterations = 10;
 
           while (iterations < maxIterations) {
+            iterations++;
             const nextVar = await figma.variables.getVariableByIdAsync(currentAlias.id);
-            if (!nextVar) break;
+            if (!nextVar) {
+              console.warn(`[VariableManager] Could not resolve alias at iteration ${iterations}`);
+              break;
+            }
 
+            console.log(`[VariableManager] Iteration ${iterations}: Resolved to ${nextVar.name}`);
             const nextModeId = Object.keys(nextVar.valuesByMode)[0];
             const nextValue = nextVar.valuesByMode[nextModeId];
+            console.log(`[VariableManager] Next value type: ${typeof nextValue}`);
+            console.log(`[VariableManager] Next value:`, JSON.stringify(nextValue));
 
             if (typeof nextValue === 'object' && nextValue !== null && 'type' in nextValue && nextValue.type === 'VARIABLE_ALIAS') {
               currentAlias = nextValue as VariableAlias;
-              iterations++;
+              console.log(`[VariableManager] Still an alias, continuing...`);
             } else {
               resolvedValue = nextValue;
+              console.log(`[VariableManager] Final resolved value found:`, JSON.stringify(resolvedValue));
               break;
             }
           }
+
+          if (iterations >= maxIterations) {
+            console.warn(`[VariableManager] Max iterations reached for ${path.join('.')}`);
+          }
         }
+
+        console.log(`[VariableManager] Storing metadata with value:`, JSON.stringify(resolvedValue));
       }
 
       const metadata: TokenMetadata = {

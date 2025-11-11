@@ -1466,26 +1466,42 @@
         const fullPath = `${collectionName.toLowerCase()}.${path.join(".")}`;
         let resolvedValue = processedValue.value;
         if (processedValue.isAlias && processedValue.aliasVariable) {
+          console.log(`[VariableManager] Token ${path.join(".")} is an alias to ${processedValue.aliasVariable.name}`);
           const aliasedModeId = Object.keys(processedValue.aliasVariable.valuesByMode)[0];
           resolvedValue = processedValue.aliasVariable.valuesByMode[aliasedModeId];
+          console.log(`[VariableManager] Initial resolved value type: ${typeof resolvedValue}`);
+          console.log(`[VariableManager] Initial resolved value:`, JSON.stringify(resolvedValue));
           if (typeof resolvedValue === "object" && resolvedValue !== null && "type" in resolvedValue && resolvedValue.type === "VARIABLE_ALIAS") {
+            console.log(`[VariableManager] Value is still an alias, resolving recursively...`);
             let currentAlias = resolvedValue;
             let iterations = 0;
             const maxIterations = 10;
             while (iterations < maxIterations) {
+              iterations++;
               const nextVar = await figma.variables.getVariableByIdAsync(currentAlias.id);
-              if (!nextVar) break;
+              if (!nextVar) {
+                console.warn(`[VariableManager] Could not resolve alias at iteration ${iterations}`);
+                break;
+              }
+              console.log(`[VariableManager] Iteration ${iterations}: Resolved to ${nextVar.name}`);
               const nextModeId = Object.keys(nextVar.valuesByMode)[0];
               const nextValue = nextVar.valuesByMode[nextModeId];
+              console.log(`[VariableManager] Next value type: ${typeof nextValue}`);
+              console.log(`[VariableManager] Next value:`, JSON.stringify(nextValue));
               if (typeof nextValue === "object" && nextValue !== null && "type" in nextValue && nextValue.type === "VARIABLE_ALIAS") {
                 currentAlias = nextValue;
-                iterations++;
+                console.log(`[VariableManager] Still an alias, continuing...`);
               } else {
                 resolvedValue = nextValue;
+                console.log(`[VariableManager] Final resolved value found:`, JSON.stringify(resolvedValue));
                 break;
               }
             }
+            if (iterations >= maxIterations) {
+              console.warn(`[VariableManager] Max iterations reached for ${path.join(".")}`);
+            }
           }
+          console.log(`[VariableManager] Storing metadata with value:`, JSON.stringify(resolvedValue));
         }
         const metadata = {
           name: path[path.length - 1],
@@ -3427,11 +3443,17 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
+        console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+        console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+        console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+        console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
         const color = this.parseColor(token.value);
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
         square.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
-        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
+        console.error(`[ColorVisualizer] Failed to parse color for ${token.name}`);
+        console.error(`[ColorVisualizer] Error details:`, error);
+        console.error(`[ColorVisualizer] Token value was:`, JSON.stringify(token.value));
       }
       container.appendChild(square);
       return container;
