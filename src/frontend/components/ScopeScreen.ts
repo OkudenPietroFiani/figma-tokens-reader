@@ -399,6 +399,7 @@ export class ScopeScreen extends BaseComponent {
     // Define scope options for each type
     const scopesByType: { [key: string]: Array<{ label: string, value: string }> } = {
       'COLOR': [
+        { label: 'No scope', value: '' },  // Empty scope option
         { label: 'All fills', value: 'ALL_FILLS' },
         { label: 'Frame fill', value: 'FRAME_FILL' },
         { label: 'Shape fill', value: 'SHAPE_FILL' },
@@ -410,6 +411,7 @@ export class ScopeScreen extends BaseComponent {
         { label: 'Effect color', value: 'EFFECT_COLOR' }
       ],
       'FLOAT': [
+        { label: 'No scope', value: '' },  // Empty scope option
         { label: 'Corner radius', value: 'CORNER_RADIUS' },
         { label: 'Width & height', value: 'WIDTH_HEIGHT' },
         { label: 'Gap', value: 'GAP' },
@@ -421,12 +423,15 @@ export class ScopeScreen extends BaseComponent {
         { label: 'Paragraph indent', value: 'PARAGRAPH_INDENT' }
       ],
       'STRING': [
+        { label: 'No scope', value: '' },  // Empty scope option
         { label: 'Text content', value: 'TEXT_CONTENT' },
         { label: 'Font family', value: 'FONT_FAMILY' },
         { label: 'Font style', value: 'FONT_STYLE' },
         { label: 'Font weight', value: 'FONT_WEIGHT' }
       ],
-      'BOOLEAN': []
+      'BOOLEAN': [
+        { label: 'No scope', value: '' }  // Empty scope option
+      ]
     };
 
     // If mixed types, show message
@@ -642,12 +647,12 @@ export class ScopeScreen extends BaseComponent {
 
       // Get selected scopes from the scope selector
       const scopeCheckboxes = this.scopeSelector.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked');
-      const selectedScopes = Array.from(scopeCheckboxes).map(cb => cb.value);
+      const selectedScopes = Array.from(scopeCheckboxes)
+        .map(cb => cb.value)
+        .filter(value => value !== ''); // Filter out empty "No scope" value
 
-      if (selectedScopes.length === 0) {
-        this.showNotification('Please select at least one scope to apply', 'error');
-        return;
-      }
+      // Note: Empty selectedScopes array is now allowed - it means "no scope"
+      // This allows users to clear all scopes from variables
 
       // Build scope assignments for selected variables
       const scopeAssignments: { [varName: string]: any[] } = {};
