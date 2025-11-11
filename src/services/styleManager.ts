@@ -3,6 +3,7 @@
 
 import { DesignToken, TokenData } from '../shared/types';
 import { resolveReference } from '../utils/tokenProcessor';
+import { Token } from '../core/models/Token';
 
 interface TypographyToken {
   fontFamily?: string;
@@ -18,6 +19,22 @@ interface StyleStats {
   skipped: number;
 }
 
+/**
+ * StyleManager - Manages Figma text and effect styles
+ *
+ * Migration Notes (Phase 5.3):
+ * - NEW: createTextStylesFromTokens(tokens: Token[]) - Flat array processing, no tree traversal
+ * - NEW: createEffectStylesFromTokens(tokens: Token[]) - Flat array processing, no tree traversal
+ * - LEGACY: createTextStyles(data: TokenData, path: string[]) - Recursive tree traversal
+ * - LEGACY: createEffectStyles(data: TokenData, path: string[]) - Recursive tree traversal
+ *
+ * Benefits of Token[] methods:
+ * - No recursive tree traversal needed
+ * - Direct access to resolved values (already resolved by TokenResolver)
+ * - Simpler code, easier to maintain
+ * - Better error handling
+ * - Skips aliases automatically (only creates styles for concrete tokens)
+ */
 export class StyleManager {
   private variableMap: Map<string, Variable>;
   private styleStats: StyleStats;
@@ -28,11 +45,12 @@ export class StyleManager {
   }
 
   /**
-   * Process tokens and create text styles for composite typography tokens
+   * Process tokens and create text styles for composite typography tokens (LEGACY - tree traversal)
    * Clean code: Single responsibility - only handles text styles
+   * @deprecated Use createTextStylesFromTokens() for Token[] model
    */
   async createTextStyles(tokens: TokenData, pathPrefix: string[] = []): Promise<StyleStats> {
-    console.log('\n=== CREATING TEXT STYLES ===');
+    console.log('\n=== CREATING TEXT STYLES (LEGACY) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     await this.processTokenGroup(tokens, pathPrefix, 'text');
@@ -48,10 +66,11 @@ export class StyleManager {
   }
 
   /**
-   * Process tokens and create effect styles for drop shadow tokens
+   * Process tokens and create effect styles for drop shadow tokens (LEGACY - tree traversal)
+   * @deprecated Use createEffectStylesFromTokens() for Token[] model
    */
   async createEffectStyles(tokens: TokenData, pathPrefix: string[] = []): Promise<StyleStats> {
-    console.log('\n=== CREATING EFFECT STYLES ===');
+    console.log('\n=== CREATING EFFECT STYLES (LEGACY) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     await this.processTokenGroup(tokens, pathPrefix, 'effect');
@@ -62,6 +81,135 @@ export class StyleManager {
         { timeout: 3000 }
       );
     }
+
+    return this.styleStats;
+  }
+
+  /**
+   * Create text styles from Token[] (NEW - flat array processing)
+   * No tree traversal needed - tokens are already flat
+   *
+   * @param tokens - Array of tokens to process
+   * @returns Statistics about created/updated styles
+   */
+  async createTextStylesFromTokens(tokens: Token[]): Promise<StyleStats> {
+    console.log('\n=== CREATING TEXT STYLES (TOKEN[]) ===');
+    this.styleStats = { created: 0, updated: 0, skipped: 0 };
+
+    // Filter to typography tokens only (skip aliases - they're already resolved)
+    const typographyTokens = tokens.filter(t =>
+      t.type === 'typography' &&
+      typeof (t.resolvedValue || t.value) === 'object' &&
+      !t.aliasTo // Skip aliases - we want the concrete tokens
+    );
+
+    console.log(`[STYLE] Found ${typographyTokens.length} typography tokens`);
+
+    // Process each typography token
+    for (const token of typographyTokens) {
+      const styleName = token.qualifiedName;
+      const value = token.resolvedValue || token.value;
+
+      try {
+        // Find or create text style
+        const existingStyles = await figma.getLocalTextStylesAsync();
+        let textStyle = existingStyles.find(s => s.name === styleName);
+
+        if (!textStyle) {
+          textStyle = figma.createTextStyle();
+          textStyle.name = styleName;
+          this.styleStats.created++;
+        } else {
+          this.styleStats.updated++;
+        }
+
+        // Set description
+        if (token.description) {
+          textStyle.description = token.description;
+        }
+
+        // Apply typography properties
+        await this.applyTypographyProperties(textStyle, value as TypographyToken);
+
+        console.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} text style: ${styleName}`);
+      } catch (error) {
+        console.error(`[STYLE ERROR] Failed to create text style for ${styleName}:`, error);
+        this.styleStats.skipped++;
+      }
+    }
+
+    if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
+      figma.notify(
+        `✓ Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
+        { timeout: 3000 }
+      );
+    }
+
+    console.log(`[STYLE] Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
+
+    return this.styleStats;
+  }
+
+  /**
+   * Create effect styles from Token[] (NEW - flat array processing)
+   * No tree traversal needed - tokens are already flat
+   *
+   * @param tokens - Array of tokens to process
+   * @returns Statistics about created/updated styles
+   */
+  async createEffectStylesFromTokens(tokens: Token[]): Promise<StyleStats> {
+    console.log('\n=== CREATING EFFECT STYLES (TOKEN[]) ===');
+    this.styleStats = { created: 0, updated: 0, skipped: 0 };
+
+    // Filter to shadow tokens only (skip aliases - they're already resolved)
+    const shadowTokens = tokens.filter(t =>
+      (t.type === 'shadow' || t.type === 'boxShadow') &&
+      !t.aliasTo // Skip aliases - we want the concrete tokens
+    );
+
+    console.log(`[STYLE] Found ${shadowTokens.length} shadow tokens`);
+
+    // Process each shadow token
+    for (const token of shadowTokens) {
+      const styleName = token.qualifiedName;
+      const value = token.resolvedValue || token.value;
+
+      try {
+        // Find or create effect style
+        const existingStyles = await figma.getLocalEffectStylesAsync();
+        let effectStyle = existingStyles.find(s => s.name === styleName);
+
+        if (!effectStyle) {
+          effectStyle = figma.createEffectStyle();
+          effectStyle.name = styleName;
+          this.styleStats.created++;
+        } else {
+          this.styleStats.updated++;
+        }
+
+        // Set description
+        if (token.description) {
+          effectStyle.description = token.description;
+        }
+
+        // Apply shadow effects
+        await this.applyShadowEffects(effectStyle, value);
+
+        console.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} effect style: ${styleName}`);
+      } catch (error) {
+        console.error(`[STYLE ERROR] Failed to create effect style for ${styleName}:`, error);
+        this.styleStats.skipped++;
+      }
+    }
+
+    if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
+      figma.notify(
+        `✓ Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
+        { timeout: 3000 }
+      );
+    }
+
+    console.log(`[STYLE] Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
 
     return this.styleStats;
   }

@@ -15,6 +15,9 @@ import {
 } from '../../shared/documentation-config';
 import { TokenVisualizerRegistry } from '../../core/registries/TokenVisualizerRegistry';
 import { DefaultVisualizer } from '../../core/visualizers/DefaultVisualizer';
+import { Token } from '../../core/models/Token';
+import { TokenDocumentationAdapter } from '../../core/adapters/TokenDocumentationAdapter';
+import { TokenRepository } from '../../core/services/TokenRepository';
 
 /**
  * DocumentationGenerator
@@ -33,14 +36,32 @@ import { DefaultVisualizer } from '../../core/visualizers/DefaultVisualizer';
 export class DocumentationGenerator {
   private fontFamily: string;
   private defaultVisualizer: DefaultVisualizer;
+  private adapter?: TokenDocumentationAdapter;
 
-  constructor() {
+  constructor(repository?: TokenRepository) {
     this.fontFamily = DOCUMENTATION_TYPOGRAPHY.defaultFontFamily;
     this.defaultVisualizer = new DefaultVisualizer();
+    if (repository) {
+      this.adapter = new TokenDocumentationAdapter(repository);
+    }
   }
 
   /**
-   * Generate documentation table in Figma
+   * Generate documentation table in Figma (Token[] overload)
+   *
+   * @param tokenFiles - Map of token files to document
+   * @param tokens - Array of tokens from TokenRepository
+   * @param options - Generation options
+   * @returns Result with generation statistics
+   */
+  async generate(
+    tokenFiles: Map<string, TokenFile>,
+    tokens: Token[],
+    options: DocumentationOptions
+  ): Promise<Result<DocumentationResult>>;
+
+  /**
+   * Generate documentation table in Figma (TokenMetadata[] overload - deprecated)
    *
    * @param tokenFiles - Map of token files to document
    * @param tokenMetadata - Array of token metadata from VariableManager (can be empty)
@@ -50,6 +71,15 @@ export class DocumentationGenerator {
   async generate(
     tokenFiles: Map<string, TokenFile>,
     tokenMetadata: TokenMetadata[],
+    options: DocumentationOptions
+  ): Promise<Result<DocumentationResult>>;
+
+  /**
+   * Generate documentation table in Figma (implementation)
+   */
+  async generate(
+    tokenFiles: Map<string, TokenFile>,
+    tokensOrMetadata: Token[] | TokenMetadata[],
     options: DocumentationOptions
   ): Promise<Result<DocumentationResult>> {
     try {
@@ -61,8 +91,21 @@ export class DocumentationGenerator {
       // Load font
       await this.loadFont();
 
+      // Convert Token[] to TokenMetadata[] if needed
+      let metadata: TokenMetadata[];
+      if (tokensOrMetadata.length > 0 && this.isToken(tokensOrMetadata[0])) {
+        // It's Token[] - convert using adapter
+        if (!this.adapter) {
+          return Failure('TokenRepository required to process Token[] - please provide repository in constructor');
+        }
+        console.log('[DocumentationGenerator] Converting Token[] to TokenMetadata[]...');
+        metadata = this.adapter.tokensToMetadata(tokensOrMetadata as Token[]);
+      } else {
+        // It's TokenMetadata[] - use directly
+        metadata = tokensOrMetadata as TokenMetadata[];
+      }
+
       // If no metadata provided, build from Figma variables
-      let metadata = tokenMetadata;
       if (!metadata || metadata.length === 0) {
         console.log('[DocumentationGenerator] No metadata provided, building from Figma variables...');
         const buildResult = await this.buildMetadataFromFigmaVariables();
@@ -793,5 +836,12 @@ export class DocumentationGenerator {
     cellFrame.resize(width, cellFrame.height);
 
     return cellFrame;
+  }
+
+  /**
+   * Type guard to check if object is a Token
+   */
+  private isToken(obj: any): obj is Token {
+    return obj && 'id' in obj && 'qualifiedName' in obj && 'path' in obj;
   }
 }
