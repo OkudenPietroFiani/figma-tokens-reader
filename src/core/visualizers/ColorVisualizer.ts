@@ -58,12 +58,19 @@ export class ColorVisualizer implements ITokenVisualizer {
 
     // Apply color
     try {
+      console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+      console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+      console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+      console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
+
       const color = this.parseColor(token.value);
       square.fills = [{ type: 'SOLID', color }];
     } catch (error) {
       // If color parsing fails, use gray placeholder
       square.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
-      console.error(`[ColorVisualizer] Failed to parse color for ${token.name}:`, error);
+      console.error(`[ColorVisualizer] Failed to parse color for ${token.name}`);
+      console.error(`[ColorVisualizer] Error details:`, error);
+      console.error(`[ColorVisualizer] Token value was:`, JSON.stringify(token.value));
     }
 
     container.appendChild(square);
