@@ -613,13 +613,15 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    rowFrame.resize(tableWidth, 1); // Width fixed, height will auto-adjust to children
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
       const cell = this.createHeaderCell(column.label, width);
       rowFrame.appendChild(cell);
     }
+
+    // Set width AFTER adding all cells so height can auto-adjust
+    rowFrame.resize(tableWidth, rowFrame.height);
 
     return rowFrame;
   }
@@ -680,7 +682,6 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    rowFrame.resize(tableWidth, 1); // Width fixed, height will auto-adjust to children
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -695,6 +696,9 @@ export class DocumentationGenerator {
 
       rowFrame.appendChild(cell);
     }
+
+    // Set width AFTER adding all cells so height can auto-adjust
+    rowFrame.resize(tableWidth, rowFrame.height);
 
     return rowFrame;
   }
