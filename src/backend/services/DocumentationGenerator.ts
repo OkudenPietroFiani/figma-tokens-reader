@@ -595,8 +595,8 @@ export class DocumentationGenerator {
     // Auto-layout horizontal with fixed width, auto height
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
-    rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Set initial size, height will adjust after children added
+    rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
+    rowFrame.width = tableWidth; // Set width directly, height will hug children
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
@@ -618,8 +618,8 @@ export class DocumentationGenerator {
     // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Set initial size, height will adjust after text added
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
+    cellFrame.width = width; // Set width directly, height will hug children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -660,8 +660,8 @@ export class DocumentationGenerator {
     // Auto-layout horizontal with fixed width, auto height
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
-    rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after children added
+    rowFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
+    rowFrame.width = tableWidth; // Set width directly, height will hug children
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -709,8 +709,8 @@ export class DocumentationGenerator {
     // Auto-layout with FIXED width, HUG height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after text added
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
+    cellFrame.width = width; // Set width directly, height will hug children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -741,8 +741,8 @@ export class DocumentationGenerator {
     // Auto-layout with FIXED width, AUTO height
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
-    cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after visualization added
+    cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
+    cellFrame.width = width; // Set width directly, height will hug children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;

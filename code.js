@@ -4221,7 +4221,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      rowFrame.width = tableWidth;
       for (const column of columns) {
         const width = columnWidths.get(column.key) || 200;
         const cell = this.createHeaderCell(column.label, width);
@@ -4239,7 +4239,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      cellFrame.width = width;
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4267,7 +4267,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      rowFrame.width = tableWidth;
       for (const column of columns) {
         const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
         let cell;
@@ -4308,7 +4308,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      cellFrame.width = width;
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4335,7 +4335,7 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      cellFrame.width = width;
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
