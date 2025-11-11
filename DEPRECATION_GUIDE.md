@@ -4,20 +4,27 @@
 
 This document tracks deprecated files from the legacy architecture (v1.x) and explains the migration path to the new architecture (v2.0). These files are intentionally kept during the gradual rollout phase but will be removed after production stability is confirmed.
 
+**CURRENT STATUS:** 🚀 **Production - Phase 4 Active** (Since 2025-11-11)
+- New Token[] model is now the primary system
+- Legacy code disabled (ENABLE_DUAL_RUN = false)
+- Monitoring period: 2 weeks (ends 2025-11-25)
+- Files scheduled for removal after stability confirmed
+
 ---
 
 ## Deprecation Strategy
 
 **Approach:** Strangler Fig Pattern
-- Old code continues to run (production path)
-- New code runs in parallel for validation
-- Feature flags control gradual rollout
-- Old code removed after 2 weeks of production stability
+- ~~Old code continues to run (production path)~~ **COMPLETE**
+- ~~New code runs in parallel for validation~~ **COMPLETE**
+- ~~Feature flags control gradual rollout~~ **COMPLETE**
+- **CURRENT:** Old code removed after 2 weeks of production stability (ends 2025-11-25)
 
 **Timeline:**
-- **Phase 1-2:** Validation mode (old code active, new code validates)
-- **Phase 3:** Gradual rollout (25% → 50% → 75% → 100%)
-- **Phase 4:** Full production (old code removed after 2 weeks stability)
+- **Phase 1-2:** ✅ Validation mode (old code active, new code validates)
+- **Phase 3:** ✅ Gradual rollout (25% → 50% → 75% → 100%)
+- **Phase 4:** ✅ **ACTIVE** - Full production (monitoring until 2025-11-25)
+- **Phase 5:** Scheduled - Remove deprecated files (after 2025-11-25)
 
 See: `RELEASE_CHECKLIST.md` for detailed deployment plan
 
@@ -224,5 +231,6 @@ See documentation:
 ---
 
 **Last Updated:** 2025-11-11
-**Status:** Phase 7 (Cleanup) - Deprecation notices added
-**Next Step:** Production deployment Phase 1 (Validation mode)
+**Status:** 🚀 **Production Active** - Deployment Phase 4 (Full rollout)
+**Monitoring Period:** Until 2025-11-25 (2 weeks)
+**Next Step:** Remove deprecated files after stability confirmed (2025-11-25)

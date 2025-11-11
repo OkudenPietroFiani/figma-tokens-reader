@@ -10,12 +10,15 @@ import { FigmaSyncService } from './FigmaSyncService';
 
 /**
  * Feature flags for gradual rollout
+ *
+ * PRODUCTION STATUS: Full rollout enabled (Phase 4)
+ * Last updated: 2025-11-11
  */
 export const FEATURE_FLAGS = {
-  ENABLE_NEW_TOKEN_MODEL: false, // Master switch
-  ENABLE_DUAL_RUN: true, // Run both paths for comparison
-  SWITCH_TO_NEW_MODEL: false, // Use new model output (after validation)
-  AUTO_ROLLBACK_THRESHOLD: 0.05, // 5% discrepancy triggers rollback
+  ENABLE_NEW_TOKEN_MODEL: true, // Master switch - ENABLED for production
+  ENABLE_DUAL_RUN: false, // Dual-run disabled - using new model exclusively
+  SWITCH_TO_NEW_MODEL: true, // Using new model output in production
+  AUTO_ROLLBACK_THRESHOLD: 0.05, // 5% discrepancy triggers rollback (monitoring only)
 };
 
 /**
