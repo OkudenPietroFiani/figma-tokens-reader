@@ -596,7 +596,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, 1); // Set width only, height will hug contents
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Set initial size, height will adjust after children added
 
     for (const column of columns) {
       const width = columnWidths.get(column.key) || 200; // Fallback width
@@ -619,7 +619,7 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, 1); // Set width only, height will hug contents
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight); // Set initial size, height will adjust after text added
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -661,7 +661,7 @@ export class DocumentationGenerator {
     rowFrame.layoutMode = 'HORIZONTAL';
     rowFrame.primaryAxisSizingMode = 'FIXED';
     rowFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt to content
-    rowFrame.resize(tableWidth, 1); // Set width only, height will hug contents
+    rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after children added
 
     for (const column of columns) {
       const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
@@ -710,7 +710,7 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, 1); // Set width only, height will hug contents
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after text added
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -742,7 +742,7 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Allow height to adapt
-    cellFrame.resize(width, 1); // Set width only, height will hug contents
+    cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight); // Set initial size, height will adjust after visualization added
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
