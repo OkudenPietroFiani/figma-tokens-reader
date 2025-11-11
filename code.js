@@ -4232,12 +4232,12 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const width = columnWidths.get(column.key) || 200;
         const cell = this.createHeaderCell(column.label, width);
         rowFrame.appendChild(cell);
       }
+      rowFrame.resize(tableWidth, rowFrame.height);
       return rowFrame;
     }
     /**
@@ -4277,7 +4277,6 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
         let cell;
@@ -4289,6 +4288,7 @@
         }
         rowFrame.appendChild(cell);
       }
+      rowFrame.resize(tableWidth, rowFrame.height);
       return rowFrame;
     }
     /**
