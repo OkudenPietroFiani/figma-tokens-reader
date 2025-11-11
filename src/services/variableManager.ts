@@ -1,3 +1,22 @@
+// ====================================================================================
+// DEPRECATED: This file is part of the legacy architecture (v1.x)
+// ====================================================================================
+//
+// Status: DEPRECATED - To be removed in deployment Phase 4
+// Replaced by: src/core/services/FigmaSyncService.ts
+//
+// Why still present:
+// - Required for dual-run validation (FEATURE_FLAGS.ENABLE_DUAL_RUN)
+// - Provides fallback during gradual rollout
+// - Will be removed after 2 weeks of production stability
+//
+// New architecture migration:
+// - Token[] model instead of TokenData tree
+// - O(1) lookups instead of O(n²) fuzzy matching
+// - Dynamic collections instead of hardcoded primitive/semantic
+// - See: MIGRATION_PROGRESS.md and RELEASE_CHECKLIST.md
+// ====================================================================================
+
 // Figma variable management service
 
 import { COLLECTION_NAMES } from '../shared/constants';

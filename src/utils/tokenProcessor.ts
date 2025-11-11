@@ -1,3 +1,22 @@
+// ====================================================================================
+// DEPRECATED: This file is part of the legacy architecture (v1.x)
+// ====================================================================================
+//
+// Status: DEPRECATED - To be removed in deployment Phase 4
+// Replaced by: src/core/services/TokenProcessor.ts
+//
+// Why still present:
+// - Used by legacy VariableManager (also deprecated)
+// - Required for dual-run validation strategy
+// - Will be removed after production stability confirmed
+//
+// New architecture:
+// - Format-agnostic processing via TokenFormatRegistry
+// - Automatic format detection (W3C, Style Dictionary)
+// - Better reference resolution via TokenResolver
+// - See: src/core/services/TokenProcessor.ts
+// ====================================================================================
+
 // Token processing utilities
 
 import { TYPE_MAPPING } from '../shared/constants';
