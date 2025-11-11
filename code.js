@@ -4262,8 +4262,7 @@
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
       text.fontName = { family: this.fontFamily, style: "Bold" };
       text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
-      text.textAutoResize = "HEIGHT";
-      text.layoutAlign = "STRETCH";
+      text.textAutoResize = "WIDTH_AND_HEIGHT";
       cellFrame.appendChild(text);
       return cellFrame;
     }
@@ -4331,8 +4330,7 @@
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
       text.fontName = { family: this.fontFamily, style: "Regular" };
       text.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
-      text.textAutoResize = "HEIGHT";
-      text.layoutAlign = "STRETCH";
+      text.textAutoResize = "WIDTH_AND_HEIGHT";
       cellFrame.appendChild(text);
       return cellFrame;
     }

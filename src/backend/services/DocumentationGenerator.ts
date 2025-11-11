@@ -649,8 +649,7 @@ export class DocumentationGenerator {
     text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
     text.fontName = { family: this.fontFamily, style: 'Bold' };
     text.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
-    text.textAutoResize = 'HEIGHT'; // Allow text to wrap and grow in height
-    text.layoutAlign = 'STRETCH'; // Stretch to fill cell width
+    text.textAutoResize = 'WIDTH_AND_HEIGHT'; // Allow text to size naturally
 
     cellFrame.appendChild(text);
     return cellFrame;
@@ -740,8 +739,7 @@ export class DocumentationGenerator {
     text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
     text.fontName = { family: this.fontFamily, style: 'Regular' };
     text.fills = [{ type: 'SOLID', color: { r: 0.3, g: 0.3, b: 0.3 } }];
-    text.textAutoResize = 'HEIGHT'; // Allow text to wrap and grow in height
-    text.layoutAlign = 'STRETCH'; // Stretch to fill cell width
+    text.textAutoResize = 'WIDTH_AND_HEIGHT'; // Allow text to size naturally
 
     cellFrame.appendChild(text);
     return cellFrame;
