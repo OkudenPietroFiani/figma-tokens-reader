@@ -964,6 +964,15 @@
       return Array.from(tokenIds).map((id) => this.tokens.get(id)).filter((token) => token !== void 0);
     }
     /**
+     * Get all tokens in the repository
+     * Convenience method for query({})
+     *
+     * @returns Array of all tokens
+     */
+    getAll() {
+      return Array.from(this.tokens.values());
+    }
+    /**
      * Query tokens with filters
      * Supports multiple filter criteria
      *
