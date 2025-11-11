@@ -4250,7 +4250,6 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4264,6 +4263,7 @@
       text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
       text.textAutoResize = "WIDTH_AND_HEIGHT";
       cellFrame.appendChild(text);
+      cellFrame.resize(width, cellFrame.height);
       return cellFrame;
     }
     /**
@@ -4318,7 +4318,6 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4332,6 +4331,7 @@
       text.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
       text.textAutoResize = "WIDTH_AND_HEIGHT";
       cellFrame.appendChild(text);
+      cellFrame.resize(width, cellFrame.height);
       return cellFrame;
     }
     /**
@@ -4344,7 +4344,6 @@
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
-      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4356,6 +4355,7 @@
         DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight
       );
       cellFrame.appendChild(visualization);
+      cellFrame.resize(width, cellFrame.height);
       return cellFrame;
     }
   };
