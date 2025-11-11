@@ -38,12 +38,13 @@ export class SpacingVisualizer implements ITokenVisualizer {
 
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 
-    // Auto-layout for centering
+    // Auto-layout for centering with AUTO height (hug contents)
     container.layoutMode = 'HORIZONTAL';
+    container.primaryAxisSizingMode = 'FIXED';
+    container.counterAxisSizingMode = 'AUTO'; // Hug contents height
     container.primaryAxisAlignItems = 'CENTER';
     container.counterAxisAlignItems = 'CENTER';
 
@@ -69,6 +70,10 @@ export class SpacingVisualizer implements ITokenVisualizer {
     rectangle.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.6, b: 1 } }];
 
     container.appendChild(rectangle);
+
+    // Set width AFTER adding children so height can auto-adjust
+    container.resize(dims.width, container.height);
+
     return container;
   }
 

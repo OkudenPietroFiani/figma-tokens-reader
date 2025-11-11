@@ -37,12 +37,13 @@ export class FontWeightVisualizer implements ITokenVisualizer {
 
     const container = figma.createFrame();
     container.name = `viz-${token.name}`;
-    container.resize(dims.width, dims.height);
     container.fills = [];
     container.clipsContent = false;
 
-    // Auto-layout for centering
+    // Auto-layout for centering with AUTO height (hug contents)
     container.layoutMode = 'HORIZONTAL';
+    container.primaryAxisSizingMode = 'FIXED';
+    container.counterAxisSizingMode = 'AUTO'; // Hug contents height
     container.primaryAxisAlignItems = 'CENTER';
     container.counterAxisAlignItems = 'CENTER';
     container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -75,6 +76,10 @@ export class FontWeightVisualizer implements ITokenVisualizer {
 
     container.appendChild(text);
     container.appendChild(sample);
+
+    // Set width AFTER adding children so height can auto-adjust
+    container.resize(dims.width, container.height);
+
     return container;
   }
 

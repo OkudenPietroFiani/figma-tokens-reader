@@ -3438,10 +3438,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -3466,6 +3467,7 @@
         console.error(`[ColorVisualizer] Token value was:`, JSON.stringify(token.value));
       }
       container.appendChild(square);
+      container.resize(dims.width, container.height);
       return container;
     }
     /**
@@ -3584,10 +3586,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       const padding = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -3604,6 +3607,7 @@
       rectangle.cornerRadius = 2;
       rectangle.fills = [{ type: "SOLID", color: { r: 0.4, g: 0.6, b: 1 } }];
       container.appendChild(rectangle);
+      container.resize(dims.width, container.height);
       return container;
     }
     /**
@@ -3634,10 +3638,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -3650,6 +3655,7 @@
       text.fontSize = fontSize;
       text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
       container.appendChild(text);
+      container.resize(dims.width, container.height);
       return container;
     }
     /**
@@ -3685,10 +3691,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -3710,6 +3717,7 @@
       container.itemSpacing = 8;
       container.appendChild(text);
       container.appendChild(sample);
+      container.resize(dims.width, container.height);
       return container;
     }
     /**
@@ -3758,10 +3766,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       container.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.visualization.padding;
@@ -3776,6 +3785,7 @@
       square.strokes = [{ type: "SOLID", color: { r: 0.7, g: 0.7, b: 0.7 } }];
       square.strokeWeight = 1;
       container.appendChild(square);
+      container.resize(dims.width, container.height);
       return container;
     }
     /**
@@ -3806,10 +3816,11 @@
       const dims = validateVisualizationDimensions(width, height);
       const container = figma.createFrame();
       container.name = `viz-${token.name}`;
-      container.resize(dims.width, dims.height);
       container.fills = [];
       container.clipsContent = false;
       container.layoutMode = "HORIZONTAL";
+      container.primaryAxisSizingMode = "FIXED";
+      container.counterAxisSizingMode = "AUTO";
       container.primaryAxisAlignItems = "CENTER";
       container.counterAxisAlignItems = "CENTER";
       const text = figma.createText();
@@ -3817,6 +3828,7 @@
       text.fontSize = 16;
       text.fills = [{ type: "SOLID", color: { r: 0.6, g: 0.6, b: 0.6 } }];
       container.appendChild(text);
+      container.resize(dims.width, container.height);
       return container;
     }
   };
@@ -4329,7 +4341,9 @@
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
       text.fontName = { family: this.fontFamily, style: "Regular" };
       text.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
-      text.textAutoResize = "WIDTH_AND_HEIGHT";
+      const availableWidth = width - DOCUMENTATION_LAYOUT_CONFIG.cell.padding * 2;
+      text.textAutoResize = "HEIGHT";
+      text.resize(availableWidth, text.height);
       cellFrame.appendChild(text);
       cellFrame.resize(width, cellFrame.height);
       return cellFrame;

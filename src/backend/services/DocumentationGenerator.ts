@@ -745,7 +745,12 @@ export class DocumentationGenerator {
     text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
     text.fontName = { family: this.fontFamily, style: 'Regular' };
     text.fills = [{ type: 'SOLID', color: { r: 0.3, g: 0.3, b: 0.3 } }];
-    text.textAutoResize = 'WIDTH_AND_HEIGHT'; // Allow text to size naturally
+
+    // Set text to fill available width (for proper wrapping)
+    // Calculate available width considering cell padding
+    const availableWidth = width - (DOCUMENTATION_LAYOUT_CONFIG.cell.padding * 2);
+    text.textAutoResize = 'HEIGHT'; // Only auto-resize height, width is fixed
+    text.resize(availableWidth, text.height);
 
     cellFrame.appendChild(text);
 
