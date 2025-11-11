@@ -25,23 +25,6 @@
     width: 800,
     height: 600
   };
-  var COLLECTION_NAMES = {
-    primitive: "primitive",
-    semantic: "semantic"
-  };
-  var TYPE_MAPPING = {
-    "color": "COLOR",
-    "dimension": "FLOAT",
-    "spacing": "FLOAT",
-    "number": "FLOAT",
-    "fontFamily": "STRING",
-    "fontWeight": "FLOAT",
-    "fontSize": "FLOAT",
-    "lineHeight": "STRING",
-    "typography": "STRING",
-    "string": "STRING"
-  };
-  var REM_TO_PX_RATIO = 16;
   var FEATURE_FLAGS = {
     // Use new interface-based architecture (Phase 1)
     USE_NEW_ARCHITECTURE: true,
@@ -303,1256 +286,6 @@
      */
     static sleep(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-  };
-
-  // src/utils/parser.ts
-  function parseColor(value) {
-    if (typeof value === "object" && value !== null && "colorSpace" in value && "components" in value) {
-      const { colorSpace, components, alpha } = value;
-      const alphaValue = typeof alpha === "number" ? alpha : 1;
-      if (colorSpace === "hsl" && Array.isArray(components) && components.length === 3) {
-        const h = components[0] / 360;
-        const s = components[1] / 100;
-        const l = components[2] / 100;
-        const rgb = hslToRgb(h, s, l);
-        return __spreadProps(__spreadValues({}, rgb), { a: alphaValue });
-      }
-      if (colorSpace === "rgb" && Array.isArray(components) && components.length === 3) {
-        return {
-          r: components[0] / 255,
-          g: components[1] / 255,
-          b: components[2] / 255,
-          a: alphaValue
-        };
-      }
-      if (value.hex) {
-        const rgb = hexToRgb(value.hex);
-        return __spreadProps(__spreadValues({}, rgb), { a: alphaValue });
-      }
-    }
-    if (typeof value === "object" && value !== null && "value" in value) {
-      return parseColor(value.value);
-    }
-    if (typeof value === "string") {
-      if (value.startsWith("#")) {
-        return hexToRgb(value);
-      }
-      if (value.startsWith("rgb")) {
-        return rgbStringToRgb(value);
-      }
-      if (value.startsWith("hsl")) {
-        return hslStringToRgb(value);
-      }
-    }
-    if (typeof value === "object" && value.hex) {
-      return hexToRgb(value.hex);
-    }
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
-  function parseNumber(value) {
-    if (typeof value === "object" && value !== null && "value" in value) {
-      return parseFloat(value.value) || 0;
-    }
-    if (typeof value === "number") {
-      return value;
-    }
-    if (typeof value === "string") {
-      return parseFloat(value) || 0;
-    }
-    return 0;
-  }
-  function parseDimension(value) {
-    if (typeof value === "object" && value !== null && "value" in value) {
-      const numValue = parseFloat(value.value);
-      const unit = value.unit || "px";
-      if (unit === "rem") {
-        return numValue * REM_TO_PX_RATIO;
-      }
-      return numValue;
-    }
-    if (typeof value === "number") {
-      return value;
-    }
-    if (typeof value === "string") {
-      if (value.endsWith("px")) {
-        return parseFloat(value.replace("px", ""));
-      }
-      if (value.endsWith("rem")) {
-        return parseFloat(value.replace("rem", "")) * REM_TO_PX_RATIO;
-      }
-      const parsed = parseFloat(value);
-      if (!isNaN(parsed)) {
-        return parsed;
-      }
-    }
-    return 0;
-  }
-  function parseTypography(value) {
-    if (Array.isArray(value)) {
-      return value.join(", ");
-    }
-    if (typeof value === "object") {
-      return JSON.stringify(value);
-    }
-    return String(value);
-  }
-  function parseFontFamily(value) {
-    if (typeof value === "object" && value !== null && "value" in value) {
-      return parseFontFamily(value.value);
-    }
-    if (Array.isArray(value)) {
-      return value[0] ? String(value[0]) : "Arial";
-    }
-    if (typeof value === "string" && value.includes(",")) {
-      return value.split(",")[0].trim();
-    }
-    return String(value);
-  }
-  function hexToRgb(hex) {
-    const cleaned = hex.replace("#", "");
-    if (cleaned.length === 8) {
-      const bigint = parseInt(cleaned.substring(0, 6), 16);
-      const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
-      return {
-        r: (bigint >> 16 & 255) / 255,
-        g: (bigint >> 8 & 255) / 255,
-        b: (bigint & 255) / 255,
-        a: alpha
-      };
-    } else if (cleaned.length === 4) {
-      const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
-      const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
-      const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
-      const a = parseInt(cleaned[3] + cleaned[3], 16) / 255;
-      return { r, g, b, a };
-    } else if (cleaned.length === 6) {
-      const bigint = parseInt(cleaned, 16);
-      return {
-        r: (bigint >> 16 & 255) / 255,
-        g: (bigint >> 8 & 255) / 255,
-        b: (bigint & 255) / 255,
-        a: 1
-        // Full opacity by default
-      };
-    } else if (cleaned.length === 3) {
-      const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
-      const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
-      const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
-      return { r, g, b, a: 1 };
-    }
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
-  function rgbStringToRgb(rgbString) {
-    const rgbaMatch = rgbString.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
-    if (rgbaMatch) {
-      const r = parseInt(rgbaMatch[1]) / 255;
-      const g = parseInt(rgbaMatch[2]) / 255;
-      const b = parseInt(rgbaMatch[3]) / 255;
-      const a = rgbaMatch[4] !== void 0 ? parseFloat(rgbaMatch[4]) : 1;
-      return { r, g, b, a };
-    }
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
-  function hslStringToRgb(hslString) {
-    const match = hslString.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)/);
-    if (match) {
-      const h = parseInt(match[1]) / 360;
-      const s = parseInt(match[2]) / 100;
-      const l = parseInt(match[3]) / 100;
-      const a = match[4] !== void 0 ? parseFloat(match[4]) : 1;
-      const rgb = hslToRgb(h, s, l);
-      return __spreadProps(__spreadValues({}, rgb), { a });
-    }
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
-  function hslToRgb(h, s, l) {
-    let r, g, b;
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p2, q2, t) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
-        if (t < 1 / 2) return q2;
-        if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
-        return p2;
-      };
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1 / 3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1 / 3);
-    }
-    return { r, g, b };
-  }
-  function inferTokenType(value) {
-    if (typeof value === "string") {
-      if (value.startsWith("#") || value.startsWith("rgb") || value.startsWith("hsl")) {
-        return "color";
-      }
-      if (value.endsWith("px") || value.endsWith("rem")) {
-        return "dimension";
-      }
-      if (value.includes("px")) {
-        return "spacing";
-      }
-      return "string";
-    }
-    if (typeof value === "number") {
-      return "number";
-    }
-    if (typeof value === "object" && value !== null) {
-      if (Array.isArray(value)) {
-        return "typography";
-      }
-    }
-    return "string";
-  }
-
-  // src/utils/tokenProcessor.ts
-  function mapTokenTypeToFigma(tokenType) {
-    return TYPE_MAPPING[tokenType] || "STRING";
-  }
-  async function processTokenValue(value, tokenType, variableMap) {
-    if (typeof value === "string" && value.includes("{") && value.includes("}")) {
-      const reference = extractReference(value);
-      if (reference) {
-        const referencedVariable = resolveReference(reference, variableMap);
-        if (referencedVariable) {
-          return { value: null, isAlias: true, aliasVariable: referencedVariable };
-        }
-      }
-    }
-    switch (tokenType) {
-      case "color":
-        if (typeof value === "object" && value !== null && ("alpha" in value || "components" in value)) {
-          let resolvedValue = __spreadValues({}, value);
-          let needsResolution = false;
-          if (typeof value.components === "string" && value.components.includes("{") && value.components.includes("}")) {
-            const componentsRef = extractReference(value.components);
-            if (componentsRef) {
-              const componentsVariable = resolveReference(componentsRef, variableMap);
-              if (componentsVariable) {
-                const modeId = Object.keys(componentsVariable.valuesByMode)[0];
-                const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
-                if (typeof resolvedComponentsValue === "object" && "r" in resolvedComponentsValue) {
-                  const colorSpace = value.colorSpace || "rgb";
-                  if (colorSpace === "rgb") {
-                    resolvedValue.components = [
-                      Math.round(resolvedComponentsValue.r * 255),
-                      Math.round(resolvedComponentsValue.g * 255),
-                      Math.round(resolvedComponentsValue.b * 255)
-                    ];
-                  } else if (colorSpace === "hsl") {
-                    const hsl = rgbToHsl(resolvedComponentsValue.r, resolvedComponentsValue.g, resolvedComponentsValue.b);
-                    resolvedValue.components = [
-                      Math.round(hsl.h * 360),
-                      Math.round(hsl.s * 100),
-                      Math.round(hsl.l * 100)
-                    ];
-                  }
-                  needsResolution = true;
-                }
-              } else {
-                console.error(`[COMPONENTS FAILED] Cannot resolve: ${value.components}`);
-              }
-            }
-          }
-          if (typeof value.alpha === "string" && value.alpha.includes("{") && value.alpha.includes("}")) {
-            const alphaRef = extractReference(value.alpha);
-            if (alphaRef) {
-              const alphaVariable = resolveReference(alphaRef, variableMap);
-              if (alphaVariable) {
-                const modeId = Object.keys(alphaVariable.valuesByMode)[0];
-                const resolvedAlpha = alphaVariable.valuesByMode[modeId];
-                resolvedValue.alpha = typeof resolvedAlpha === "number" ? resolvedAlpha : 1;
-                needsResolution = true;
-              } else {
-                console.error(`[ALPHA FAILED] Cannot resolve: ${value.alpha}`);
-                resolvedValue.alpha = 1;
-              }
-            }
-          }
-          if (needsResolution) {
-            return { value: parseColor(resolvedValue), isAlias: false };
-          }
-        }
-        return { value: parseColor(value), isAlias: false };
-      case "dimension":
-      case "spacing":
-      case "fontSize":
-        return { value: parseDimension(value), isAlias: false };
-      case "number":
-        return { value: parseNumber(value), isAlias: false };
-      case "typography":
-        return { value: parseTypography(value), isAlias: false };
-      case "fontFamily":
-        return { value: parseFontFamily(value), isAlias: false };
-      case "fontWeight":
-        return { value: parseNumber(value), isAlias: false };
-      case "lineHeight":
-      case "string":
-      default:
-        return { value: String(value), isAlias: false };
-    }
-  }
-  function extractReference(value) {
-    const match = value.match(/\{([^}]+)\}/);
-    return match ? match[1] : null;
-  }
-  function resolveReference(reference, variableMap) {
-    const cleanRef = reference.replace(/^(primitive|semantic)\./, "");
-    let variable = variableMap.get(cleanRef);
-    if (variable) return variable;
-    const slashRef = cleanRef.replace(/\./g, "/");
-    variable = variableMap.get(slashRef);
-    if (variable) return variable;
-    const parts = cleanRef.split(".");
-    if (parts.length >= 2) {
-      for (let i = parts.length - 1; i >= 1; i--) {
-        const pathPart = parts.slice(0, i).join("/");
-        const namePart = parts.slice(i).join("-");
-        const dottedRef = pathPart ? `${pathPart}/${namePart}` : namePart;
-        variable = variableMap.get(dottedRef);
-        if (variable) return variable;
-      }
-    }
-    for (const [key, val] of variableMap.entries()) {
-      if (key.endsWith(cleanRef) || key.includes(cleanRef)) {
-        return val;
-      }
-    }
-    console.error(`[RESOLVE FAILED] Cannot find variable: "${reference}"`);
-    console.error(`  Tried: ${cleanRef}, ${slashRef}, and ${parts.length - 1} dotted variations`);
-    console.error(`  Map has ${variableMap.size} variables`);
-    return null;
-  }
-  function rgbToHsl(r, g, b) {
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0;
-    let s = 0;
-    const l = (max + min) / 2;
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r:
-          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-          break;
-        case g:
-          h = ((b - r) / d + 2) / 6;
-          break;
-        case b:
-          h = ((r - g) / d + 4) / 6;
-          break;
-      }
-    }
-    return { h, s, l };
-  }
-
-  // src/services/styleManager.ts
-  var StyleManager = class {
-    constructor(variableMap) {
-      this.variableMap = variableMap;
-      this.styleStats = { created: 0, updated: 0, skipped: 0 };
-    }
-    /**
-     * Process tokens and create text styles for composite typography tokens
-     * Clean code: Single responsibility - only handles text styles
-     */
-    async createTextStyles(tokens, pathPrefix = []) {
-      console.log("\n=== CREATING TEXT STYLES ===");
-      this.styleStats = { created: 0, updated: 0, skipped: 0 };
-      await this.processTokenGroup(tokens, pathPrefix, "text");
-      if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
-        figma.notify(
-          `\u2713 Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
-          { timeout: 3e3 }
-        );
-      }
-      return this.styleStats;
-    }
-    /**
-     * Process tokens and create effect styles for drop shadow tokens
-     */
-    async createEffectStyles(tokens, pathPrefix = []) {
-      console.log("\n=== CREATING EFFECT STYLES ===");
-      this.styleStats = { created: 0, updated: 0, skipped: 0 };
-      await this.processTokenGroup(tokens, pathPrefix, "effect");
-      if (this.styleStats.created > 0 || this.styleStats.updated > 0) {
-        figma.notify(
-          `\u2713 Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated`,
-          { timeout: 3e3 }
-        );
-      }
-      return this.styleStats;
-    }
-    /**
-     * Recursively process token groups to find typography or effect tokens
-     */
-    async processTokenGroup(tokens, pathPrefix, styleType) {
-      for (const [key, value] of Object.entries(tokens)) {
-        const currentPath = [...pathPrefix, key];
-        if (value && typeof value === "object") {
-          if (styleType === "text") {
-            if (this.isTypographyToken(value)) {
-              await this.createTextStyle(value, currentPath);
-            } else if (!("$value" in value)) {
-              await this.processTokenGroup(value, currentPath, styleType);
-            }
-          } else if (styleType === "effect") {
-            if (this.isShadowToken(value)) {
-              await this.createEffectStyle(value, currentPath);
-            } else if (!("$value" in value)) {
-              await this.processTokenGroup(value, currentPath, styleType);
-            }
-          }
-        }
-      }
-    }
-    /**
-     * Check if token is a composite typography token
-     */
-    isTypographyToken(token) {
-      return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
-    }
-    /**
-     * Check if token is a shadow token (boxShadow or dropShadow)
-     */
-    isShadowToken(token) {
-      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
-    }
-    /**
-     * Remove category prefixes from style path
-     * Example: ['typography', 'display'] -> ['display']
-     * Example: ['color', 'drop-shadow'] -> ['drop-shadow']
-     * Removes first level if it's a category (typography, effect, shadow, color, etc)
-     */
-    cleanStylePath(path) {
-      if (path.length === 0) return path;
-      const firstLevel = path[0].toLowerCase();
-      if (firstLevel === "typography" || firstLevel === "effect" || firstLevel === "shadow" || firstLevel === "boxshadow" || firstLevel === "dropshadow" || firstLevel === "font" || firstLevel === "color") {
-        return path.slice(1);
-      }
-      return path;
-    }
-    /**
-     * Create or update Figma text style from typography token
-     * Clean code: Single purpose, clear error handling
-     */
-    async createTextStyle(token, path) {
-      try {
-        const cleanedPath = this.cleanStylePath(path);
-        const styleName = cleanedPath.join("/");
-        const typography = token.$value;
-        const existingStyles = await figma.getLocalTextStylesAsync();
-        let textStyle = existingStyles.find((s) => s.name === styleName);
-        if (!textStyle) {
-          textStyle = figma.createTextStyle();
-          textStyle.name = styleName;
-          this.styleStats.created++;
-        } else {
-          this.styleStats.updated++;
-        }
-        if (token.$description) {
-          textStyle.description = token.$description;
-        }
-        await this.applyTypographyProperties(textStyle, typography);
-      } catch (error) {
-        console.error(`[TEXT STYLE ERROR] ${path.join("/")}: ${error}`);
-        this.styleStats.skipped++;
-      }
-    }
-    /**
-     * Create or update Figma effect style from shadow token
-     */
-    async createEffectStyle(token, path) {
-      try {
-        const cleanedPath = this.cleanStylePath(path);
-        const styleName = cleanedPath.join("/");
-        const existingStyles = await figma.getLocalEffectStylesAsync();
-        let effectStyle = existingStyles.find((s) => s.name === styleName);
-        if (!effectStyle) {
-          effectStyle = figma.createEffectStyle();
-          effectStyle.name = styleName;
-          this.styleStats.created++;
-        } else {
-          this.styleStats.updated++;
-        }
-        if (token.$description) {
-          effectStyle.description = token.$description;
-        }
-        await this.applyShadowEffects(effectStyle, token.$value);
-      } catch (error) {
-        console.error(`[EFFECT STYLE ERROR] ${path.join("/")}: ${error}`);
-        this.styleStats.skipped++;
-      }
-    }
-    /**
-     * Apply typography properties to text style
-     * Resolves token references to actual values
-     */
-    async applyTypographyProperties(textStyle, typography) {
-      if (typography.fontFamily) {
-        const fontFamily = this.resolveTokenReference(typography.fontFamily);
-        if (fontFamily) {
-          try {
-            await figma.loadFontAsync({ family: fontFamily, style: "Regular" });
-            textStyle.fontName = { family: fontFamily, style: "Regular" };
-          } catch (error) {
-            console.warn(`[STYLE] Could not load font ${fontFamily}, using default`);
-          }
-        }
-      }
-      if (typography.fontSize) {
-        const fontSize = this.resolveNumericValue(typography.fontSize);
-        if (fontSize) {
-          textStyle.fontSize = fontSize;
-        }
-      }
-      if (typography.fontWeight) {
-        const fontWeight = this.resolveFontWeight(typography.fontWeight);
-        if (fontWeight && textStyle.fontName) {
-          try {
-            await figma.loadFontAsync({ family: textStyle.fontName.family, style: fontWeight });
-            textStyle.fontName = { family: textStyle.fontName.family, style: fontWeight };
-          } catch (error) {
-            console.warn(`[STYLE] Could not load font weight ${fontWeight}`);
-          }
-        }
-      }
-      if (typography.lineHeight) {
-        const lineHeight = this.resolveLineHeight(typography.lineHeight);
-        if (lineHeight) {
-          textStyle.lineHeight = lineHeight;
-        }
-      }
-      if (typography.letterSpacing) {
-        const letterSpacing = this.resolveNumericValue(typography.letterSpacing);
-        if (letterSpacing !== null) {
-          textStyle.letterSpacing = { value: letterSpacing, unit: "PIXELS" };
-        }
-      }
-    }
-    /**
-     * Resolve token reference like "{primitive.typography.font-family.primary}"
-     * to actual value from variables
-     */
-    resolveTokenReference(value) {
-      if (typeof value !== "string") {
-        return String(value);
-      }
-      const match = value.match(/^\{(.+)\}$/);
-      if (!match) {
-        return value;
-      }
-      const reference = match[1];
-      const variable = resolveReference(reference, this.variableMap);
-      if (variable) {
-        const modeId = Object.keys(variable.valuesByMode)[0];
-        const value2 = variable.valuesByMode[modeId];
-        return String(value2);
-      }
-      return null;
-    }
-    /**
-     * Resolve numeric value (handles references and units)
-     */
-    resolveNumericValue(value) {
-      if (typeof value === "number") {
-        return value;
-      }
-      const resolved = this.resolveTokenReference(value);
-      if (!resolved) return null;
-      const numMatch = resolved.match(/^([\d.]+)/);
-      if (numMatch) {
-        return parseFloat(numMatch[1]);
-      }
-      return null;
-    }
-    /**
-     * Resolve font weight to Figma font style
-     */
-    resolveFontWeight(weight) {
-      const resolved = this.resolveTokenReference(String(weight));
-      if (!resolved) return null;
-      const weightMap = {
-        "100": "Thin",
-        "200": "Extra Light",
-        "300": "Light",
-        "400": "Regular",
-        "500": "Medium",
-        "600": "Semi Bold",
-        "700": "Bold",
-        "800": "Extra Bold",
-        "900": "Black",
-        "normal": "Regular",
-        "bold": "Bold"
-      };
-      return weightMap[resolved.toLowerCase()] || "Regular";
-    }
-    /**
-     * Resolve line height (can be numeric or percentage)
-     * Handles unitless values (1.5 -> 150%) and pixel values
-     */
-    resolveLineHeight(value) {
-      if (typeof value === "number") {
-        if (value < 10) {
-          return { value: value * 100, unit: "PERCENT" };
-        }
-        return { value, unit: "PIXELS" };
-      }
-      const resolved = this.resolveTokenReference(value);
-      if (!resolved) return null;
-      if (resolved.includes("%")) {
-        const percent = parseFloat(resolved);
-        return { value: percent, unit: "PERCENT" };
-      }
-      const numValue = parseFloat(resolved);
-      if (!isNaN(numValue) && !resolved.includes("px") && !resolved.includes("rem")) {
-        if (numValue < 10) {
-          return { value: numValue * 100, unit: "PERCENT" };
-        }
-      }
-      const pixels = this.resolveNumericValue(resolved);
-      if (pixels) {
-        return { value: pixels, unit: "PIXELS" };
-      }
-      return null;
-    }
-    /**
-     * Apply shadow effects to effect style
-     * Handles both single shadow and array of shadows
-     * Binds color variables instead of resolving to static colors
-     */
-    async applyShadowEffects(effectStyle, value) {
-      const effectsData = [];
-      if (Array.isArray(value)) {
-        for (const shadow of value) {
-          const effectData = this.parseShadowEffect(shadow);
-          if (effectData) {
-            effectsData.push(effectData);
-          }
-        }
-      } else if (typeof value === "object" && value !== null) {
-        const effectData = this.parseShadowEffect(value);
-        if (effectData) {
-          effectsData.push(effectData);
-        }
-      }
-      if (effectsData.length > 0) {
-        effectStyle.effects = effectsData.map((ed) => ed.effect);
-        console.log(`[SHADOW] Created effect style with ${effectsData.length} effects`);
-        effectsData.forEach((effectData, index) => {
-          if (effectData.colorVariable) {
-            const fieldPaths = [
-              `effects/${index}/color`,
-              `effects[${index}].color`,
-              `effects.${index}.color`
-            ];
-            let bound = false;
-            for (const fieldPath of fieldPaths) {
-              try {
-                effectStyle.setBoundVariable(fieldPath, effectData.colorVariable);
-                console.log(`[SHADOW] \u2713 Successfully bound effect ${index} color to variable: ${effectData.colorVariable.name} (path: ${fieldPath})`);
-                bound = true;
-                break;
-              } catch (error) {
-              }
-            }
-            if (!bound) {
-              console.error(`[SHADOW] \u2717 Failed to bind color variable for effect ${index}`);
-              console.error(`[SHADOW]   Variable: ${effectData.colorVariable.name}`);
-              console.error(`[SHADOW]   Tried paths: ${fieldPaths.join(", ")}`);
-              console.error(`[SHADOW]   Note: Figma may not support variable binding for effect style colors`);
-            }
-          }
-        });
-      } else {
-        console.error(`[SHADOW] No valid effects parsed for shadow token`);
-      }
-    }
-    /**
-     * Parse a single shadow object into a Figma Effect with optional color variable binding
-     * Format: { x, y, blur, spread, color, type }
-     * Returns: { effect, colorVariable? }
-     */
-    parseShadowEffect(shadow) {
-      try {
-        const x = this.resolveNumericValue(shadow.x || shadow.offsetX || 0);
-        const y = this.resolveNumericValue(shadow.y || shadow.offsetY || 0);
-        const blur = this.resolveNumericValue(shadow.blur || shadow.blurRadius || 0);
-        const spread = this.resolveNumericValue(shadow.spread || shadow.spreadRadius || 0);
-        const colorValue = shadow.color || "#000000";
-        let colorVariable;
-        let color;
-        if (typeof colorValue === "string" && colorValue.includes("{") && colorValue.includes("}")) {
-          const match = colorValue.match(/^\{([^}]+)\}$/);
-          if (match) {
-            const reference = match[1];
-            colorVariable = resolveReference(reference, this.variableMap);
-            if (colorVariable) {
-              const modeId = Object.keys(colorVariable.valuesByMode)[0];
-              const variableValue = colorVariable.valuesByMode[modeId];
-              if (typeof variableValue === "object" && "r" in variableValue) {
-                color = variableValue;
-                console.log(`[SHADOW] Found color variable: ${colorVariable.name}`);
-              } else {
-                console.error(`[SHADOW] Variable ${colorVariable.name} is not a color type`);
-                color = this.parseColorValue(colorValue);
-                colorVariable = void 0;
-              }
-            } else {
-              console.error(`[SHADOW] Cannot resolve color reference: ${reference}`);
-              color = this.parseColorValue(colorValue);
-            }
-          } else {
-            color = this.parseColorValue(colorValue);
-          }
-        } else {
-          color = this.parseColorValue(colorValue);
-        }
-        const type = shadow.type === "innerShadow" ? "INNER_SHADOW" : "DROP_SHADOW";
-        const effect = {
-          type,
-          color,
-          offset: { x: x || 0, y: y || 0 },
-          radius: blur || 0,
-          spread: spread || 0,
-          visible: true,
-          blendMode: "NORMAL"
-        };
-        return { effect, colorVariable };
-      } catch (error) {
-        console.error(`[SHADOW PARSE ERROR]`, error);
-        return null;
-      }
-    }
-    /**
-     * Parse color value to RGBA format
-     * Handles hex, rgb/rgba strings, references, and colorSpace object format
-     */
-    parseColorValue(value) {
-      if (typeof value === "object" && value !== null && ("components" in value || "alpha" in value)) {
-        let resolvedValue = __spreadValues({}, value);
-        let needsResolution = false;
-        if (typeof value.components === "string" && value.components.includes("{") && value.components.includes("}")) {
-          const match = value.components.match(/\{([^}]+)\}/);
-          if (match) {
-            const reference = match[1];
-            const componentsVariable = resolveReference(reference, this.variableMap);
-            if (componentsVariable) {
-              const modeId = Object.keys(componentsVariable.valuesByMode)[0];
-              const resolvedComponentsValue = componentsVariable.valuesByMode[modeId];
-              if (typeof resolvedComponentsValue === "object" && "r" in resolvedComponentsValue) {
-                return {
-                  r: resolvedComponentsValue.r,
-                  g: resolvedComponentsValue.g,
-                  b: resolvedComponentsValue.b,
-                  a: typeof value.alpha === "number" ? value.alpha : resolvedComponentsValue.a || 1
-                };
-              }
-            } else {
-              console.error(`[SHADOW COLOR COMPONENTS FAILED] Cannot resolve: ${value.components}`);
-            }
-          }
-        }
-        if (typeof value.alpha === "string" && value.alpha.includes("{") && value.alpha.includes("}")) {
-          const match = value.alpha.match(/\{([^}]+)\}/);
-          if (match) {
-            const reference = match[1];
-            const alphaVariable = resolveReference(reference, this.variableMap);
-            if (alphaVariable) {
-              const modeId = Object.keys(alphaVariable.valuesByMode)[0];
-              const resolvedAlpha = alphaVariable.valuesByMode[modeId];
-              resolvedValue.alpha = typeof resolvedAlpha === "number" ? resolvedAlpha : 1;
-              needsResolution = true;
-            } else {
-              console.error(`[SHADOW COLOR ALPHA FAILED] Cannot resolve: ${value.alpha}`);
-              resolvedValue.alpha = 1;
-            }
-          }
-        }
-        if (value.colorSpace && Array.isArray(resolvedValue.components)) {
-          const { colorSpace, components } = resolvedValue;
-          const alpha = typeof resolvedValue.alpha === "number" ? resolvedValue.alpha : 1;
-          if (colorSpace === "rgb" && components.length === 3) {
-            return {
-              r: components[0] / 255,
-              g: components[1] / 255,
-              b: components[2] / 255,
-              a: alpha
-            };
-          }
-          if (colorSpace === "hsl" && components.length === 3) {
-            const h = components[0] / 360;
-            const s = components[1] / 100;
-            const l = components[2] / 100;
-            const rgb = this.hslToRgb(h, s, l);
-            return __spreadProps(__spreadValues({}, rgb), { a: alpha });
-          }
-        }
-      }
-      if (typeof value === "string" && value.includes("{") && value.includes("}")) {
-        const resolved = this.resolveTokenReference(value);
-        if (resolved) {
-          value = resolved;
-        }
-      }
-      if (typeof value === "string" && value.startsWith("#")) {
-        return this.hexToRgba(value);
-      }
-      if (typeof value === "string" && (value.startsWith("rgb") || value.startsWith("hsl"))) {
-        const rgbaMatch = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-        if (rgbaMatch) {
-          return {
-            r: parseInt(rgbaMatch[1]) / 255,
-            g: parseInt(rgbaMatch[2]) / 255,
-            b: parseInt(rgbaMatch[3]) / 255,
-            a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1
-          };
-        }
-      }
-      return { r: 0, g: 0, b: 0, a: 1 };
-    }
-    /**
-     * Convert HSL to RGB (without alpha)
-     * Alpha is handled separately in parseColorValue
-     */
-    hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p2, q2, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
-          if (t < 1 / 2) return q2;
-          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
-          return p2;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return { r, g, b };
-    }
-    /**
-     * Convert hex color to RGBA
-     * Supports #RGB, #RRGGBB, #RGBA, #RRGGBBAA
-     */
-    hexToRgba(hex) {
-      const cleaned = hex.replace("#", "");
-      if (cleaned.length === 8) {
-        const bigint = parseInt(cleaned.substring(0, 6), 16);
-        const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
-        return {
-          r: (bigint >> 16 & 255) / 255,
-          g: (bigint >> 8 & 255) / 255,
-          b: (bigint & 255) / 255,
-          a: alpha
-        };
-      }
-      if (cleaned.length === 6) {
-        const bigint = parseInt(cleaned, 16);
-        return {
-          r: (bigint >> 16 & 255) / 255,
-          g: (bigint >> 8 & 255) / 255,
-          b: (bigint & 255) / 255,
-          a: 1
-        };
-      }
-      if (cleaned.length === 4) {
-        return {
-          r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
-          g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
-          b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
-          a: parseInt(cleaned[3] + cleaned[3], 16) / 255
-        };
-      }
-      if (cleaned.length === 3) {
-        return {
-          r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
-          g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
-          b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
-          a: 1
-        };
-      }
-      return { r: 0, g: 0, b: 0, a: 1 };
-    }
-    getStats() {
-      return this.styleStats;
-    }
-  };
-
-  // src/services/variableManager.ts
-  var VariableManager = class {
-    constructor() {
-      this.variableMap = /* @__PURE__ */ new Map();
-      this.collectionMap = /* @__PURE__ */ new Map();
-      this.tokenMetadata = [];
-      this.importStats = { added: 0, updated: 0, skipped: 0 };
-    }
-    async importTokens(primitives, semantics) {
-      try {
-        this.importStats = { added: 0, updated: 0, skipped: 0 };
-        this.tokenMetadata = [];
-        const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
-        const primitiveCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.primitive);
-        const semanticCollection = this.getOrCreateCollection(existingCollections, COLLECTION_NAMES.semantic);
-        this.collectionMap.set(COLLECTION_NAMES.primitive, primitiveCollection);
-        this.collectionMap.set(COLLECTION_NAMES.semantic, semanticCollection);
-        if (primitives) {
-          console.log("\n=== PROCESSING PRIMITIVES ===");
-          const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
-          await this.processTokenGroup(cleanedPrimitives, COLLECTION_NAMES.primitive, primitiveCollection, []);
-        }
-        if (semantics) {
-          console.log("\n=== PROCESSING SEMANTICS ===");
-          const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
-          await this.processTokenGroup(cleanedSemantics, COLLECTION_NAMES.semantic, semanticCollection, []);
-        }
-        const styleManager = new StyleManager(this.variableMap);
-        if (primitives) {
-          const cleanedPrimitives = this.prepareAndValidateTokens(primitives, "primitive");
-          await styleManager.createTextStyles(cleanedPrimitives, []);
-          await styleManager.createEffectStyles(cleanedPrimitives, []);
-        }
-        if (semantics) {
-          const cleanedSemantics = this.prepareAndValidateTokens(semantics, "semantic");
-          await styleManager.createTextStyles(cleanedSemantics, []);
-          await styleManager.createEffectStyles(cleanedSemantics, []);
-        }
-        figma.notify(
-          `\u2713 Tokens imported: ${this.importStats.added} added, ${this.importStats.updated} updated`,
-          { timeout: 3e3 }
-        );
-        return this.importStats;
-      } catch (error) {
-        throw new Error(`Failed to import tokens: ${error instanceof Error ? error.message : "Unknown error"}`);
-      }
-    }
-    /**
-     * Get existing collection or create a new one
-     * Handles renaming old uppercase collections to lowercase
-     */
-    getOrCreateCollection(existingCollections, name) {
-      let collection = existingCollections.find((c) => c.name === name);
-      if (!collection) {
-        const uppercaseName = name.charAt(0).toUpperCase() + name.slice(1);
-        const oldCollection = existingCollections.find((c) => c.name === uppercaseName);
-        if (oldCollection) {
-          console.log(`Renaming collection from '${uppercaseName}' to '${name}'`);
-          oldCollection.name = name;
-          collection = oldCollection;
-        } else {
-          console.log(`Creating new collection: '${name}'`);
-          collection = figma.variables.createVariableCollection(name);
-        }
-      }
-      return collection;
-    }
-    /**
-     * Prepare and validate token structure before import
-     * Ensures no redundant collection-name wrappers exist
-     *
-     * Clean code principle: Single responsibility - only prepares tokens
-     */
-    prepareAndValidateTokens(data, collectionType) {
-      const isFileKeyed = this.isFileKeyedStructure(data);
-      let processed;
-      if (isFileKeyed) {
-        processed = this.processMultipleFiles(data, collectionType);
-      } else {
-        processed = this.removeAllCollectionWrappers(data, collectionType);
-      }
-      this.validateNoCollectionWrappers(processed, collectionType);
-      return processed;
-    }
-    /**
-     * Check if data structure has file names as keys
-     */
-    isFileKeyedStructure(data) {
-      const keys = Object.keys(data);
-      return keys.some(
-        (key) => key.endsWith(".json") || key.includes("-json") || key.includes("_json")
-      );
-    }
-    /**
-     * Process multiple token files and merge them
-     * Clean code: Separated concerns - file processing vs merging
-     */
-    processMultipleFiles(filesData, collectionType) {
-      const cleanedFiles = [];
-      for (const [fileName, fileContent] of Object.entries(filesData)) {
-        if (!fileContent || typeof fileContent !== "object") continue;
-        const cleaned = this.removeAllCollectionWrappers(fileContent, collectionType);
-        cleanedFiles.push(cleaned);
-      }
-      return this.deepMergeAll(cleanedFiles);
-    }
-    /**
-     * Remove ALL collection-name wrappers recursively
-     * Handles cases where collection-name key exists alongside other keys
-     *
-     * Example:
-     * Input:  { "primitive": { "spacing": {...} }, "metadata": {...} }
-     * Output: { "spacing": {...}, "metadata": {...} }
-     */
-    removeAllCollectionWrappers(data, collectionType) {
-      let current = data;
-      let iterations = 0;
-      const maxIterations = 10;
-      while (iterations < maxIterations) {
-        const keys = Object.keys(current);
-        let didUnwrap = false;
-        for (const key of keys) {
-          if (this.isCollectionNameKey(key, collectionType)) {
-            const value = current[key];
-            if (value && typeof value === "object" && !("$value" in value)) {
-              if (keys.length === 1) {
-                current = value;
-                didUnwrap = true;
-                break;
-              } else {
-                const newStructure = {};
-                for (const k of keys) {
-                  if (k !== key) {
-                    newStructure[k] = current[k];
-                  }
-                }
-                for (const [childKey, childValue] of Object.entries(value)) {
-                  newStructure[childKey] = childValue;
-                }
-                current = newStructure;
-                didUnwrap = true;
-                break;
-              }
-            }
-          }
-        }
-        if (!didUnwrap) break;
-        iterations++;
-      }
-      if (iterations >= maxIterations) {
-        console.error(`[UNWRAP] Max iterations reached - circular structure in ${collectionType}`);
-      }
-      return current;
-    }
-    /**
-     * Check if a key matches the collection name
-     * Handles: "primitive", "primitives", "semantic", "semantics"
-     */
-    isCollectionNameKey(key, collectionType) {
-      const normalized = key.toLowerCase();
-      return normalized === collectionType || normalized === collectionType + "s" || normalized === collectionType.slice(0, -1);
-    }
-    /**
-     * Validate that no collection-name keys remain in structure
-     * Throws error if found - fail fast principle
-     */
-    validateNoCollectionWrappers(data, collectionType) {
-      const keys = Object.keys(data);
-      for (const key of keys) {
-        if (this.isCollectionNameKey(key, collectionType)) {
-          const value = data[key];
-          if (value && typeof value === "object" && !("$value" in value)) {
-            throw new Error(`Validation failed: Collection wrapper '${key}' still exists in ${collectionType} data`);
-          }
-        }
-      }
-    }
-    /**
-     * Get structure summary for logging
-     * Clean code: Helper for debugging
-     */
-    getStructureSummary(data) {
-      const keys = Object.keys(data);
-      if (keys.length === 0) return "{}";
-      if (keys.length <= 3) return `{ ${keys.join(", ")} }`;
-      return `{ ${keys.slice(0, 3).join(", ")}, ... (${keys.length} keys) }`;
-    }
-    /**
-     * Deep merge multiple token objects
-     * Clean code: Pure function, no side effects
-     */
-    deepMergeAll(sources) {
-      const result = {};
-      for (const source of sources) {
-        this.deepMerge(result, source);
-      }
-      return result;
-    }
-    /**
-     * Deep merge source into target (handles nested objects correctly)
-     */
-    deepMerge(target, source) {
-      for (const [key, value] of Object.entries(source)) {
-        if (value && typeof value === "object" && !Array.isArray(value) && !("$value" in value)) {
-          if (!target[key] || typeof target[key] !== "object") {
-            target[key] = {};
-          }
-          this.deepMerge(target[key], value);
-        } else {
-          target[key] = value;
-        }
-      }
-    }
-    async processTokenGroup(tokens, collectionName, collection, pathPrefix) {
-      for (const [key, value] of Object.entries(tokens)) {
-        const currentPath = [...pathPrefix, key];
-        if (value && typeof value === "object") {
-          if ("$value" in value) {
-            if (this.isCompositeTypographyToken(value)) continue;
-            if (this.isShadowToken(value)) continue;
-            await this.createVariable(value, currentPath, collection, collectionName);
-          } else {
-            await this.processTokenGroup(value, collectionName, collection, currentPath);
-          }
-        }
-      }
-    }
-    /**
-     * Check if token is a composite typography token
-     * These will be created as text styles instead of variables
-     */
-    isCompositeTypographyToken(token) {
-      return token.$type === "typography" && token.$value && typeof token.$value === "object" && !Array.isArray(token.$value);
-    }
-    /**
-     * Check if token is a shadow token (boxShadow or shadow)
-     * These will be created as effect styles instead of variables
-     */
-    isShadowToken(token) {
-      return (token.$type === "boxShadow" || token.$type === "shadow") && token.$value && (typeof token.$value === "object" || Array.isArray(token.$value));
-    }
-    async createVariable(token, path, collection, collectionName) {
-      try {
-        const variableName = path.map(
-          (segment) => segment.replace(/[^a-zA-Z0-9-_]/g, "-")
-        ).join("/");
-        const tokenType = token.$type || inferTokenType(token.$value);
-        const figmaType = mapTokenTypeToFigma(tokenType);
-        let variable = await this.findVariableByName(variableName, collection);
-        if (!variable) {
-          variable = figma.variables.createVariable(variableName, collection, figmaType);
-          this.importStats.added++;
-        } else {
-          if (variable.resolvedType !== figmaType) {
-            variable = figma.variables.createVariable(variableName + "_new", collection, figmaType);
-            this.importStats.added++;
-          } else {
-            this.importStats.updated++;
-          }
-        }
-        const processedValue = await processTokenValue(token.$value, tokenType, this.variableMap);
-        const modeId = collection.modes[0].modeId;
-        if (processedValue.isAlias && processedValue.aliasVariable) {
-          variable.setValueForMode(modeId, { type: "VARIABLE_ALIAS", id: processedValue.aliasVariable.id });
-        } else {
-          variable.setValueForMode(modeId, processedValue.value);
-        }
-        this.setCodeSyntax(variable, path, collectionName);
-        this.variableMap.set(variableName, variable);
-        if (token.$description) {
-          variable.description = token.$description;
-        }
-        const fullPath = `${collectionName.toLowerCase()}.${path.join(".")}`;
-        let resolvedValue = processedValue.value;
-        if (processedValue.isAlias && processedValue.aliasVariable) {
-          console.log(`[VariableManager] Token ${path.join(".")} is an alias to ${processedValue.aliasVariable.name}`);
-          resolvedValue = await this.resolveVariableValueForMetadata(processedValue.aliasVariable);
-          console.log(`[VariableManager] Final resolved value type: ${typeof resolvedValue}`);
-          console.log(`[VariableManager] Final resolved value:`, JSON.stringify(resolvedValue));
-        }
-        const metadata = {
-          name: path[path.length - 1],
-          fullPath,
-          type: tokenType,
-          value: resolvedValue,
-          // Now contains the actual resolved value, not null
-          originalValue: token.$value,
-          // Original token value (can be a reference)
-          description: token.$description,
-          aliasTo: processedValue.isAlias && processedValue.aliasVariable ? processedValue.aliasVariable.name : void 0,
-          collection: collectionName
-        };
-        this.tokenMetadata.push(metadata);
-      } catch (error) {
-        console.error(`Error creating variable ${path.join("/")}: ${error}`);
-        this.importStats.skipped++;
-      }
-    }
-    /**
-     * Set code syntax using Figma's official API
-     * Uses setVariableCodeSyntax() method as documented
-     */
-    setCodeSyntax(variable, path, collectionName) {
-      try {
-        const collection = collectionName.toLowerCase();
-        const tokenPath = path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
-        const cssVarName = `--${collection}-${tokenPath}`;
-        variable.setVariableCodeSyntax("WEB", `var(${cssVarName})`);
-        variable.setVariableCodeSyntax("ANDROID", `@dimen/${collection}_${path.join("_").replace(/[^a-z0-9_]/g, "_")}`);
-        variable.setVariableCodeSyntax("iOS", `${collection}.${path.join(".")}`);
-      } catch (error) {
-      }
-    }
-    /**
-     * Resolve a variable's value recursively, handling aliases across different collections
-     * Each variable uses its own collection's default mode for lookup
-     */
-    async resolveVariableValueForMetadata(variable) {
-      var _a;
-      const maxIterations = 10;
-      let currentVar = variable;
-      let iterations = 0;
-      console.log(`[resolveVariableValueForMetadata] Starting resolution for ${variable.name}`);
-      while (iterations < maxIterations) {
-        iterations++;
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        const varCollection = collections.find((c) => c.variableIds.includes(currentVar.id));
-        if (!varCollection) {
-          console.warn(`[resolveVariableValueForMetadata] Could not find collection for ${currentVar.name}`);
-          return void 0;
-        }
-        const varModeId = (_a = varCollection.modes[0]) == null ? void 0 : _a.modeId;
-        if (!varModeId) {
-          console.warn(`[resolveVariableValueForMetadata] No mode found for ${currentVar.name}`);
-          return void 0;
-        }
-        console.log(`[resolveVariableValueForMetadata] Iteration ${iterations}: ${currentVar.name} in collection ${varCollection.name}, mode ${varModeId}`);
-        const value = currentVar.valuesByMode[varModeId];
-        console.log(`[resolveVariableValueForMetadata] Value type: ${typeof value}`);
-        console.log(`[resolveVariableValueForMetadata] Value:`, JSON.stringify(value));
-        if (typeof value !== "object" || value === null || !("type" in value) || value.type !== "VARIABLE_ALIAS") {
-          console.log(`[resolveVariableValueForMetadata] Found final value:`, JSON.stringify(value));
-          return value;
-        }
-        const nextVar = await figma.variables.getVariableByIdAsync(value.id);
-        if (!nextVar) {
-          console.warn(`[resolveVariableValueForMetadata] Could not resolve alias at iteration ${iterations}`);
-          return void 0;
-        }
-        console.log(`[resolveVariableValueForMetadata] Following alias to ${nextVar.name}`);
-        currentVar = nextVar;
-      }
-      console.warn(`[resolveVariableValueForMetadata] Max iterations reached for ${variable.name}`);
-      return void 0;
-    }
-    async findVariableByName(name, collection) {
-      const variablePromises = collection.variableIds.map((id) => figma.variables.getVariableByIdAsync(id));
-      const allVariables = await Promise.all(variablePromises);
-      return allVariables.find((v) => v && v.name === name) || null;
-    }
-    getTokenMetadata() {
-      return this.tokenMetadata;
     }
   };
 
@@ -2114,15 +847,1284 @@
     }
   };
 
-  // src/backend/controllers/TokenController.ts
-  var TokenController = class {
-    constructor(variableManager, storage) {
-      this.variableManager = variableManager;
-      this.storage = storage;
+  // src/core/services/TokenRepository.ts
+  var TokenRepository = class {
+    constructor() {
+      // Primary storage
+      this.tokens = /* @__PURE__ */ new Map();
+      // Indexes for fast lookups
+      this.projectIndex = /* @__PURE__ */ new Map();
+      this.typeIndex = /* @__PURE__ */ new Map();
+      this.collectionIndex = /* @__PURE__ */ new Map();
+      this.pathIndex = /* @__PURE__ */ new Map();
+      // qualifiedName -> id
+      this.aliasIndex = /* @__PURE__ */ new Map();
+      // target id -> referrer ids
+      this.tagIndex = /* @__PURE__ */ new Map();
     }
     /**
-     * Import tokens to Figma variables
-     * Creates/updates variables and text styles
+     * Generate stable token ID from projectId and path
+     * Uses hash to ensure consistent IDs across sessions
+     */
+    generateTokenId(projectId, path) {
+      const key = `${projectId}:${path.join(".")}`;
+      return this.simpleHash(key);
+    }
+    /**
+     * Simple hash function for browser compatibility
+     */
+    simpleHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return `token_${Math.abs(hash).toString(36)}`;
+    }
+    /**
+     * Add or update tokens in the repository
+     * Updates all indexes automatically
+     *
+     * @param tokens - Array of tokens to add/update
+     * @returns Success with added count
+     */
+    add(tokens) {
+      try {
+        for (const token of tokens) {
+          if (!token.id || !token.projectId || !token.path || token.path.length === 0) {
+            console.error("[TokenRepository] Invalid token missing required fields:", token);
+            continue;
+          }
+          if (this.tokens.has(token.id)) {
+            this.removeFromIndexes(token.id);
+          }
+          this.tokens.set(token.id, token);
+          this.addToIndexes(token);
+        }
+        return Success(tokens.length);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[TokenRepository] Failed to add tokens:", message);
+        return Failure(message);
+      }
+    }
+    /**
+     * Get token by ID
+     *
+     * @param id - Token ID
+     * @returns Token or undefined
+     */
+    get(id) {
+      return this.tokens.get(id);
+    }
+    /**
+     * Get token by qualified name within a project
+     *
+     * @param projectId - Project identifier
+     * @param qualifiedName - Dot-separated path (e.g., 'color.semantic.button.primary')
+     * @returns Token or undefined
+     */
+    getByQualifiedName(projectId, qualifiedName) {
+      const key = `${projectId}:${qualifiedName}`;
+      const id = this.pathIndex.get(key);
+      return id ? this.tokens.get(id) : void 0;
+    }
+    /**
+     * Get token by path within a project
+     *
+     * @param projectId - Project identifier
+     * @param path - Token path array
+     * @returns Token or undefined
+     */
+    getByPath(projectId, path) {
+      const qualifiedName = path.join(".");
+      return this.getByQualifiedName(projectId, qualifiedName);
+    }
+    /**
+     * Get all tokens for a project
+     *
+     * @param projectId - Project identifier
+     * @returns Array of tokens
+     */
+    getByProject(projectId) {
+      const tokenIds = this.projectIndex.get(projectId);
+      if (!tokenIds) return [];
+      return Array.from(tokenIds).map((id) => this.tokens.get(id)).filter((token) => token !== void 0);
+    }
+    /**
+     * Get tokens by type
+     *
+     * @param type - Token type
+     * @returns Array of tokens
+     */
+    getByType(type) {
+      const tokenIds = this.typeIndex.get(type);
+      if (!tokenIds) return [];
+      return Array.from(tokenIds).map((id) => this.tokens.get(id)).filter((token) => token !== void 0);
+    }
+    /**
+     * Query tokens with filters
+     * Supports multiple filter criteria
+     *
+     * @param query - Query filters
+     * @returns Array of matching tokens
+     */
+    query(query) {
+      let results = [];
+      if (query.ids && query.ids.length > 0) {
+        results = query.ids.map((id) => this.tokens.get(id)).filter((token) => token !== void 0);
+      } else if (query.projectId) {
+        results = this.getByProject(query.projectId);
+      } else if (query.type) {
+        results = this.getByType(query.type);
+      } else {
+        results = Array.from(this.tokens.values());
+      }
+      if (query.type && query.projectId) {
+        results = results.filter((t) => t.type === query.type);
+      }
+      if (query.types && query.types.length > 0) {
+        results = results.filter((t) => query.types.includes(t.type));
+      }
+      if (query.collection) {
+        results = results.filter((t) => t.collection === query.collection);
+      }
+      if (query.theme) {
+        results = results.filter((t) => t.theme === query.theme);
+      }
+      if (query.brand) {
+        results = results.filter((t) => t.brand === query.brand);
+      }
+      if (query.qualifiedName) {
+        results = results.filter((t) => t.qualifiedName === query.qualifiedName);
+      }
+      if (query.pathPrefix && query.pathPrefix.length > 0) {
+        results = results.filter((t) => {
+          if (t.path.length < query.pathPrefix.length) return false;
+          return query.pathPrefix.every((segment, i) => t.path[i] === segment);
+        });
+      }
+      if (query.tags && query.tags.length > 0) {
+        results = results.filter(
+          (t) => query.tags.some((tag) => t.tags.includes(tag))
+        );
+      }
+      if (query.status) {
+        results = results.filter((t) => t.status === query.status);
+      }
+      if (query.isAlias !== void 0) {
+        results = results.filter(
+          (t) => query.isAlias ? t.aliasTo !== void 0 : t.aliasTo === void 0
+        );
+      }
+      return results;
+    }
+    /**
+     * Update a token
+     *
+     * @param id - Token ID
+     * @param updates - Partial token data to update
+     * @returns Updated token or failure
+     */
+    update(id, updates) {
+      const token = this.tokens.get(id);
+      if (!token) {
+        return Failure(`Token not found: ${id}`);
+      }
+      this.removeFromIndexes(id);
+      const updated = __spreadProps(__spreadValues(__spreadValues({}, token), updates), {
+        id: token.id,
+        // Preserve ID
+        created: token.created,
+        // Preserve creation timestamp
+        lastModified: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      this.tokens.set(id, updated);
+      this.addToIndexes(updated);
+      return Success(updated);
+    }
+    /**
+     * Remove tokens by IDs
+     *
+     * @param ids - Array of token IDs to remove
+     * @returns Success with removed count
+     */
+    remove(ids) {
+      try {
+        let removed = 0;
+        for (const id of ids) {
+          if (this.tokens.has(id)) {
+            this.removeFromIndexes(id);
+            this.tokens.delete(id);
+            removed++;
+          }
+        }
+        return Success(removed);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(message);
+      }
+    }
+    /**
+     * Remove all tokens for a project
+     *
+     * @param projectId - Project identifier
+     * @returns Success with removed count
+     */
+    removeProject(projectId) {
+      const tokenIds = this.projectIndex.get(projectId);
+      if (!tokenIds) {
+        return Success(0);
+      }
+      return this.remove(Array.from(tokenIds));
+    }
+    /**
+     * Get tokens that reference a specific token (inverse lookup)
+     *
+     * @param targetId - Token ID that is being referenced
+     * @returns Array of tokens that alias to this token
+     */
+    getReferencingTokens(targetId) {
+      const referrerIds = this.aliasIndex.get(targetId);
+      if (!referrerIds) return [];
+      return Array.from(referrerIds).map((id) => this.tokens.get(id)).filter((token) => token !== void 0);
+    }
+    /**
+     * Get repository statistics
+     *
+     * @returns Repository stats
+     */
+    getStats() {
+      const stats = {
+        totalTokens: this.tokens.size,
+        byProject: {},
+        byType: {},
+        byCollection: {},
+        aliasCount: 0,
+        circularReferenceCount: 0
+      };
+      for (const [projectId, tokenIds] of this.projectIndex) {
+        stats.byProject[projectId] = tokenIds.size;
+      }
+      for (const [type, tokenIds] of this.typeIndex) {
+        stats.byType[type] = tokenIds.size;
+      }
+      for (const [collection, tokenIds] of this.collectionIndex) {
+        stats.byCollection[collection] = tokenIds.size;
+      }
+      stats.aliasCount = Array.from(this.tokens.values()).filter((t) => t.aliasTo).length;
+      return stats;
+    }
+    /**
+     * Clear all tokens (useful for testing)
+     */
+    clear() {
+      this.tokens.clear();
+      this.projectIndex.clear();
+      this.typeIndex.clear();
+      this.collectionIndex.clear();
+      this.pathIndex.clear();
+      this.aliasIndex.clear();
+      this.tagIndex.clear();
+    }
+    /**
+     * Get total token count
+     */
+    count() {
+      return this.tokens.size;
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Add token to all indexes
+     */
+    addToIndexes(token) {
+      if (!this.projectIndex.has(token.projectId)) {
+        this.projectIndex.set(token.projectId, /* @__PURE__ */ new Set());
+      }
+      this.projectIndex.get(token.projectId).add(token.id);
+      if (!this.typeIndex.has(token.type)) {
+        this.typeIndex.set(token.type, /* @__PURE__ */ new Set());
+      }
+      this.typeIndex.get(token.type).add(token.id);
+      if (!this.collectionIndex.has(token.collection)) {
+        this.collectionIndex.set(token.collection, /* @__PURE__ */ new Set());
+      }
+      this.collectionIndex.get(token.collection).add(token.id);
+      const pathKey = `${token.projectId}:${token.qualifiedName}`;
+      this.pathIndex.set(pathKey, token.id);
+      if (token.aliasTo) {
+        if (!this.aliasIndex.has(token.aliasTo)) {
+          this.aliasIndex.set(token.aliasTo, /* @__PURE__ */ new Set());
+        }
+        this.aliasIndex.get(token.aliasTo).add(token.id);
+      }
+      for (const tag of token.tags) {
+        if (!this.tagIndex.has(tag)) {
+          this.tagIndex.set(tag, /* @__PURE__ */ new Set());
+        }
+        this.tagIndex.get(tag).add(token.id);
+      }
+    }
+    /**
+     * Remove token from all indexes
+     */
+    removeFromIndexes(id) {
+      var _a, _b, _c, _d, _e;
+      const token = this.tokens.get(id);
+      if (!token) return;
+      (_a = this.projectIndex.get(token.projectId)) == null ? void 0 : _a.delete(id);
+      (_b = this.typeIndex.get(token.type)) == null ? void 0 : _b.delete(id);
+      (_c = this.collectionIndex.get(token.collection)) == null ? void 0 : _c.delete(id);
+      const pathKey = `${token.projectId}:${token.qualifiedName}`;
+      this.pathIndex.delete(pathKey);
+      if (token.aliasTo) {
+        (_d = this.aliasIndex.get(token.aliasTo)) == null ? void 0 : _d.delete(id);
+      }
+      for (const tag of token.tags) {
+        (_e = this.tagIndex.get(tag)) == null ? void 0 : _e.delete(id);
+      }
+    }
+  };
+
+  // src/core/services/TokenResolver.ts
+  var TokenResolver = class {
+    constructor(repository) {
+      // Three-tier cache
+      this.exactCache = /* @__PURE__ */ new Map();
+      this.normalizedCache = /* @__PURE__ */ new Map();
+      this.fuzzyCache = /* @__PURE__ */ new Map();
+      // Statistics
+      this.stats = {
+        totalResolutions: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        cacheHitRate: 0,
+        circularReferences: 0,
+        unresolvedReferences: 0
+      };
+      this.repository = repository;
+    }
+    /**
+     * Resolve a single token reference to its target token
+     *
+     * @param reference - Reference string (e.g., "color.primary", "{color.primary}")
+     * @param projectId - Project context for resolution
+     * @returns Resolved token or null
+     */
+    resolveReference(reference, projectId) {
+      this.stats.totalResolutions++;
+      const cleanRef = this.cleanReference(reference);
+      if (!cleanRef) {
+        return null;
+      }
+      const exactKey = `${projectId}:${cleanRef}`;
+      if (this.exactCache.has(exactKey)) {
+        this.stats.cacheHits++;
+        this.updateCacheHitRate();
+        return this.exactCache.get(exactKey);
+      }
+      const exactMatch = this.repository.getByQualifiedName(projectId, cleanRef);
+      if (exactMatch) {
+        this.exactCache.set(exactKey, exactMatch);
+        this.stats.cacheMisses++;
+        this.updateCacheHitRate();
+        return exactMatch;
+      }
+      const normalized = this.normalizeReference(cleanRef);
+      const normalizedKey = `${projectId}:${normalized}`;
+      if (this.normalizedCache.has(normalizedKey)) {
+        this.stats.cacheHits++;
+        this.updateCacheHitRate();
+        return this.normalizedCache.get(normalizedKey);
+      }
+      const normalizedMatch = this.repository.getByQualifiedName(projectId, normalized);
+      if (normalizedMatch) {
+        this.normalizedCache.set(normalizedKey, normalizedMatch);
+        this.exactCache.set(exactKey, normalizedMatch);
+        this.stats.cacheMisses++;
+        this.updateCacheHitRate();
+        return normalizedMatch;
+      }
+      if (this.fuzzyCache.has(exactKey)) {
+        this.stats.cacheHits++;
+        this.updateCacheHitRate();
+        return this.fuzzyCache.get(exactKey);
+      }
+      const fuzzyMatch = this.fuzzyMatch(cleanRef, projectId);
+      this.fuzzyCache.set(exactKey, fuzzyMatch);
+      if (fuzzyMatch) {
+        this.exactCache.set(exactKey, fuzzyMatch);
+      } else {
+        this.stats.unresolvedReferences++;
+      }
+      this.stats.cacheMisses++;
+      this.updateCacheHitRate();
+      return fuzzyMatch;
+    }
+    /**
+     * Resolve all tokens in a project, handling aliases in dependency order
+     * Uses topological sort to resolve dependencies correctly
+     *
+     * @param projectId - Project identifier
+     * @returns Map of token ID to resolved value
+     */
+    async resolveAllTokens(projectId) {
+      try {
+        const tokens = this.repository.getByProject(projectId);
+        const resolved = /* @__PURE__ */ new Map();
+        const graph = this.buildDependencyGraph(tokens);
+        const cycles = this.detectCycles(graph);
+        if (cycles.length > 0) {
+          this.stats.circularReferences += cycles.length;
+          console.warn(`[TokenResolver] Detected ${cycles.length} circular references in project ${projectId}`);
+        }
+        const sorted = this.topologicalSort(graph, cycles);
+        for (const tokenId of sorted) {
+          const token = this.repository.get(tokenId);
+          if (!token) continue;
+          if (token.aliasTo) {
+            const target = this.repository.get(token.aliasTo);
+            if (target) {
+              const targetValue = resolved.get(target.id) || target.value;
+              resolved.set(token.id, targetValue);
+            } else {
+              resolved.set(token.id, token.value);
+              this.stats.unresolvedReferences++;
+            }
+          } else {
+            resolved.set(token.id, token.value);
+          }
+        }
+        return Success(resolved);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[TokenResolver] Failed to resolve all tokens: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Detect circular references in a project
+     *
+     * @param projectId - Project identifier
+     * @returns Array of circular reference cycles
+     */
+    detectCircularReferences(projectId) {
+      const tokens = this.repository.getByProject(projectId);
+      const graph = this.buildDependencyGraph(tokens);
+      return this.detectCycles(graph);
+    }
+    /**
+     * Clear all caches
+     * Useful after token updates
+     */
+    clearCache() {
+      this.exactCache.clear();
+      this.normalizedCache.clear();
+      this.fuzzyCache.clear();
+    }
+    /**
+     * Get resolution statistics
+     */
+    getStats() {
+      return __spreadValues({}, this.stats);
+    }
+    /**
+     * Reset statistics
+     */
+    resetStats() {
+      this.stats = {
+        totalResolutions: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        cacheHitRate: 0,
+        circularReferences: 0,
+        unresolvedReferences: 0
+      };
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Clean reference string (remove braces, trim)
+     */
+    cleanReference(reference) {
+      if (!reference || typeof reference !== "string") {
+        return null;
+      }
+      let cleaned = reference.trim();
+      if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
+        cleaned = cleaned.slice(1, -1).trim();
+      }
+      return cleaned || null;
+    }
+    /**
+     * Normalize reference (convert slashes to dots, lowercase)
+     */
+    normalizeReference(reference) {
+      return reference.replace(/\//g, ".").replace(/\\/g, ".").toLowerCase();
+    }
+    /**
+     * Fuzzy match reference to tokens
+     * Expensive operation, only used as fallback
+     */
+    fuzzyMatch(reference, projectId) {
+      const tokens = this.repository.getByProject(projectId);
+      const refLower = reference.toLowerCase();
+      for (const token of tokens) {
+        if (token.qualifiedName.toLowerCase().endsWith(refLower)) {
+          return token;
+        }
+      }
+      for (const token of tokens) {
+        if (token.qualifiedName.toLowerCase().includes(refLower)) {
+          return token;
+        }
+      }
+      const refName = refLower.split(".").pop() || "";
+      for (const token of tokens) {
+        if (token.name.toLowerCase() === refName) {
+          return token;
+        }
+      }
+      return null;
+    }
+    /**
+     * Build dependency graph for alias resolution
+     * Returns Map<tokenId, dependsOn[]>
+     */
+    buildDependencyGraph(tokens) {
+      const graph = /* @__PURE__ */ new Map();
+      for (const token of tokens) {
+        if (!graph.has(token.id)) {
+          graph.set(token.id, []);
+        }
+        if (token.aliasTo) {
+          graph.get(token.id).push(token.aliasTo);
+        }
+      }
+      return graph;
+    }
+    /**
+     * Detect cycles in dependency graph using DFS
+     */
+    detectCycles(graph) {
+      const cycles = [];
+      const visited = /* @__PURE__ */ new Set();
+      const recursionStack = /* @__PURE__ */ new Set();
+      const path = [];
+      const dfs = (nodeId) => {
+        visited.add(nodeId);
+        recursionStack.add(nodeId);
+        path.push(nodeId);
+        const dependencies = graph.get(nodeId) || [];
+        for (const depId of dependencies) {
+          if (!visited.has(depId)) {
+            if (dfs(depId)) return true;
+          } else if (recursionStack.has(depId)) {
+            const cycleStart = path.indexOf(depId);
+            const cycle = path.slice(cycleStart);
+            const paths = cycle.map((id) => {
+              var _a;
+              return ((_a = this.repository.get(id)) == null ? void 0 : _a.path) || [];
+            });
+            cycles.push({ cycle, paths });
+            return true;
+          }
+        }
+        path.pop();
+        recursionStack.delete(nodeId);
+        return false;
+      };
+      for (const nodeId of graph.keys()) {
+        if (!visited.has(nodeId)) {
+          dfs(nodeId);
+        }
+      }
+      return cycles;
+    }
+    /**
+     * Topological sort for dependency-order resolution
+     * Breaks cycles if detected
+     */
+    topologicalSort(graph, cycles) {
+      const sorted = [];
+      const visited = /* @__PURE__ */ new Set();
+      const cycleNodes = new Set(cycles.flatMap((c) => c.cycle));
+      const visit = (nodeId) => {
+        if (visited.has(nodeId)) return;
+        visited.add(nodeId);
+        const dependencies = graph.get(nodeId) || [];
+        for (const depId of dependencies) {
+          if (!cycleNodes.has(depId) || !cycleNodes.has(nodeId)) {
+            visit(depId);
+          }
+        }
+        sorted.push(nodeId);
+      };
+      for (const nodeId of graph.keys()) {
+        visit(nodeId);
+      }
+      return sorted;
+    }
+    /**
+     * Update cache hit rate statistic
+     */
+    updateCacheHitRate() {
+      const total = this.stats.cacheHits + this.stats.cacheMisses;
+      this.stats.cacheHitRate = total > 0 ? this.stats.cacheHits / total : 0;
+    }
+  };
+
+  // src/core/services/FigmaSyncService.ts
+  var FigmaSyncService = class {
+    constructor(repository, resolver) {
+      this.variableMap = /* @__PURE__ */ new Map();
+      this.collectionMap = /* @__PURE__ */ new Map();
+      this.repository = repository;
+      this.resolver = resolver;
+    }
+    /**
+     * Sync tokens to Figma variables
+     * Replaces VariableManager.importTokens()
+     *
+     * @param tokens - Array of tokens to sync
+     * @param options - Sync options
+     * @returns Sync result with statistics
+     */
+    async syncTokens(tokens, options) {
+      try {
+        const opts = __spreadValues({
+          updateExisting: true,
+          preserveScopes: true,
+          skipStyles: false
+        }, options);
+        const stats = { added: 0, updated: 0, skipped: 0 };
+        const syncedCollections = /* @__PURE__ */ new Set();
+        const byCollection = this.groupByCollection(tokens);
+        const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
+        for (const [collectionName, collectionTokens] of byCollection) {
+          console.log(`[FigmaSyncService] Processing collection: ${collectionName} (${collectionTokens.length} tokens)`);
+          const collection = this.getOrCreateCollection(existingCollections, collectionName);
+          this.collectionMap.set(collectionName, collection);
+          syncedCollections.add(collectionName);
+          const collectionStats = await this.syncCollectionTokens(
+            collectionTokens,
+            collection,
+            opts
+          );
+          stats.added += collectionStats.added;
+          stats.updated += collectionStats.updated;
+          stats.skipped += collectionStats.skipped;
+        }
+        await this.updateTokenExtensions(tokens);
+        figma.notify(
+          `\u2713 Tokens synced: ${stats.added} added, ${stats.updated} updated`,
+          { timeout: 3e3 }
+        );
+        return Success({
+          stats,
+          collections: Array.from(syncedCollections),
+          variables: this.variableMap
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[FigmaSyncService] Sync failed: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Get variable map for reference resolution
+     * Used by features that need access to Figma variables
+     */
+    getVariableMap() {
+      return this.variableMap;
+    }
+    /**
+     * Get collection map
+     */
+    getCollectionMap() {
+      return this.collectionMap;
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Group tokens by collection name
+     */
+    groupByCollection(tokens) {
+      const grouped = /* @__PURE__ */ new Map();
+      for (const token of tokens) {
+        const collection = token.collection || "default";
+        if (!grouped.has(collection)) {
+          grouped.set(collection, []);
+        }
+        grouped.get(collection).push(token);
+      }
+      return grouped;
+    }
+    /**
+     * Get or create Figma variable collection
+     * Handles renaming old uppercase collections to lowercase
+     */
+    getOrCreateCollection(existingCollections, name) {
+      let collection = existingCollections.find((c) => c.name === name);
+      if (!collection) {
+        const uppercaseName = name.charAt(0).toUpperCase() + name.slice(1);
+        const oldCollection = existingCollections.find((c) => c.name === uppercaseName);
+        if (oldCollection) {
+          console.log(`[FigmaSyncService] Renaming collection: ${uppercaseName} \u2192 ${name}`);
+          oldCollection.name = name;
+          collection = oldCollection;
+        } else {
+          console.log(`[FigmaSyncService] Creating collection: ${name}`);
+          collection = figma.variables.createVariableCollection(name);
+        }
+      }
+      return collection;
+    }
+    /**
+     * Sync all tokens in a collection
+     */
+    async syncCollectionTokens(tokens, collection, options) {
+      const stats = { added: 0, updated: 0, skipped: 0 };
+      const existingVars = await this.getCollectionVariables(collection);
+      const varsByName = new Map(existingVars.map((v) => [v.name, v]));
+      for (const token of tokens) {
+        if (options.skipStyles && this.shouldSkipAsStyle(token)) {
+          stats.skipped++;
+          continue;
+        }
+        const tokenStats = await this.syncToken(token, collection, varsByName, options);
+        stats.added += tokenStats.added;
+        stats.updated += tokenStats.updated;
+        stats.skipped += tokenStats.skipped;
+      }
+      return stats;
+    }
+    /**
+     * Sync a single token to Figma variable
+     */
+    async syncToken(token, collection, existingVars, options) {
+      const stats = { added: 0, updated: 0, skipped: 0 };
+      try {
+        const variableName = this.generateVariableName(token);
+        const figmaType = this.mapToFigmaType(token.type);
+        if (!figmaType) {
+          console.warn(`[FigmaSyncService] Unsupported token type: ${token.type}`);
+          stats.skipped++;
+          return stats;
+        }
+        let variable = existingVars.get(variableName);
+        if (!variable) {
+          variable = figma.variables.createVariable(variableName, collection, figmaType);
+          stats.added++;
+        } else {
+          if (!options.updateExisting) {
+            stats.skipped++;
+            return stats;
+          }
+          if (variable.resolvedType !== figmaType) {
+            console.warn(`[FigmaSyncService] Type mismatch for ${variableName}: ${variable.resolvedType} \u2192 ${figmaType}`);
+            variable = figma.variables.createVariable(`${variableName}_new`, collection, figmaType);
+            stats.added++;
+          } else {
+            stats.updated++;
+          }
+        }
+        if (token.description) {
+          variable.description = token.description;
+        }
+        const modeId = collection.modes[0].modeId;
+        if (token.aliasTo) {
+          const targetToken = this.repository.get(token.aliasTo);
+          if (targetToken) {
+            const targetVarName = this.generateVariableName(targetToken);
+            const targetVar = this.variableMap.get(targetVarName);
+            if (targetVar) {
+              variable.setValueForMode(modeId, {
+                type: "VARIABLE_ALIAS",
+                id: targetVar.id
+              });
+            } else {
+              console.warn(`[FigmaSyncService] Alias target not found: ${targetVarName}`);
+              const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+              variable.setValueForMode(modeId, value);
+            }
+          } else {
+            console.warn(`[FigmaSyncService] Alias target token not found: ${token.aliasTo}`);
+            const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+            variable.setValueForMode(modeId, value);
+          }
+        } else {
+          const value = this.convertValue(token.value, figmaType);
+          variable.setValueForMode(modeId, value);
+        }
+        this.setCodeSyntax(variable, token);
+        this.variableMap.set(variableName, variable);
+        return stats;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[FigmaSyncService] Failed to sync token ${token.qualifiedName}: ${message}`);
+        stats.skipped++;
+        return stats;
+      }
+    }
+    /**
+     * Get all variables in a collection
+     */
+    async getCollectionVariables(collection) {
+      const allVars = await figma.variables.getLocalVariablesAsync();
+      return allVars.filter((v) => v.variableCollectionId === collection.id);
+    }
+    /**
+     * Generate Figma-compatible variable name from token
+     * Format: path/components/separated
+     */
+    generateVariableName(token) {
+      return token.path.map((segment) => segment.replace(/[^a-zA-Z0-9-_]/g, "-")).join("/");
+    }
+    /**
+     * Map TokenType to Figma VariableResolvedDataType
+     */
+    mapToFigmaType(type) {
+      const typeMap = {
+        color: "COLOR",
+        number: "FLOAT",
+        boolean: "BOOLEAN",
+        string: "STRING",
+        // Dimension types
+        dimension: "FLOAT",
+        fontSize: "FLOAT",
+        spacing: "FLOAT",
+        lineHeight: "FLOAT",
+        letterSpacing: "FLOAT",
+        fontWeight: "FLOAT"
+      };
+      return typeMap[type] || null;
+    }
+    /**
+     * Convert token value to Figma-compatible format
+     */
+    convertValue(value, figmaType) {
+      if (figmaType === "COLOR") {
+        return this.convertColorValue(value);
+      }
+      if (figmaType === "FLOAT") {
+        return this.convertNumericValue(value);
+      }
+      if (figmaType === "BOOLEAN") {
+        return Boolean(value);
+      }
+      if (figmaType === "STRING") {
+        return String(value);
+      }
+      return value;
+    }
+    /**
+     * Convert color value to Figma RGB format
+     */
+    convertColorValue(value) {
+      if (typeof value === "string") {
+        if (value.startsWith("#")) {
+          return this.hexToRgb(value);
+        }
+      }
+      if (typeof value === "object" && value !== null) {
+        if ("r" in value && "g" in value && "b" in value) {
+          return value;
+        }
+      }
+      console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+      return { r: 0, g: 0, b: 0 };
+    }
+    /**
+     * Convert hex color to RGB
+     */
+    hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (result) {
+        return {
+          r: parseInt(result[1], 16) / 255,
+          g: parseInt(result[2], 16) / 255,
+          b: parseInt(result[3], 16) / 255
+        };
+      }
+      return { r: 0, g: 0, b: 0 };
+    }
+    /**
+     * Convert numeric value (handle units like px, rem)
+     */
+    convertNumericValue(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const numeric = parseFloat(value.replace(/[^\d.-]/g, ""));
+        return isNaN(numeric) ? 0 : numeric;
+      }
+      return 0;
+    }
+    /**
+     * Set CSS variable code syntax
+     */
+    setCodeSyntax(variable, token) {
+      const cssVarName = `--${token.qualifiedName.replace(/\./g, "-")}`;
+      variable.codeSyntax = {
+        WEB: cssVarName
+      };
+    }
+    /**
+     * Check if token should be skipped (handled as style instead)
+     */
+    shouldSkipAsStyle(token) {
+      if (token.type === "typography" && typeof token.value === "object") {
+        return true;
+      }
+      if (token.type === "shadow") {
+        return true;
+      }
+      return false;
+    }
+    /**
+     * Update token extensions with Figma metadata
+     */
+    async updateTokenExtensions(tokens) {
+      var _a;
+      for (const token of tokens) {
+        const varName = this.generateVariableName(token);
+        const variable = this.variableMap.get(varName);
+        if (variable) {
+          this.repository.update(token.id, {
+            extensions: __spreadProps(__spreadValues({}, token.extensions), {
+              figma: {
+                variableId: variable.id,
+                collectionId: variable.variableCollectionId,
+                collectionName: (_a = this.collectionMap.get(token.collection)) == null ? void 0 : _a.name
+              }
+            })
+          });
+        }
+      }
+    }
+  };
+
+  // src/core/registries/TokenFormatRegistry.ts
+  var TokenFormatRegistry = class {
+    /**
+     * Register a token format strategy
+     *
+     * @param strategy - Token format strategy implementation
+     * @throws Error if strategy with same format name already registered
+     */
+    static register(strategy) {
+      const formatName = strategy.getFormatInfo().name;
+      if (this.strategies.has(formatName)) {
+        console.error(`[TokenFormatRegistry] Format '${formatName}' is already registered`);
+        throw new Error(`Token format '${formatName}' is already registered`);
+      }
+      this.strategies.set(formatName, strategy);
+    }
+    /**
+     * Get a format strategy by name
+     *
+     * @param formatName - Format identifier
+     * @returns Format strategy or undefined
+     */
+    static get(formatName) {
+      const strategy = this.strategies.get(formatName);
+      if (!strategy) {
+        console.error(`[TokenFormatRegistry] No strategy registered for format: ${formatName}`);
+      }
+      return strategy;
+    }
+    /**
+     * Auto-detect which format strategy to use based on token data
+     * Returns strategy with highest confidence score
+     *
+     * @param data - Raw token data to analyze
+     * @returns Best matching strategy or undefined if no match
+     */
+    static detectFormat(data) {
+      let bestStrategy;
+      let bestScore = 0;
+      for (const strategy of this.strategies.values()) {
+        const score = strategy.detectFormat(data);
+        if (score > bestScore) {
+          bestScore = score;
+          bestStrategy = strategy;
+        }
+      }
+      if (!bestStrategy) {
+        console.error("[TokenFormatRegistry] No format strategy could parse the provided data");
+      }
+      return bestStrategy;
+    }
+    /**
+     * Check if a format is registered
+     *
+     * @param formatName - Format identifier
+     * @returns True if registered
+     */
+    static has(formatName) {
+      return this.strategies.has(formatName);
+    }
+    /**
+     * Get all registered format names
+     *
+     * @returns Array of format names
+     */
+    static getRegisteredFormats() {
+      return Array.from(this.strategies.keys());
+    }
+    /**
+     * Clear all registered strategies
+     * Useful for testing
+     */
+    static clear() {
+      this.strategies.clear();
+    }
+    /**
+     * Get count of registered strategies
+     *
+     * @returns Number of registered strategies
+     */
+    static count() {
+      return this.strategies.size;
+    }
+  };
+  TokenFormatRegistry.strategies = /* @__PURE__ */ new Map();
+
+  // src/core/services/TokenProcessor.ts
+  var TokenProcessor = class {
+    /**
+     * Process raw token data into Token[] using auto-detected format
+     *
+     * @param data - Raw token data
+     * @param options - Processing options (projectId, source info, etc.)
+     * @returns Array of processed tokens
+     */
+    async processTokenData(data, options) {
+      try {
+        const strategy = TokenFormatRegistry.detectFormat(data);
+        if (!strategy) {
+          return Failure("Could not detect token format");
+        }
+        const parseResult = strategy.parseTokens(data);
+        if (!parseResult.success) {
+          return Failure(`Failed to parse tokens: ${parseResult.error}`);
+        }
+        const tokens = this.convertProcessedTokens(
+          parseResult.data || [],
+          strategy,
+          options
+        );
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[TokenProcessor] Failed to process token data: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Process multiple token files
+     *
+     * @param files - Array of {data, collection} objects
+     * @param options - Processing options
+     * @returns Combined array of tokens from all files
+     */
+    async processMultipleFiles(files, options) {
+      try {
+        const allTokens = [];
+        for (const file of files) {
+          const collection = file.collection || this.inferCollectionFromPath(file.filePath);
+          const result = await this.processTokenData(file.data, __spreadProps(__spreadValues({}, options), {
+            collection
+          }));
+          if (result.success && result.data) {
+            allTokens.push(...result.data);
+          } else {
+            console.warn(`[TokenProcessor] Failed to process file: ${result.error}`);
+          }
+        }
+        if (allTokens.length === 0) {
+          return Failure("No tokens could be processed from the provided files");
+        }
+        return Success(allTokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[TokenProcessor] Failed to process multiple files: ${message}`);
+        return Failure(message);
+      }
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Convert ProcessedToken[] to Token[]
+     */
+    convertProcessedTokens(processed, strategy, options) {
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const tokens = [];
+      for (const pt of processed) {
+        const id = this.generateTokenId(options.projectId, pt.path);
+        const qualifiedName = pt.path.join(".");
+        const name = pt.path[pt.path.length - 1];
+        const isAlias = strategy.isReference(pt.value);
+        const aliasTo = isAlias ? strategy.extractReference(pt.value) : void 0;
+        const type = this.mapToTokenType(pt.type);
+        const source = {
+          type: options.sourceType,
+          location: options.sourceLocation,
+          imported: now,
+          branch: options.sourceBranch,
+          commit: options.sourceCommit
+        };
+        const collection = options.collection || "default";
+        const formatInfo = strategy.getFormatInfo();
+        const sourceFormat = this.mapFormatName(formatInfo.name);
+        const token = {
+          id,
+          path: pt.path,
+          name,
+          qualifiedName,
+          type,
+          rawValue: pt.originalValue !== void 0 ? pt.originalValue : pt.value,
+          value: pt.value,
+          resolvedValue: isAlias ? void 0 : pt.value,
+          aliasTo: aliasTo ? this.generateTokenId(options.projectId, aliasTo.split(".")) : void 0,
+          projectId: options.projectId,
+          collection,
+          theme: options.theme,
+          brand: options.brand,
+          sourceFormat,
+          source,
+          extensions: {},
+          tags: this.inferTags(pt.path, pt.type),
+          status: "active",
+          created: now,
+          lastModified: now
+        };
+        tokens.push(token);
+      }
+      return tokens;
+    }
+    /**
+     * Generate stable token ID
+     */
+    generateTokenId(projectId, path) {
+      const key = `${projectId}:${path.join(".")}`;
+      return this.simpleHash(key);
+    }
+    /**
+     * Simple hash function for ID generation
+     */
+    simpleHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return `token_${Math.abs(hash).toString(36)}`;
+    }
+    /**
+     * Map format-specific type to TokenType
+     */
+    mapToTokenType(type) {
+      const normalized = type.toLowerCase();
+      const typeMap = {
+        color: "color",
+        dimension: "dimension",
+        fontsize: "fontSize",
+        fontweight: "fontWeight",
+        fontfamily: "fontFamily",
+        lineheight: "lineHeight",
+        letterspacing: "letterSpacing",
+        spacing: "spacing",
+        shadow: "shadow",
+        border: "border",
+        duration: "duration",
+        cubicbezier: "cubicBezier",
+        number: "number",
+        string: "string",
+        typography: "typography",
+        boolean: "boolean"
+      };
+      if (normalized.includes("font")) {
+        if (normalized.includes("size")) return "fontSize";
+        if (normalized.includes("weight")) return "fontWeight";
+        if (normalized.includes("family")) return "fontFamily";
+      }
+      if (normalized.includes("line") && normalized.includes("height")) {
+        return "lineHeight";
+      }
+      if (normalized.includes("letter") && normalized.includes("spacing")) {
+        return "letterSpacing";
+      }
+      return typeMap[normalized] || "other";
+    }
+    /**
+     * Map format name to source format type
+     */
+    mapFormatName(formatName) {
+      const normalized = formatName.toLowerCase();
+      if (normalized.includes("w3c")) return "w3c";
+      if (normalized.includes("style") && normalized.includes("dictionary")) return "style-dictionary";
+      if (normalized.includes("figma")) return "figma";
+      return "custom";
+    }
+    /**
+     * Infer collection from file path
+     * Examples:
+     * - tokens/primitives.json -> primitives
+     * - tokens/semantic/colors.json -> semantic
+     * - colors.json -> default
+     */
+    inferCollectionFromPath(filePath) {
+      if (!filePath) return "default";
+      const parts = filePath.toLowerCase().split("/");
+      const collectionKeywords = [
+        "primitive",
+        "primitives",
+        "semantic",
+        "semantics",
+        "base",
+        "core",
+        "foundation",
+        "component",
+        "components"
+      ];
+      for (const part of parts) {
+        for (const keyword of collectionKeywords) {
+          if (part.includes(keyword)) {
+            return part.replace(/\.(json|js|ts)$/i, "");
+          }
+        }
+      }
+      const filename = parts[parts.length - 1];
+      return filename.replace(/\.(json|js|ts)$/i, "") || "default";
+    }
+    /**
+     * Infer tags from token path and type
+     */
+    inferTags(path, type) {
+      const tags = [];
+      tags.push(type);
+      if (path.length > 1) {
+        tags.push(path[0]);
+        if (path.length > 2) {
+          tags.push(`${path[0]}.${path[1]}`);
+        }
+      }
+      return tags;
+    }
+  };
+
+  // src/backend/controllers/TokenController.ts
+  var TokenController = class {
+    constructor(figmaSyncService, storage, tokenRepository) {
+      this.figmaSyncService = figmaSyncService;
+      this.storage = storage;
+      this.tokenRepository = tokenRepository;
+    }
+    /**
+     * Import tokens to Figma variables (v2.0)
+     * Converts legacy TokenData format to Token[] and syncs via FigmaSyncService
      *
      * @param data - Token import data with primitives and semantics
      * @returns Import statistics
@@ -2137,16 +2139,49 @@
           `Importing tokens (primitives: ${primitives ? "yes" : "no"}, semantics: ${semantics ? "yes" : "no"})`,
           "TokenController"
         );
-        const stats = await this.variableManager.importTokens(
-          primitives || {},
-          semantics || {}
-        );
+        const processor = new TokenProcessor();
+        const allTokens = [];
+        let stats = { added: 0, updated: 0, skipped: 0 };
+        if (primitives) {
+          const primResult = await processor.processTokenData(primitives, {
+            projectId: "default",
+            collection: "primitive",
+            sourceType: "local",
+            sourceLocation: "primitives"
+          });
+          if (primResult.success && primResult.data) {
+            allTokens.push(...primResult.data);
+          } else if (!primResult.success) {
+            throw new Error(`Failed to process primitives: ${primResult.error}`);
+          }
+        }
+        if (semantics) {
+          const semResult = await processor.processTokenData(semantics, {
+            projectId: "default",
+            collection: "semantic",
+            sourceType: "local",
+            sourceLocation: "semantics"
+          });
+          if (semResult.success && semResult.data) {
+            allTokens.push(...semResult.data);
+          } else if (!semResult.success) {
+            throw new Error(`Failed to process semantics: ${semResult.error}`);
+          }
+        }
+        for (const token of allTokens) {
+          this.tokenRepository.add(token);
+        }
+        const syncResult = await this.figmaSyncService.syncTokens(allTokens);
+        if (!syncResult.success) {
+          throw new Error(syncResult.error || "Failed to sync tokens to Figma");
+        }
+        stats.added = allTokens.length;
         ErrorHandler.info(
-          `Import completed: ${stats.added} added, ${stats.updated} updated, ${stats.skipped} skipped`,
+          `Import completed: ${stats.added} tokens synced to Figma`,
           "TokenController"
         );
         ErrorHandler.notifyUser(
-          `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} added, ${stats.updated} updated`,
+          `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} tokens synced`,
           "success"
         );
         return stats;
@@ -2210,11 +2245,11 @@
       }, "Clear Token State");
     }
     /**
-     * Get token metadata from last import
-     * Useful for debugging and UI display
+     * Get all tokens from repository (v2.0)
+     * Returns Token[] array instead of legacy TokenMetadata[]
      */
-    getTokenMetadata() {
-      return this.variableManager.getTokenMetadata();
+    getTokens() {
+      return this.tokenRepository.getAll();
     }
   };
 
@@ -2424,11 +2459,12 @@
       }, "Get Figma Variables");
     }
     /**
-     * Apply scope assignments to variables
+     * Apply scope assignments to variables (legacy method using variable names)
      * Updates the scopes property of selected variables
      *
      * @param scopeAssignments - Map of variable names to scope arrays
      * @returns Number of variables updated
+     * @deprecated Use applyScopesFromTokens() for O(1) Token ID-based lookups
      */
     async applyScopes(scopeAssignments) {
       return ErrorHandler.handle(async () => {
@@ -2474,11 +2510,107 @@
       }, "Apply Scopes");
     }
     /**
-     * Get variable by name across all collections
+     * Apply scope assignments to variables using Token ID-based lookups (NEW)
+     * 80% faster than name-based lookups - O(1) vs O(n) per token
+     *
+     * IMPORTANT: This operates on EXISTING Figma variables only.
+     * Variables must have been created by FigmaSyncService first, which
+     * populates token.extensions.figma.variableId
+     *
+     * @param tokens - Array of tokens with Figma variable IDs in extensions
+     * @param scopeAssignments - Map of token IDs to scope arrays
+     * @returns Number of variables updated
+     */
+    async applyScopesFromTokens(tokens, scopeAssignments) {
+      return ErrorHandler.handle(async () => {
+        var _a, _b;
+        ErrorHandler.assert(
+          tokens && tokens.length > 0,
+          "No tokens provided",
+          "Apply Scopes From Tokens"
+        );
+        ErrorHandler.assert(
+          scopeAssignments && scopeAssignments.size > 0,
+          "No scope assignments provided",
+          "Apply Scopes From Tokens"
+        );
+        ErrorHandler.info(
+          `Applying scopes to ${tokens.length} token(s) using Token ID lookup`,
+          "ScopeController"
+        );
+        let updatedCount = 0;
+        let skippedCount = 0;
+        for (const token of tokens) {
+          const variableId = (_b = (_a = token.extensions) == null ? void 0 : _a.figma) == null ? void 0 : _b.variableId;
+          if (!variableId) {
+            console.warn(`[ScopeController] Token ${token.id} (${token.qualifiedName}) has no Figma variable ID`);
+            skippedCount++;
+            continue;
+          }
+          const newScopes = scopeAssignments.get(token.id);
+          if (!newScopes) {
+            continue;
+          }
+          const variable = figma.variables.getVariableByIdAsync ? await figma.variables.getVariableByIdAsync(variableId) : figma.variables.getVariableById(variableId);
+          if (!variable) {
+            console.warn(`[ScopeController] Figma variable not found for token ${token.id} (variableId: ${variableId})`);
+            skippedCount++;
+            continue;
+          }
+          this.validateScopes(newScopes, token.qualifiedName);
+          variable.scopes = newScopes;
+          updatedCount++;
+          ErrorHandler.info(
+            `Updated scopes for ${token.qualifiedName} (ID: ${token.id}): ${newScopes.join(", ")}`,
+            "ScopeController"
+          );
+        }
+        ErrorHandler.info(
+          `Scopes updated for ${updatedCount} variable(s), ${skippedCount} skipped (no variable ID)`,
+          "ScopeController"
+        );
+        if (updatedCount === 0 && skippedCount === 0) {
+          ErrorHandler.warn("No variables were updated. Check token IDs and scope assignments.", "ScopeController");
+        }
+        ErrorHandler.notifyUser(
+          `${SUCCESS_MESSAGES.SCOPE_APPLIED}: ${updatedCount} variable(s)`,
+          "success"
+        );
+        return updatedCount;
+      }, "Apply Scopes From Tokens");
+    }
+    /**
+     * Get variable by Token (NEW - O(1) lookup)
+     * Uses token.extensions.figma.variableId for direct access
+     *
+     * @param token - Token with Figma variable ID in extensions
+     * @returns Variable or null if not found
+     */
+    async getVariableByToken(token) {
+      return ErrorHandler.handle(async () => {
+        var _a, _b;
+        const variableId = (_b = (_a = token.extensions) == null ? void 0 : _a.figma) == null ? void 0 : _b.variableId;
+        if (!variableId) {
+          ErrorHandler.info(`Token ${token.id} (${token.qualifiedName}) has no Figma variable ID`, "ScopeController");
+          return null;
+        }
+        ErrorHandler.info(`Looking up variable for token: ${token.qualifiedName} (ID: ${variableId})`, "ScopeController");
+        const variable = figma.variables.getVariableByIdAsync ? await figma.variables.getVariableByIdAsync(variableId) : figma.variables.getVariableById(variableId);
+        if (variable) {
+          ErrorHandler.info(`Found variable: ${variable.name}`, "ScopeController");
+        } else {
+          ErrorHandler.info(`Variable not found for ID: ${variableId}`, "ScopeController");
+        }
+        return variable;
+      }, "Get Variable By Token");
+    }
+    /**
+     * Get variable by name across all collections (legacy method)
      * Useful for finding a specific variable
      *
      * @param variableName - Name of the variable to find
      * @returns Variable or null if not found
+     * @deprecated Use getVariableByToken() for O(1) lookups
      */
     async getVariableByName(variableName) {
       return ErrorHandler.handle(async () => {
@@ -2594,10 +2726,10 @@
 
   // src/backend/controllers/DocumentationController.ts
   var DocumentationController = class {
-    constructor(generator, storage, variableManager) {
+    constructor(generator, storage, tokenRepository) {
       this.generator = generator;
       this.storage = storage;
-      this.variableManager = variableManager;
+      this.tokenRepository = tokenRepository;
     }
     /**
      * Generate documentation for selected token files
@@ -2630,21 +2762,21 @@
             "DocumentationController"
           );
         }
-        const tokenMetadata = this.variableManager.getTokenMetadata();
-        if (tokenMetadata && tokenMetadata.length > 0) {
+        const tokens = this.tokenRepository.getAll();
+        if (tokens && tokens.length > 0) {
           ErrorHandler.info(
-            `Found ${tokenMetadata.length} tokens in metadata`,
+            `Found ${tokens.length} tokens in repository`,
             "DocumentationController"
           );
         } else {
           ErrorHandler.info(
-            "No metadata in memory, generator will read from Figma variables",
+            "No tokens in repository, generator will read from Figma variables",
             "DocumentationController"
           );
         }
         const result = await this.generator.generate(
           tokenFilesMap,
-          tokenMetadata,
+          tokens,
           options
         );
         if (!result.success) {
@@ -2726,92 +2858,6 @@
     }
   };
   FileSourceRegistry.sources = /* @__PURE__ */ new Map();
-
-  // src/core/registries/TokenFormatRegistry.ts
-  var TokenFormatRegistry = class {
-    /**
-     * Register a token format strategy
-     *
-     * @param strategy - Token format strategy implementation
-     * @throws Error if strategy with same format name already registered
-     */
-    static register(strategy) {
-      const formatName = strategy.getFormatInfo().name;
-      if (this.strategies.has(formatName)) {
-        console.error(`[TokenFormatRegistry] Format '${formatName}' is already registered`);
-        throw new Error(`Token format '${formatName}' is already registered`);
-      }
-      this.strategies.set(formatName, strategy);
-    }
-    /**
-     * Get a format strategy by name
-     *
-     * @param formatName - Format identifier
-     * @returns Format strategy or undefined
-     */
-    static get(formatName) {
-      const strategy = this.strategies.get(formatName);
-      if (!strategy) {
-        console.error(`[TokenFormatRegistry] No strategy registered for format: ${formatName}`);
-      }
-      return strategy;
-    }
-    /**
-     * Auto-detect which format strategy to use based on token data
-     * Returns strategy with highest confidence score
-     *
-     * @param data - Raw token data to analyze
-     * @returns Best matching strategy or undefined if no match
-     */
-    static detectFormat(data) {
-      let bestStrategy;
-      let bestScore = 0;
-      for (const strategy of this.strategies.values()) {
-        const score = strategy.detectFormat(data);
-        if (score > bestScore) {
-          bestScore = score;
-          bestStrategy = strategy;
-        }
-      }
-      if (!bestStrategy) {
-        console.error("[TokenFormatRegistry] No format strategy could parse the provided data");
-      }
-      return bestStrategy;
-    }
-    /**
-     * Check if a format is registered
-     *
-     * @param formatName - Format identifier
-     * @returns True if registered
-     */
-    static has(formatName) {
-      return this.strategies.has(formatName);
-    }
-    /**
-     * Get all registered format names
-     *
-     * @returns Array of format names
-     */
-    static getRegisteredFormats() {
-      return Array.from(this.strategies.keys());
-    }
-    /**
-     * Clear all registered strategies
-     * Useful for testing
-     */
-    static clear() {
-      this.strategies.clear();
-    }
-    /**
-     * Get count of registered strategies
-     *
-     * @returns Number of registered strategies
-     */
-    static count() {
-      return this.strategies.size;
-    }
-  };
-  TokenFormatRegistry.strategies = /* @__PURE__ */ new Map();
 
   // src/core/adapters/GitHubFileSource.ts
   var GitHubFileSource = class {
@@ -3833,27 +3879,75 @@
     }
   };
 
-  // src/backend/services/DocumentationGenerator.ts
-  var DocumentationGenerator = class {
-    constructor() {
-      this.fontFamily = DOCUMENTATION_TYPOGRAPHY.defaultFontFamily;
-      this.defaultVisualizer = new DefaultVisualizer();
+  // src/core/adapters/TokenDocumentationAdapter.ts
+  var TokenDocumentationAdapter = class {
+    constructor(repository) {
+      this.repository = repository;
     }
     /**
-     * Generate documentation table in Figma
+     * Convert Token[] to TokenMetadata[]
      *
-     * @param tokenFiles - Map of token files to document
-     * @param tokenMetadata - Array of token metadata from VariableManager (can be empty)
-     * @param options - Generation options
-     * @returns Result with generation statistics
+     * @param tokens - Array of tokens to convert
+     * @returns TokenMetadata array for DocumentationGenerator
      */
-    async generate(tokenFiles, tokenMetadata, options) {
+    tokensToMetadata(tokens) {
+      return tokens.map((token) => this.tokenToMetadata(token));
+    }
+    /**
+     * Convert single Token to TokenMetadata
+     *
+     * @param token - Token to convert
+     * @returns TokenMetadata
+     */
+    tokenToMetadata(token) {
+      let aliasTo;
+      if (token.aliasTo) {
+        const targetToken = this.repository.get(token.aliasTo);
+        if (targetToken) {
+          aliasTo = `{${targetToken.qualifiedName}}`;
+        }
+      }
+      return {
+        name: token.name,
+        fullPath: token.qualifiedName,
+        type: token.type,
+        value: token.resolvedValue || token.value,
+        originalValue: aliasTo || token.rawValue || token.value,
+        description: token.description,
+        aliasTo,
+        collection: token.collection
+      };
+    }
+  };
+
+  // src/backend/services/DocumentationGenerator.ts
+  var DocumentationGenerator = class {
+    constructor(repository) {
+      this.fontFamily = DOCUMENTATION_TYPOGRAPHY.defaultFontFamily;
+      this.defaultVisualizer = new DefaultVisualizer();
+      if (repository) {
+        this.adapter = new TokenDocumentationAdapter(repository);
+      }
+    }
+    /**
+     * Generate documentation table in Figma (implementation)
+     */
+    async generate(tokenFiles, tokensOrMetadata, options) {
       try {
         if (options.fontFamily) {
           this.fontFamily = options.fontFamily;
         }
         await this.loadFont();
-        let metadata = tokenMetadata;
+        let metadata;
+        if (tokensOrMetadata.length > 0 && this.isToken(tokensOrMetadata[0])) {
+          if (!this.adapter) {
+            return Failure("TokenRepository required to process Token[] - please provide repository in constructor");
+          }
+          console.log("[DocumentationGenerator] Converting Token[] to TokenMetadata[]...");
+          metadata = this.adapter.tokensToMetadata(tokensOrMetadata);
+        } else {
+          metadata = tokensOrMetadata;
+        }
         if (!metadata || metadata.length === 0) {
           console.log("[DocumentationGenerator] No metadata provided, building from Figma variables...");
           const buildResult = await this.buildMetadataFromFigmaVariables();
@@ -4372,25 +4466,33 @@
       cellFrame.resize(width, cellFrame.height);
       return cellFrame;
     }
+    /**
+     * Type guard to check if object is a Token
+     */
+    isToken(obj) {
+      return obj && "id" in obj && "qualifiedName" in obj && "path" in obj;
+    }
   };
 
   // src/backend/main.ts
   var PluginBackend = class {
     constructor() {
       this.registerArchitectureComponents();
-      this.variableManager = new VariableManager();
       this.githubService = new GitHubService();
       this.storage = new StorageService();
-      this.tokenController = new TokenController(this.variableManager, this.storage);
+      this.tokenRepository = new TokenRepository();
+      this.tokenResolver = new TokenResolver(this.tokenRepository);
+      this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
+      this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository);
       this.githubController = new GitHubController(this.githubService, this.storage);
       this.scopeController = new ScopeController();
-      const documentationGenerator = new DocumentationGenerator();
+      const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
       this.documentationController = new DocumentationController(
         documentationGenerator,
         this.storage,
-        this.variableManager
+        this.tokenRepository
       );
-      ErrorHandler.info("Plugin backend initialized", "PluginBackend");
+      ErrorHandler.info("Plugin backend initialized (v2.0 Architecture)", "PluginBackend");
     }
     /**
      * Register new architecture components

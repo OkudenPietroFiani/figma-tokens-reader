@@ -8,9 +8,11 @@ import { PluginMessage } from '../shared/types';
 import { ErrorHandler } from './utils/ErrorHandler';
 
 // Services
-import { VariableManager } from '../services/variableManager';
 import { GitHubService } from '../services/githubService';
 import { StorageService } from './services/StorageService';
+import { TokenRepository } from '../core/services/TokenRepository';
+import { TokenResolver } from '../core/services/TokenResolver';
+import { FigmaSyncService } from '../core/services/FigmaSyncService';
 
 // Controllers
 import { TokenController } from './controllers/TokenController';
@@ -45,10 +47,12 @@ import { DocumentationGenerator } from './services/DocumentationGenerator';
  * - Error Handling: Centralized error handling via ErrorHandler
  */
 class PluginBackend {
-  // Services
-  private variableManager: VariableManager;
+  // Services (v2.0 Architecture)
   private githubService: GitHubService;
   private storage: StorageService;
+  private tokenRepository: TokenRepository;
+  private tokenResolver: TokenResolver;
+  private figmaSyncService: FigmaSyncService;
 
   // Controllers
   private tokenController: TokenController;
@@ -60,25 +64,27 @@ class PluginBackend {
     // Register new architecture components (Phases 1-4)
     this.registerArchitectureComponents();
 
-    // Initialize services
-    this.variableManager = new VariableManager();
+    // Initialize v2.0 services
     this.githubService = new GitHubService();
     this.storage = new StorageService();
+    this.tokenRepository = new TokenRepository();
+    this.tokenResolver = new TokenResolver(this.tokenRepository);
+    this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
 
     // Initialize controllers with dependency injection
-    this.tokenController = new TokenController(this.variableManager, this.storage);
+    this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository);
     this.githubController = new GitHubController(this.githubService, this.storage);
     this.scopeController = new ScopeController();
 
     // Initialize documentation controller
-    const documentationGenerator = new DocumentationGenerator();
+    const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
     this.documentationController = new DocumentationController(
       documentationGenerator,
       this.storage,
-      this.variableManager
+      this.tokenRepository
     );
 
-    ErrorHandler.info('Plugin backend initialized', 'PluginBackend');
+    ErrorHandler.info('Plugin backend initialized (v2.0 Architecture)', 'PluginBackend');
   }
 
   /**

@@ -2,7 +2,6 @@
 // Handles creation of text styles from composite typography tokens
 
 import { DesignToken, TokenData } from '../shared/types';
-import { resolveReference } from '../utils/tokenProcessor';
 import { Token } from '../core/models/Token';
 
 interface TypographyToken {

@@ -7,10 +7,10 @@ import { Result, Success, DocumentationOptions, DocumentationResult, TokenFile, 
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { StorageService } from '../services/StorageService';
 import { DocumentationGenerator } from '../services/DocumentationGenerator';
-import { VariableManager } from '../../services/variableManager';
+import { TokenRepository } from '../../core/services/TokenRepository';
 
 /**
- * Controller for documentation operations
+ * Controller for documentation operations (v2.0)
  *
  * Responsibilities:
  * - Orchestrate documentation generation
@@ -25,16 +25,16 @@ import { VariableManager } from '../../services/variableManager';
 export class DocumentationController {
   private generator: DocumentationGenerator;
   private storage: StorageService;
-  private variableManager: VariableManager;
+  private tokenRepository: TokenRepository;
 
   constructor(
     generator: DocumentationGenerator,
     storage: StorageService,
-    variableManager: VariableManager
+    tokenRepository: TokenRepository
   ) {
     this.generator = generator;
     this.storage = storage;
-    this.variableManager = variableManager;
+    this.tokenRepository = tokenRepository;
   }
 
   /**
@@ -75,26 +75,25 @@ export class DocumentationController {
         );
       }
 
-      // Get token metadata from VariableManager (can be empty)
-      // If empty, the generator will build it from Figma variables
-      const tokenMetadata = this.variableManager.getTokenMetadata();
+      // Get all tokens from TokenRepository (v2.0)
+      const tokens = this.tokenRepository.getAll();
 
-      if (tokenMetadata && tokenMetadata.length > 0) {
+      if (tokens && tokens.length > 0) {
         ErrorHandler.info(
-          `Found ${tokenMetadata.length} tokens in metadata`,
+          `Found ${tokens.length} tokens in repository`,
           'DocumentationController'
         );
       } else {
         ErrorHandler.info(
-          'No metadata in memory, generator will read from Figma variables',
+          'No tokens in repository, generator will read from Figma variables',
           'DocumentationController'
         );
       }
 
-      // Generate documentation
+      // Generate documentation (uses Token[] overload)
       const result = await this.generator.generate(
         tokenFilesMap,
-        tokenMetadata,
+        tokens,
         options
       );
 
