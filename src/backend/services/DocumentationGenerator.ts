@@ -636,7 +636,6 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -652,6 +651,10 @@ export class DocumentationGenerator {
     text.textAutoResize = 'WIDTH_AND_HEIGHT'; // Allow text to size naturally
 
     cellFrame.appendChild(text);
+
+    // Set width AFTER adding children so height can auto-adjust
+    cellFrame.resize(width, cellFrame.height);
+
     return cellFrame;
   }
 
@@ -726,7 +729,6 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -742,6 +744,10 @@ export class DocumentationGenerator {
     text.textAutoResize = 'WIDTH_AND_HEIGHT'; // Allow text to size naturally
 
     cellFrame.appendChild(text);
+
+    // Set width AFTER adding children so height can auto-adjust
+    cellFrame.resize(width, cellFrame.height);
+
     return cellFrame;
   }
 
@@ -757,7 +763,6 @@ export class DocumentationGenerator {
     cellFrame.layoutMode = 'HORIZONTAL';
     cellFrame.primaryAxisSizingMode = 'FIXED'; // Fix width
     cellFrame.counterAxisSizingMode = 'AUTO'; // Hug contents height
-    cellFrame.resize(width, 1); // Width fixed, height will auto-adjust to children
     cellFrame.primaryAxisAlignItems = 'CENTER';
     cellFrame.counterAxisAlignItems = 'CENTER';
     cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -774,6 +779,10 @@ export class DocumentationGenerator {
     );
 
     cellFrame.appendChild(visualization);
+
+    // Set width AFTER adding children so height can auto-adjust
+    cellFrame.resize(width, cellFrame.height);
+
     return cellFrame;
   }
 }
