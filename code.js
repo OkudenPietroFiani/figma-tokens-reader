@@ -4221,7 +4221,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
+      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const width = columnWidths.get(column.key) || 200;
         const cell = this.createHeaderCell(column.label, width);
@@ -4235,11 +4235,11 @@
     createHeaderCell(label, width) {
       const cellFrame = figma.createFrame();
       cellFrame.name = `Header: ${label}`;
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.headerHeight);
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4251,6 +4251,8 @@
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.header.fontSize;
       text.fontName = { family: this.fontFamily, style: "Bold" };
       text.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
+      text.textAutoResize = "HEIGHT";
+      text.layoutAlign = "STRETCH";
       cellFrame.appendChild(text);
       return cellFrame;
     }
@@ -4265,7 +4267,7 @@
       rowFrame.layoutMode = "HORIZONTAL";
       rowFrame.primaryAxisSizingMode = "FIXED";
       rowFrame.counterAxisSizingMode = "AUTO";
-      rowFrame.resize(tableWidth, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
+      rowFrame.resize(tableWidth, 1);
       for (const column of columns) {
         const cellWidth = columnWidths.get(column.key) || DOCUMENTATION_LAYOUT_CONFIG.table.minColumnWidth;
         let cell;
@@ -4302,11 +4304,11 @@
     createTextCell(value, width) {
       const cellFrame = figma.createFrame();
       cellFrame.name = "Cell";
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingLeft = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
@@ -4318,6 +4320,8 @@
       text.fontSize = DOCUMENTATION_LAYOUT_CONFIG.cell.fontSize;
       text.fontName = { family: this.fontFamily, style: "Regular" };
       text.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
+      text.textAutoResize = "HEIGHT";
+      text.layoutAlign = "STRETCH";
       cellFrame.appendChild(text);
       return cellFrame;
     }
@@ -4327,11 +4331,11 @@
     async createVisualizationCell(row, width) {
       const cellFrame = figma.createFrame();
       cellFrame.name = "Visualization Cell";
-      cellFrame.resize(width, DOCUMENTATION_LAYOUT_CONFIG.table.rowHeight);
       cellFrame.fills = [];
       cellFrame.layoutMode = "HORIZONTAL";
       cellFrame.primaryAxisSizingMode = "FIXED";
       cellFrame.counterAxisSizingMode = "AUTO";
+      cellFrame.resize(width, 1);
       cellFrame.primaryAxisAlignItems = "CENTER";
       cellFrame.counterAxisAlignItems = "CENTER";
       cellFrame.paddingTop = DOCUMENTATION_LAYOUT_CONFIG.cell.padding;
