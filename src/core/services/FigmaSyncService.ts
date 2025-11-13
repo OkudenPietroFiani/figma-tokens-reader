@@ -432,15 +432,19 @@ export class FigmaSyncService {
       // Example: { components: [255, 128, 0], alpha: 1 }
       if ('components' in value && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
-        const result: RGBA = {
+        if (value.alpha !== undefined) {
+          return {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255,
+            a: value.alpha,
+          };
+        }
+        return {
           r: r / 255,
           g: g / 255,
           b: b / 255,
         };
-        if (value.alpha !== undefined) {
-          result.a = value.alpha;
-        }
-        return result;
       }
 
       // Format 3: Color space object (colorSpace + components)
@@ -466,15 +470,19 @@ export class FigmaSyncService {
   private parseRgbString(rgbString: string): RGB | RGBA {
     const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
     if (match) {
-      const result: RGBA = {
-        r: parseInt(match[1]) / 255,
-        g: parseInt(match[2]) / 255,
-        b: parseInt(match[3]) / 255,
-      };
+      const r = parseInt(match[1]) / 255;
+      const g = parseInt(match[2]) / 255;
+      const b = parseInt(match[3]) / 255;
+
       if (match[4]) {
-        result.a = parseFloat(match[4]);
+        return {
+          r,
+          g,
+          b,
+          a: parseFloat(match[4]),
+        };
       }
-      return result;
+      return { r, g, b };
     }
     return { r: 0, g: 0, b: 0 };
   }
