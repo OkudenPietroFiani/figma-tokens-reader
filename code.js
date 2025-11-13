@@ -1662,7 +1662,14 @@
             variable.setValueForMode(modeId, value);
           }
         } else {
+          console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+            tokenValue: token.value,
+            tokenType: token.type,
+            figmaType,
+            valueType: typeof token.value
+          });
           const value = this.convertValue(token.value, figmaType);
+          console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -1796,16 +1803,30 @@
     }
     /**
      * Convert hex color to RGB
+     * Supports 3, 6, and 8 digit hex codes
      */
     hexToRgb(hex) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      if (result) {
-        return {
-          r: parseInt(result[1], 16) / 255,
-          g: parseInt(result[2], 16) / 255,
-          b: parseInt(result[3], 16) / 255
-        };
+      const cleanHex = hex.replace(/^#/, "");
+      if (cleanHex.length === 3) {
+        const r = parseInt(cleanHex[0] + cleanHex[0], 16) / 255;
+        const g = parseInt(cleanHex[1] + cleanHex[1], 16) / 255;
+        const b = parseInt(cleanHex[2] + cleanHex[2], 16) / 255;
+        return { r, g, b };
       }
+      if (cleanHex.length === 6) {
+        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+        return { r, g, b };
+      }
+      if (cleanHex.length === 8) {
+        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+        const a = parseInt(cleanHex.substring(6, 8), 16) / 255;
+        return { r, g, b, a };
+      }
+      console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -1827,14 +1848,19 @@
      */
     setCodeSyntax(variable, token) {
       try {
-        const collection = token.collection || "default";
-        const tokenPath = token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
-        const cssVarName = `--${collection}-${tokenPath}`;
-        variable.setVariableCodeSyntax("WEB", `var(${cssVarName})`);
-        variable.setVariableCodeSyntax("ANDROID", `@dimen/${collection}_${token.path.join("_").replace(/[^a-z0-9_]/g, "_")}`);
-        variable.setVariableCodeSyntax("iOS", `${collection}.${token.path.join(".")}`);
+        const cssVarName = `--${token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+        console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+        if (typeof variable.setVariableCodeSyntax === "function") {
+          variable.setVariableCodeSyntax("WEB", cssVarName);
+          const androidPath = token.path.join("_").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+          variable.setVariableCodeSyntax("ANDROID", `@dimen/${androidPath}`);
+          variable.setVariableCodeSyntax("iOS", token.path.join("."));
+          console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+        } else {
+          console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
+        }
       } catch (error) {
-        console.warn(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
       }
     }
     /**

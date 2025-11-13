@@ -300,8 +300,15 @@ export class FigmaSyncService {
           variable.setValueForMode(modeId, value);
         }
       } else {
-        // Direct value
+        // Direct value - log for debugging
+        console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+          tokenValue: token.value,
+          tokenType: token.type,
+          figmaType,
+          valueType: typeof token.value,
+        });
         const value = this.convertValue(token.value, figmaType);
+        console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
         variable.setValueForMode(modeId, value);
       }
 
@@ -474,16 +481,38 @@ export class FigmaSyncService {
 
   /**
    * Convert hex color to RGB
+   * Supports 3, 6, and 8 digit hex codes
    */
-  private hexToRgb(hex: string): RGB {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (result) {
-      return {
-        r: parseInt(result[1], 16) / 255,
-        g: parseInt(result[2], 16) / 255,
-        b: parseInt(result[3], 16) / 255,
-      };
+  private hexToRgb(hex: string): RGB | RGBA {
+    // Remove # if present
+    const cleanHex = hex.replace(/^#/, '');
+
+    // Handle 3-digit hex (e.g., #f80)
+    if (cleanHex.length === 3) {
+      const r = parseInt(cleanHex[0] + cleanHex[0], 16) / 255;
+      const g = parseInt(cleanHex[1] + cleanHex[1], 16) / 255;
+      const b = parseInt(cleanHex[2] + cleanHex[2], 16) / 255;
+      return { r, g, b };
     }
+
+    // Handle 6-digit hex (e.g., #ff8800)
+    if (cleanHex.length === 6) {
+      const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+      const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+      const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+      return { r, g, b };
+    }
+
+    // Handle 8-digit hex with alpha (e.g., #ff8800ff)
+    if (cleanHex.length === 8) {
+      const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+      const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+      const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+      const a = parseInt(cleanHex.substring(6, 8), 16) / 255;
+      return { r, g, b, a };
+    }
+
+    console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
     return { r: 0, g: 0, b: 0 };
   }
 
@@ -510,20 +539,29 @@ export class FigmaSyncService {
    */
   private setCodeSyntax(variable: Variable, token: Token): void {
     try {
-      const collection = token.collection || 'default';
-      const tokenPath = token.path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      // Build CSS variable name from token path
+      const cssVarName = `--${token.path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
 
-      // Build CSS variable name: --collection-path-to-token
-      const cssVarName = `--${collection}-${tokenPath}`;
+      console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
 
-      // Use Figma's setVariableCodeSyntax() API
-      variable.setVariableCodeSyntax('WEB', `var(${cssVarName})`);
+      // Check if method exists (plugin API version check)
+      if (typeof variable.setVariableCodeSyntax === 'function') {
+        // Web: CSS variable reference
+        variable.setVariableCodeSyntax('WEB', cssVarName);
 
-      // Optional: Set for other platforms
-      variable.setVariableCodeSyntax('ANDROID', `@dimen/${collection}_${token.path.join('_').replace(/[^a-z0-9_]/g, '_')}`);
-      variable.setVariableCodeSyntax('iOS', `${collection}.${token.path.join('.')}`);
+        // Android: resource reference
+        const androidPath = token.path.join('_').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+        variable.setVariableCodeSyntax('ANDROID', `@dimen/${androidPath}`);
+
+        // iOS: dot notation
+        variable.setVariableCodeSyntax('iOS', token.path.join('.'));
+
+        console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+      } else {
+        console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
+      }
     } catch (error) {
-      console.warn(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+      console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
       // Non-fatal error - continue sync
     }
   }
