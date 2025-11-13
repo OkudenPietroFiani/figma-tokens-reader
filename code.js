@@ -1728,19 +1728,70 @@
     }
     /**
      * Convert color value to Figma RGB format
+     * Handles: hex strings, RGB objects, RGBA objects, color objects with components
      */
     convertColorValue(value) {
       if (typeof value === "string") {
         if (value.startsWith("#")) {
           return this.hexToRgb(value);
         }
+        if (value.startsWith("rgb")) {
+          return this.parseRgbString(value);
+        }
       }
       if (typeof value === "object" && value !== null) {
         if ("r" in value && "g" in value && "b" in value) {
-          return value;
+          const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
+          if (isNormalized) {
+            return value;
+          }
+          return __spreadValues({
+            r: value.r / 255,
+            g: value.g / 255,
+            b: value.b / 255
+          }, value.a !== void 0 ? { a: value.a } : {});
+        }
+        if ("components" in value && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
+          const result = {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
+          };
+          if (value.alpha !== void 0) {
+            result.a = value.alpha;
+          }
+          return result;
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
+          return {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
+          };
         }
       }
       console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+      console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+      return { r: 0, g: 0, b: 0 };
+    }
+    /**
+     * Parse rgb() or rgba() string to RGB
+     */
+    parseRgbString(rgbString) {
+      const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (match) {
+        const result = {
+          r: parseInt(match[1]) / 255,
+          g: parseInt(match[2]) / 255,
+          b: parseInt(match[3]) / 255
+        };
+        if (match[4]) {
+          result.a = parseFloat(match[4]);
+        }
+        return result;
+      }
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -1771,13 +1822,20 @@
       return 0;
     }
     /**
-     * Set CSS variable code syntax
+     * Set CSS variable code syntax using Figma's official API
+     * Uses setVariableCodeSyntax() method for proper syntax setting
      */
     setCodeSyntax(variable, token) {
-      const cssVarName = `--${token.qualifiedName.replace(/\./g, "-")}`;
-      variable.codeSyntax = {
-        WEB: cssVarName
-      };
+      try {
+        const collection = token.collection || "default";
+        const tokenPath = token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-");
+        const cssVarName = `--${collection}-${tokenPath}`;
+        variable.setVariableCodeSyntax("WEB", `var(${cssVarName})`);
+        variable.setVariableCodeSyntax("ANDROID", `@dimen/${collection}_${token.path.join("_").replace(/[^a-z0-9_]/g, "_")}`);
+        variable.setVariableCodeSyntax("iOS", `${collection}.${token.path.join(".")}`);
+      } catch (error) {
+        console.warn(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+      }
     }
     /**
      * Check if token should be skipped (handled as style instead)

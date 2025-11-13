@@ -389,25 +389,87 @@ export class FigmaSyncService {
 
   /**
    * Convert color value to Figma RGB format
+   * Handles: hex strings, RGB objects, RGBA objects, color objects with components
    */
   private convertColorValue(value: any): RGB | RGBA {
+    // Handle string colors (hex format)
     if (typeof value === 'string') {
-      // Parse hex color
       if (value.startsWith('#')) {
         return this.hexToRgb(value);
       }
-      // TODO: Parse rgb(), rgba(), hsl() formats if needed
+      // Handle rgb(), rgba() string formats
+      if (value.startsWith('rgb')) {
+        return this.parseRgbString(value);
+      }
     }
 
+    // Handle object formats
     if (typeof value === 'object' && value !== null) {
-      // Already in RGB/RGBA format
+      // Format 1: Direct Figma RGB format { r: 0-1, g: 0-1, b: 0-1 }
       if ('r' in value && 'g' in value && 'b' in value) {
-        return value;
+        // Check if values are already normalized (0-1)
+        const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
+        if (isNormalized) {
+          return value;
+        }
+        // Convert from 0-255 to 0-1
+        return {
+          r: value.r / 255,
+          g: value.g / 255,
+          b: value.b / 255,
+          ...(value.a !== undefined ? { a: value.a } : {}),
+        };
+      }
+
+      // Format 2: W3C color object with components array
+      // Example: { components: [255, 128, 0], alpha: 1 }
+      if ('components' in value && Array.isArray(value.components)) {
+        const [r, g, b] = value.components;
+        const result: RGBA = {
+          r: r / 255,
+          g: g / 255,
+          b: b / 255,
+        };
+        if (value.alpha !== undefined) {
+          result.a = value.alpha;
+        }
+        return result;
+      }
+
+      // Format 3: Color space object (colorSpace + components)
+      // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
+      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
+        const [r, g, b] = value.components;
+        return {
+          r: r / 255,
+          g: g / 255,
+          b: b / 255,
+        };
       }
     }
 
     console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+    console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
     return { r: 0, g: 0, b: 0 }; // Fallback to black
+  }
+
+  /**
+   * Parse rgb() or rgba() string to RGB
+   */
+  private parseRgbString(rgbString: string): RGB | RGBA {
+    const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (match) {
+      const result: RGBA = {
+        r: parseInt(match[1]) / 255,
+        g: parseInt(match[2]) / 255,
+        b: parseInt(match[3]) / 255,
+      };
+      if (match[4]) {
+        result.a = parseFloat(match[4]);
+      }
+      return result;
+    }
+    return { r: 0, g: 0, b: 0 };
   }
 
   /**
@@ -443,13 +505,27 @@ export class FigmaSyncService {
   }
 
   /**
-   * Set CSS variable code syntax
+   * Set CSS variable code syntax using Figma's official API
+   * Uses setVariableCodeSyntax() method for proper syntax setting
    */
   private setCodeSyntax(variable: Variable, token: Token): void {
-    const cssVarName = `--${token.qualifiedName.replace(/\./g, '-')}`;
-    variable.codeSyntax = {
-      WEB: cssVarName,
-    };
+    try {
+      const collection = token.collection || 'default';
+      const tokenPath = token.path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+      // Build CSS variable name: --collection-path-to-token
+      const cssVarName = `--${collection}-${tokenPath}`;
+
+      // Use Figma's setVariableCodeSyntax() API
+      variable.setVariableCodeSyntax('WEB', `var(${cssVarName})`);
+
+      // Optional: Set for other platforms
+      variable.setVariableCodeSyntax('ANDROID', `@dimen/${collection}_${token.path.join('_').replace(/[^a-z0-9_]/g, '_')}`);
+      variable.setVariableCodeSyntax('iOS', `${collection}.${token.path.join('.')}`);
+    } catch (error) {
+      console.warn(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+      // Non-fatal error - continue sync
+    }
   }
 
   /**
