@@ -1662,7 +1662,14 @@
             variable.setValueForMode(modeId, value);
           }
         } else {
+          console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+            tokenValue: token.value,
+            tokenType: token.type,
+            figmaType,
+            valueType: typeof token.value
+          });
           const value = this.convertValue(token.value, figmaType);
+          console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -1728,33 +1735,105 @@
     }
     /**
      * Convert color value to Figma RGB format
+     * Handles: hex strings, RGB objects, RGBA objects, color objects with components
      */
     convertColorValue(value) {
       if (typeof value === "string") {
         if (value.startsWith("#")) {
           return this.hexToRgb(value);
         }
+        if (value.startsWith("rgb")) {
+          return this.parseRgbString(value);
+        }
       }
       if (typeof value === "object" && value !== null) {
         if ("r" in value && "g" in value && "b" in value) {
-          return value;
+          const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
+          if (isNormalized) {
+            return value;
+          }
+          return __spreadValues({
+            r: value.r / 255,
+            g: value.g / 255,
+            b: value.b / 255
+          }, value.a !== void 0 ? { a: value.a } : {});
+        }
+        if ("components" in value && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
+          if (value.alpha !== void 0) {
+            return {
+              r: r / 255,
+              g: g / 255,
+              b: b / 255,
+              a: value.alpha
+            };
+          }
+          return {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
+          };
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
+          return {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
+          };
         }
       }
       console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+      console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+      return { r: 0, g: 0, b: 0 };
+    }
+    /**
+     * Parse rgb() or rgba() string to RGB
+     */
+    parseRgbString(rgbString) {
+      const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (match) {
+        const r = parseInt(match[1]) / 255;
+        const g = parseInt(match[2]) / 255;
+        const b = parseInt(match[3]) / 255;
+        if (match[4]) {
+          return {
+            r,
+            g,
+            b,
+            a: parseFloat(match[4])
+          };
+        }
+        return { r, g, b };
+      }
       return { r: 0, g: 0, b: 0 };
     }
     /**
      * Convert hex color to RGB
+     * Supports 3, 6, and 8 digit hex codes
      */
     hexToRgb(hex) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      if (result) {
-        return {
-          r: parseInt(result[1], 16) / 255,
-          g: parseInt(result[2], 16) / 255,
-          b: parseInt(result[3], 16) / 255
-        };
+      const cleanHex = hex.replace(/^#/, "");
+      if (cleanHex.length === 3) {
+        const r = parseInt(cleanHex[0] + cleanHex[0], 16) / 255;
+        const g = parseInt(cleanHex[1] + cleanHex[1], 16) / 255;
+        const b = parseInt(cleanHex[2] + cleanHex[2], 16) / 255;
+        return { r, g, b };
       }
+      if (cleanHex.length === 6) {
+        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+        return { r, g, b };
+      }
+      if (cleanHex.length === 8) {
+        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+        const a = parseInt(cleanHex.substring(6, 8), 16) / 255;
+        return { r, g, b, a };
+      }
+      console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -1771,13 +1850,25 @@
       return 0;
     }
     /**
-     * Set CSS variable code syntax
+     * Set CSS variable code syntax using Figma's official API
+     * Uses setVariableCodeSyntax() method for proper syntax setting
      */
     setCodeSyntax(variable, token) {
-      const cssVarName = `--${token.qualifiedName.replace(/\./g, "-")}`;
-      variable.codeSyntax = {
-        WEB: cssVarName
-      };
+      try {
+        const cssVarName = `--${token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+        console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+        if (typeof variable.setVariableCodeSyntax === "function") {
+          variable.setVariableCodeSyntax("WEB", cssVarName);
+          const androidPath = token.path.join("_").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+          variable.setVariableCodeSyntax("ANDROID", `@dimen/${androidPath}`);
+          variable.setVariableCodeSyntax("iOS", token.path.join("."));
+          console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+        } else {
+          console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
+        }
+      } catch (error) {
+        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+      }
     }
     /**
      * Check if token should be skipped (handled as style instead)
