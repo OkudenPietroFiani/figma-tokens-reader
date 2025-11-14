@@ -136,7 +136,7 @@ describe('FigmaSyncService', () => {
       );
     });
 
-    test('converts 8-digit hex color with alpha #ff8800ff to RGBA', async () => {
+    test('converts 8-digit hex color with alpha #ff8800ff to RGB (alpha ignored)', async () => {
       const token: Token = {
         id: 'token-3',
         path: ['color', 'orange-opaque'],
@@ -161,15 +161,18 @@ describe('FigmaSyncService', () => {
       const result = await service.syncTokens([token]);
 
       expect(result.success).toBe(true);
+      // Alpha channel is ignored - Figma COLOR type only accepts RGB
       expect(mockVariable.setValueForMode).toHaveBeenCalledWith(
         'mode-1',
         expect.objectContaining({
           r: expect.closeTo(1.0, 2),
           g: expect.closeTo(0.533, 2),
           b: expect.closeTo(0.0, 2),
-          a: expect.closeTo(1.0, 2),
         })
       );
+      // Verify no 'a' property
+      const callArgs = mockVariable.setValueForMode.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('a');
     });
 
     test('converts RGB object (0-255) to normalized RGB', async () => {
@@ -207,7 +210,7 @@ describe('FigmaSyncService', () => {
       );
     });
 
-    test('converts W3C components array to RGB', async () => {
+    test('converts W3C components array to RGB (alpha ignored)', async () => {
       const token: Token = {
         id: 'token-5',
         path: ['color', 'green'],
@@ -232,15 +235,18 @@ describe('FigmaSyncService', () => {
       const result = await service.syncTokens([token]);
 
       expect(result.success).toBe(true);
+      // Alpha is ignored - Figma COLOR type only accepts RGB
       expect(mockVariable.setValueForMode).toHaveBeenCalledWith(
         'mode-1',
         expect.objectContaining({
           r: expect.closeTo(0.0, 2),
           g: expect.closeTo(1.0, 2),
           b: expect.closeTo(0.502, 2),
-          a: expect.closeTo(1.0, 2),
         })
       );
+      // Verify no 'a' property
+      const callArgs = mockVariable.setValueForMode.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('a');
     });
 
     test('converts colorSpace object to RGB', async () => {
