@@ -72,7 +72,7 @@ class PluginBackend {
     this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
 
     // Initialize controllers with dependency injection
-    this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository);
+    this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
     this.githubController = new GitHubController(this.githubService, this.storage);
     this.scopeController = new ScopeController();
 

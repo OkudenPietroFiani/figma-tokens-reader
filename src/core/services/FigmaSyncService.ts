@@ -516,18 +516,40 @@ export class FigmaSyncService {
 
   /**
    * Convert numeric value (handle units like px, rem)
+   * Supports: numbers, strings with units, DimensionValue objects
    */
   private convertNumericValue(value: any): number {
+    // Handle direct numbers
     if (typeof value === 'number') {
       return value;
     }
 
+    // Handle string values with units (e.g., "16px", "2.5rem")
     if (typeof value === 'string') {
       // Remove units and parse
       const numeric = parseFloat(value.replace(/[^\d.-]/g, ''));
       return isNaN(numeric) ? 0 : numeric;
     }
 
+    // Handle DimensionValue objects { value: number, unit: string }
+    if (typeof value === 'object' && value !== null) {
+      if ('value' in value && typeof value.value === 'number') {
+        return value.value;
+      }
+      // Handle { components: [number] } format
+      if ('components' in value && Array.isArray(value.components) && value.components.length > 0) {
+        const firstComponent = value.components[0];
+        if (typeof firstComponent === 'number') {
+          return firstComponent;
+        }
+        if (typeof firstComponent === 'string') {
+          const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ''));
+          return isNaN(numeric) ? 0 : numeric;
+        }
+      }
+    }
+
+    console.warn('[FigmaSyncService] Could not convert value to number:', value);
     return 0;
   }
 
