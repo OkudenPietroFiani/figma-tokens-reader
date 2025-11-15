@@ -398,7 +398,7 @@ export class FigmaSyncService {
 
   /**
    * Convert color value to Figma RGB format
-   * Handles: hex strings, RGB objects, color objects with components
+   * Handles: hex strings, RGB objects, HSL objects (uses hex), color objects with components
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
@@ -431,10 +431,16 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 2: W3C color object with components array
-      // Example: { components: [255, 128, 0], alpha: 1 }
-      // Note: Alpha is ignored - Figma COLOR type only accepts RGB
-      if ('components' in value && Array.isArray(value.components)) {
+      // Format 2: HSL colorSpace with hex fallback (common in W3C Design Tokens)
+      // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
+        console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
+        return this.hexToRgb(value.hex);
+      }
+
+      // Format 3: RGB colorSpace with components array
+      // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
+      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
         return {
           r: r / 255,
@@ -443,9 +449,10 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 3: Color space object (colorSpace + components)
-      // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
-      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
+      // Format 4: W3C color object with components array (no colorSpace)
+      // Example: { components: [255, 128, 0], alpha: 1 }
+      // Note: Alpha is ignored - Figma COLOR type only accepts RGB
+      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
         const [r, g, b] = value.components;
         return {
           r: r / 255,
@@ -515,8 +522,9 @@ export class FigmaSyncService {
   }
 
   /**
-   * Convert numeric value (handle units like px, rem)
+   * Convert numeric value (handle units like px, rem, em)
    * Supports: numbers, strings with units, DimensionValue objects
+   * Note: Converts rem/em to px using 16px base size (standard browser default)
    */
   private convertNumericValue(value: any): number {
     // Handle direct numbers
@@ -524,9 +532,24 @@ export class FigmaSyncService {
       return value;
     }
 
-    // Handle string values with units (e.g., "16px", "2.5rem")
+    // Handle string values with units (e.g., "16px", "2.5rem", "1.5em")
     if (typeof value === 'string') {
-      // Remove units and parse
+      const match = value.match(/^([\d.-]+)(px|rem|em)?$/);
+      if (match) {
+        const numericValue = parseFloat(match[1]);
+        const unit = match[2] || '';
+
+        // Convert rem/em to px (16px base)
+        if (unit === 'rem' || unit === 'em') {
+          const converted = numericValue * 16;
+          console.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
+          return converted;
+        }
+
+        return numericValue;
+      }
+
+      // Fallback: strip non-numeric
       const numeric = parseFloat(value.replace(/[^\d.-]/g, ''));
       return isNaN(numeric) ? 0 : numeric;
     }
@@ -534,8 +557,19 @@ export class FigmaSyncService {
     // Handle DimensionValue objects { value: number, unit: string }
     if (typeof value === 'object' && value !== null) {
       if ('value' in value && typeof value.value === 'number') {
-        return value.value;
+        const numericValue = value.value;
+        const unit = value.unit || '';
+
+        // Convert rem/em to px (16px base)
+        if (unit === 'rem' || unit === 'em') {
+          const converted = numericValue * 16;
+          console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
+          return converted;
+        }
+
+        return numericValue;
       }
+
       // Handle { components: [number] } format
       if ('components' in value && Array.isArray(value.components) && value.components.length > 0) {
         const firstComponent = value.components[0];
