@@ -638,6 +638,91 @@ export class FigmaSyncService {
   }
 
   /**
+   * Convert line height value to Figma LineHeight format
+   *
+   * Line height can be:
+   * - Unitless number (1.3, 1.5) → PERCENT (130%, 150% of font size)
+   * - Pixel value ("24px") → PIXELS
+   * - Rem/em value ("1.5rem") → PIXELS (converted)
+   * - Percentage ("150%") → PERCENT
+   *
+   * Note: Unitless values are treated as multipliers (CSS standard)
+   */
+  private convertLineHeight(value: any, percentageBase: number = 16): LineHeight {
+    // Handle unitless numbers (e.g., 1.3, 1.5)
+    // These are multipliers in CSS: 1.3 = 130% of font size
+    if (typeof value === 'number') {
+      const percentValue = value * 100;
+      return { value: percentValue, unit: 'PERCENT' };
+    }
+
+    // Handle string values
+    if (typeof value === 'string') {
+      const match = value.match(/^([\d.-]+)(px|rem|em|%)?$/);
+      if (match) {
+        const numericValue = parseFloat(match[1]);
+        const unit = match[2] || '';
+
+        // Unitless string (e.g., "1.3") → PERCENT
+        if (!unit) {
+          const percentValue = numericValue * 100;
+          return { value: percentValue, unit: 'PERCENT' };
+        }
+
+        // Percentage (e.g., "150%") → PERCENT
+        if (unit === '%') {
+          return { value: numericValue, unit: 'PERCENT' };
+        }
+
+        // Pixel value (e.g., "24px") → PIXELS
+        if (unit === 'px') {
+          return { value: numericValue, unit: 'PIXELS' };
+        }
+
+        // Rem/em (e.g., "1.5rem") → PIXELS (convert to px)
+        if (unit === 'rem' || unit === 'em') {
+          const pixelValue = numericValue * 16;
+          return { value: pixelValue, unit: 'PIXELS' };
+        }
+      }
+    }
+
+    // Handle DimensionValue objects { value: number, unit: string }
+    if (typeof value === 'object' && value !== null) {
+      if ('value' in value && typeof value.value === 'number') {
+        const numericValue = value.value;
+        const unit = value.unit || '';
+
+        // Unitless → PERCENT
+        if (!unit) {
+          const percentValue = numericValue * 100;
+          return { value: percentValue, unit: 'PERCENT' };
+        }
+
+        // Percentage → PERCENT
+        if (unit === '%') {
+          return { value: numericValue, unit: 'PERCENT' };
+        }
+
+        // Pixel → PIXELS
+        if (unit === 'px') {
+          return { value: numericValue, unit: 'PIXELS' };
+        }
+
+        // Rem/em → PIXELS
+        if (unit === 'rem' || unit === 'em') {
+          const pixelValue = numericValue * 16;
+          return { value: pixelValue, unit: 'PIXELS' };
+        }
+      }
+    }
+
+    // Fallback: treat as AUTO
+    console.warn('[FigmaSyncService] Could not convert line height, using AUTO:', value);
+    return { unit: 'AUTO' };
+  }
+
+  /**
    * Set CSS variable code syntax using Figma's official API
    * Uses setVariableCodeSyntax() method for proper syntax setting
    */
@@ -846,9 +931,12 @@ export class FigmaSyncService {
 
       // Line height
       if (typValue.lineHeight !== undefined) {
-        const lineHeight = this.convertNumericValue(typValue.lineHeight, options.percentageBase);
-        console.log(`[FigmaSyncService] Line height converted: ${typValue.lineHeight} → ${lineHeight}px`);
-        textStyle.lineHeight = { value: lineHeight, unit: 'PIXELS' };
+        const lineHeightResult = this.convertLineHeight(typValue.lineHeight, options.percentageBase);
+        const displayValue = lineHeightResult.unit === 'AUTO'
+          ? 'AUTO'
+          : `${lineHeightResult.value}${lineHeightResult.unit === 'PERCENT' ? '%' : 'px'}`;
+        console.log(`[FigmaSyncService] Line height converted: ${typValue.lineHeight} → ${displayValue}`);
+        textStyle.lineHeight = lineHeightResult;
       }
 
       // Letter spacing
