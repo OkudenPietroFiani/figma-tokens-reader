@@ -1504,7 +1504,8 @@
         const opts = __spreadValues({
           updateExisting: true,
           preserveScopes: true,
-          skipStyles: false
+          createStyles: true,
+          percentageBase: 16
         }, options);
         const stats = { added: 0, updated: 0, skipped: 0 };
         const syncedCollections = /* @__PURE__ */ new Set();
@@ -1596,8 +1597,11 @@
       const existingVars = await this.getCollectionVariables(collection);
       const varsByName = new Map(existingVars.map((v) => [v.name, v]));
       for (const token of tokens) {
-        if (options.skipStyles && this.shouldSkipAsStyle(token)) {
-          stats.skipped++;
+        if (options.createStyles && this.isStyleToken(token)) {
+          const styleStats = await this.syncAsStyle(token, options);
+          stats.added += styleStats.added;
+          stats.updated += styleStats.updated;
+          stats.skipped += styleStats.skipped;
           continue;
         }
         const tokenStats = await this.syncToken(token, collection, varsByName, options);
@@ -1787,6 +1791,28 @@
       return { r: 0, g: 0, b: 0 };
     }
     /**
+     * Convert color value to Figma RGBA format (for shadows and effects)
+     * Similar to convertColorValue but includes alpha channel
+     */
+    convertColorToRGBA(value) {
+      const rgb = this.convertColorValue(value);
+      let alpha = 1;
+      if (typeof value === "object" && value !== null) {
+        if ("a" in value && typeof value.a === "number") {
+          alpha = value.a;
+        } else if ("alpha" in value && typeof value.alpha === "number") {
+          alpha = value.alpha;
+        }
+      }
+      if (typeof value === "string" && value.startsWith("rgba")) {
+        const match = value.match(/rgba?\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
+        if (match) {
+          alpha = parseFloat(match[1]);
+        }
+      }
+      return __spreadProps(__spreadValues({}, rgb), { a: alpha });
+    }
+    /**
      * Parse rgb() or rgba() string to RGB
      * Note: Alpha channel is ignored - Figma COLOR type only accepts RGB
      */
@@ -1830,22 +1856,28 @@
       return { r: 0, g: 0, b: 0 };
     }
     /**
-     * Convert numeric value (handle units like px, rem, em)
+     * Convert numeric value (handle units like px, rem, em, %)
      * Supports: numbers, strings with units, DimensionValue objects
      * Note: Converts rem/em to px using 16px base size (standard browser default)
+     * Note: Converts percentage to px using percentageBase option (default 16px)
      */
-    convertNumericValue(value) {
+    convertNumericValue(value, percentageBase = 16) {
       if (typeof value === "number") {
         return value;
       }
       if (typeof value === "string") {
-        const match = value.match(/^([\d.-]+)(px|rem|em)?$/);
+        const match = value.match(/^([\d.-]+)(px|rem|em|%)?$/);
         if (match) {
           const numericValue = parseFloat(match[1]);
           const unit = match[2] || "";
           if (unit === "rem" || unit === "em") {
             const converted = numericValue * 16;
             console.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
+            return converted;
+          }
+          if (unit === "%") {
+            const converted = numericValue / 100 * percentageBase;
+            console.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
             return converted;
           }
           return numericValue;
@@ -1860,6 +1892,11 @@
           if (unit === "rem" || unit === "em") {
             const converted = numericValue * 16;
             console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
+            return converted;
+          }
+          if (unit === "%") {
+            const converted = numericValue / 100 * percentageBase;
+            console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
             return converted;
           }
           return numericValue;
@@ -1900,24 +1937,176 @@
       }
     }
     /**
-     * Check if token should be skipped (should be handled as Figma style instead of variable)
+     * Check if token should be handled as a Figma style (not variable)
      *
-     * Typography tokens should become Text Styles (not COLOR/FLOAT/STRING variables)
-     * Shadow tokens should become Effect Styles (not variables)
-     *
-     * NOTE: Currently these tokens are SKIPPED and NOT synced at all
-     * TODO: Implement createTextStyle() and createEffectStyle() methods to properly sync these
+     * Typography tokens become Text Styles
+     * Shadow tokens become Effect Styles
      */
-    shouldSkipAsStyle(token) {
+    isStyleToken(token) {
       if (token.type === "typography" && typeof token.value === "object") {
-        console.warn(`[FigmaSyncService] Skipping typography token ${token.qualifiedName} - text styles not yet implemented`);
         return true;
       }
       if (token.type === "shadow") {
-        console.warn(`[FigmaSyncService] Skipping shadow token ${token.qualifiedName} - effect styles not yet implemented`);
         return true;
       }
       return false;
+    }
+    /**
+     * Sync token as Figma style (text style or effect style)
+     */
+    async syncAsStyle(token, options) {
+      if (token.type === "typography") {
+        return this.createTextStyle(token, options);
+      }
+      if (token.type === "shadow") {
+        return this.createEffectStyle(token, options);
+      }
+      return { added: 0, updated: 0, skipped: 1 };
+    }
+    /**
+     * Create or update Figma Text Style from typography token
+     */
+    async createTextStyle(token, options) {
+      const stats = { added: 0, updated: 0, skipped: 0 };
+      try {
+        const value = token.resolvedValue || token.value;
+        if (typeof value !== "object" || value === null) {
+          console.warn(`[FigmaSyncService] Typography token ${token.qualifiedName} has invalid value type`);
+          stats.skipped++;
+          return stats;
+        }
+        const typValue = value;
+        const styleName = token.path.join("/");
+        const existingStyles = figma.getLocalTextStyles();
+        let textStyle = existingStyles.find((s) => s.name === styleName);
+        if (!textStyle) {
+          textStyle = figma.createTextStyle();
+          textStyle.name = styleName;
+          stats.added++;
+          console.log(`[FigmaSyncService] Created text style: ${styleName}`);
+        } else {
+          if (!options.updateExisting) {
+            stats.skipped++;
+            return stats;
+          }
+          stats.updated++;
+          console.log(`[FigmaSyncService] Updated text style: ${styleName}`);
+        }
+        if (token.description) {
+          textStyle.description = token.description;
+        }
+        if (typValue.fontFamily) {
+          try {
+            const fontFamily = typeof typValue.fontFamily === "string" ? typValue.fontFamily : typValue.fontFamily[0];
+            const fontWeight = typValue.fontWeight || 400;
+            const fontStyle = this.mapFontWeightToStyle(fontWeight);
+            await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+            textStyle.fontName = { family: fontFamily, style: fontStyle };
+          } catch (error) {
+            console.warn(`[FigmaSyncService] Could not load font ${typValue.fontFamily}:`, error);
+          }
+        }
+        if (typValue.fontSize !== void 0) {
+          const fontSize = this.convertNumericValue(typValue.fontSize, options.percentageBase);
+          textStyle.fontSize = fontSize;
+        }
+        if (typValue.lineHeight !== void 0) {
+          const lineHeight = this.convertNumericValue(typValue.lineHeight, options.percentageBase);
+          textStyle.lineHeight = { value: lineHeight, unit: "PIXELS" };
+        }
+        if (typValue.letterSpacing !== void 0) {
+          const letterSpacing = this.convertNumericValue(typValue.letterSpacing, options.percentageBase);
+          textStyle.letterSpacing = { value: letterSpacing, unit: "PIXELS" };
+        }
+        return stats;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[FigmaSyncService] Failed to create text style ${token.qualifiedName}: ${message}`);
+        stats.skipped++;
+        return stats;
+      }
+    }
+    /**
+     * Create or update Figma Effect Style from shadow token
+     */
+    async createEffectStyle(token, options) {
+      const stats = { added: 0, updated: 0, skipped: 0 };
+      try {
+        const value = token.resolvedValue || token.value;
+        if (typeof value !== "object" || value === null) {
+          console.warn(`[FigmaSyncService] Shadow token ${token.qualifiedName} has invalid value type`);
+          stats.skipped++;
+          return stats;
+        }
+        const shadowValue = value;
+        const styleName = token.path.join("/");
+        const existingStyles = figma.getLocalEffectStyles();
+        let effectStyle = existingStyles.find((s) => s.name === styleName);
+        if (!effectStyle) {
+          effectStyle = figma.createEffectStyle();
+          effectStyle.name = styleName;
+          stats.added++;
+          console.log(`[FigmaSyncService] Created effect style: ${styleName}`);
+        } else {
+          if (!options.updateExisting) {
+            stats.skipped++;
+            return stats;
+          }
+          stats.updated++;
+          console.log(`[FigmaSyncService] Updated effect style: ${styleName}`);
+        }
+        if (token.description) {
+          effectStyle.description = token.description;
+        }
+        const shadowEffect = shadowValue.inset ? {
+          type: "INNER_SHADOW",
+          visible: true,
+          color: this.convertColorToRGBA(shadowValue.color),
+          offset: {
+            x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+            y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase)
+          },
+          radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+          spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
+          blendMode: "NORMAL"
+        } : {
+          type: "DROP_SHADOW",
+          visible: true,
+          color: this.convertColorToRGBA(shadowValue.color),
+          offset: {
+            x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+            y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase)
+          },
+          radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+          spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
+          blendMode: "NORMAL"
+        };
+        effectStyle.effects = [shadowEffect];
+        return stats;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[FigmaSyncService] Failed to create effect style ${token.qualifiedName}: ${message}`);
+        stats.skipped++;
+        return stats;
+      }
+    }
+    /**
+     * Map font weight to Figma font style
+     */
+    mapFontWeightToStyle(weight) {
+      const numWeight = typeof weight === "number" ? weight : parseInt(weight);
+      const weightMap = {
+        100: "Thin",
+        200: "ExtraLight",
+        300: "Light",
+        400: "Regular",
+        500: "Medium",
+        600: "SemiBold",
+        700: "Bold",
+        800: "ExtraBold",
+        900: "Black"
+      };
+      return weightMap[numWeight] || "Regular";
     }
     /**
      * Update token extensions with Figma metadata
