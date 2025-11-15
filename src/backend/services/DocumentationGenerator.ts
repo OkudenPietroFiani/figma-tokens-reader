@@ -478,11 +478,69 @@ export class DocumentationGenerator {
       return value ? 'true' : 'false';
     }
 
-    // Handle objects (shouldn't happen for resolved values)
+    // Handle arrays (e.g., font family arrays)
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+
+    // Handle objects
     if (typeof value === 'object') {
+      // RGB object
       if ('r' in value && 'g' in value && 'b' in value) {
         return this.rgbToHex(value as RGB);
       }
+
+      // DimensionValue object: { value: number, unit: string }
+      if ('value' in value && 'unit' in value) {
+        const numVal = typeof value.value === 'number' ? value.value : parseFloat(value.value);
+        const unit = value.unit || '';
+        // Convert rem/em to px for display
+        if (unit === 'rem' || unit === 'em') {
+          const pxValue = numVal * 16;
+          return `${formatNumber(pxValue)}px (${formatNumber(numVal)}${unit})`;
+        }
+        return `${formatNumber(numVal)}${unit}`;
+      }
+
+      // HSL colorSpace object: { colorSpace: "hsl", components: [...], hex: "#..." }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value) {
+        return value.hex;
+      }
+
+      // RGB colorSpace object: { colorSpace: "rgb", components: [r, g, b] }
+      if ('colorSpace' in value && value.colorSpace === 'rgb' && 'components' in value) {
+        const [r, g, b] = value.components;
+        return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+      }
+
+      // W3C components format: { components: [r, g, b], alpha: ... }
+      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
+        const [r, g, b] = value.components;
+        return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+      }
+
+      // Typography object: { fontFamily, fontSize, fontWeight, lineHeight, ... }
+      if (type === 'typography' && 'fontFamily' in value) {
+        const parts = [];
+        if (value.fontFamily) parts.push(value.fontFamily);
+        if (value.fontSize) parts.push(`${value.fontSize}px`);
+        if (value.fontWeight) parts.push(`weight: ${value.fontWeight}`);
+        if (value.lineHeight) parts.push(`line: ${value.lineHeight}`);
+        return parts.length > 0 ? parts.join(' / ') : JSON.stringify(value);
+      }
+
+      // Shadow object
+      if (type === 'shadow' && ('offsetX' in value || 'x' in value)) {
+        const x = value.offsetX || value.x || 0;
+        const y = value.offsetY || value.y || 0;
+        const blur = value.blur || 0;
+        const spread = value.spread || 0;
+        const color = value.color || '#000000';
+        return `${x}px ${y}px ${blur}px ${spread}px ${color}`;
+      }
+
+      // Fallback: try to extract meaningful info or stringify
+      console.warn('[DocumentationGenerator] Unhandled object format:', { type, value });
       return JSON.stringify(value);
     }
 
@@ -493,14 +551,34 @@ export class DocumentationGenerator {
    * Format color value to hex or other format
    */
   private formatColorValue(value: any): string {
-    // Already a string (hex, hsl, etc.)
+    // Already a string (hex, hsl, rgb(), etc.)
     if (typeof value === 'string') {
       return value;
     }
 
-    // RGB object
-    if (typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
-      return this.rgbToHex(value as RGB);
+    // Handle object formats
+    if (typeof value === 'object' && value !== null) {
+      // RGB object: { r, g, b }
+      if ('r' in value && 'g' in value && 'b' in value) {
+        return this.rgbToHex(value as RGB);
+      }
+
+      // HSL with hex fallback: { colorSpace: "hsl", components: [...], hex: "#..." }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value) {
+        return value.hex;
+      }
+
+      // RGB colorSpace: { colorSpace: "rgb", components: [r, g, b] }
+      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
+        const [r, g, b] = value.components;
+        return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+      }
+
+      // W3C components: { components: [r, g, b], alpha: ... }
+      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
+        const [r, g, b] = value.components;
+        return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+      }
     }
 
     return formatTokenValue(value, 'color');
