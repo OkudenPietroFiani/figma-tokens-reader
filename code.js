@@ -1662,13 +1662,15 @@
             variable.setValueForMode(modeId, value);
           }
         } else {
+          const valueToConvert = token.resolvedValue || token.value;
           console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
             tokenValue: token.value,
+            resolvedValue: token.resolvedValue,
             tokenType: token.type,
             figmaType,
-            valueType: typeof token.value
+            valueType: typeof valueToConvert
           });
-          const value = this.convertValue(token.value, figmaType);
+          const value = this.convertValue(valueToConvert, figmaType);
           console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
@@ -1735,7 +1737,8 @@
     }
     /**
      * Convert color value to Figma RGB format
-     * Handles: hex strings, RGB objects, RGBA objects, color objects with components
+     * Handles: hex strings, RGB objects, color objects with components
+     * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
      */
     convertColorValue(value) {
       if (typeof value === "string") {
@@ -1750,24 +1753,16 @@
         if ("r" in value && "g" in value && "b" in value) {
           const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
           if (isNormalized) {
-            return value;
+            return { r: value.r, g: value.g, b: value.b };
           }
-          return __spreadValues({
+          return {
             r: value.r / 255,
             g: value.g / 255,
             b: value.b / 255
-          }, value.a !== void 0 ? { a: value.a } : {});
+          };
         }
         if ("components" in value && Array.isArray(value.components)) {
           const [r, g, b] = value.components;
-          if (value.alpha !== void 0) {
-            return {
-              r: r / 255,
-              g: g / 255,
-              b: b / 255,
-              a: value.alpha
-            };
-          }
           return {
             r: r / 255,
             g: g / 255,
@@ -1789,28 +1784,23 @@
     }
     /**
      * Parse rgb() or rgba() string to RGB
+     * Note: Alpha channel is ignored - Figma COLOR type only accepts RGB
      */
     parseRgbString(rgbString) {
       const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
       if (match) {
-        const r = parseInt(match[1]) / 255;
-        const g = parseInt(match[2]) / 255;
-        const b = parseInt(match[3]) / 255;
-        if (match[4]) {
-          return {
-            r,
-            g,
-            b,
-            a: parseFloat(match[4])
-          };
-        }
-        return { r, g, b };
+        return {
+          r: parseInt(match[1]) / 255,
+          g: parseInt(match[2]) / 255,
+          b: parseInt(match[3]) / 255
+        };
       }
       return { r: 0, g: 0, b: 0 };
     }
     /**
      * Convert hex color to RGB
      * Supports 3, 6, and 8 digit hex codes
+     * Note: Alpha channel (8-digit hex) is ignored - Figma COLOR type only accepts RGB
      */
     hexToRgb(hex) {
       const cleanHex = hex.replace(/^#/, "");
@@ -1830,8 +1820,7 @@
         const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
         const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
         const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-        const a = parseInt(cleanHex.substring(6, 8), 16) / 255;
-        return { r, g, b, a };
+        return { r, g, b };
       }
       console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
       return { r: 0, g: 0, b: 0 };
