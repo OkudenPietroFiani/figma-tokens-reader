@@ -180,7 +180,112 @@ variable.setValueForMode(modeId, rgba); // ERROR!
 
 **Output**: Always RGB 0-1 range
 
-### Text Styles (Typography Tokens)
+---
+
+## Nested Reference Resolution (CRITICAL)
+
+### Problem
+Typography and shadow tokens can contain **nested references** within their composite values:
+
+```json
+{
+  "semantic": {
+    "typography": {
+      "body": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{primitive.typography.font-family.primary}",
+          "fontSize": "{primitive.typography.font-size.md}",
+          "lineHeight": "{primitive.typography.line-height.normal}"
+        }
+      }
+    }
+  }
+}
+```
+
+### Solution
+**Automatic nested reference resolution** before creating styles:
+
+```typescript
+// BEFORE resolution
+{
+  fontFamily: "{primitive.typography.font-family.primary}",
+  fontSize: "{primitive.typography.font-size.md}"
+}
+
+// AFTER resolution
+{
+  fontFamily: "Inter",
+  fontSize: "16px"
+}
+```
+
+**Implementation**:
+```typescript
+private resolveNestedReferences(value: any, projectId: string): any {
+  // Recursively resolve all references in composite values
+  if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
+    const referencePath = value.slice(1, -1);
+    const referencedToken = repository.getByQualifiedName(projectId, referencePath);
+    return referencedToken?.resolvedValue || referencedToken?.value || value;
+  }
+  // ... recursively process objects and arrays
+}
+```
+
+**Applied to**:
+- Typography tokens (fontFamily, fontSize, fontWeight, lineHeight, letterSpacing)
+- Shadow tokens (color, offsetX, offsetY, blur, spread)
+
+---
+
+## Group Token Filtering (CRITICAL)
+
+### Problem
+Parent/group tokens were being synced as styles, creating useless hierarchies:
+
+```json
+{
+  "typography": {
+    "$type": "typography",  // ← Group token (no actual values)
+    "body": {
+      "$type": "typography",
+      "$value": { "fontFamily": "Inter", ... }  // ← Leaf token (has values)
+    }
+  }
+}
+```
+
+### Solution
+**Only sync leaf tokens** with actual typography/shadow properties:
+
+```typescript
+private isStyleToken(token: Token): boolean {
+  if (token.type === 'typography') {
+    const value = token.resolvedValue || token.value;
+    if (typeof value === 'object' && value !== null) {
+      // Check for LEAF token properties
+      const hasTypographyProps =
+        'fontFamily' in value ||
+        'fontSize' in value ||
+        'fontWeight' in value ||
+        'lineHeight' in value ||
+        'letterSpacing' in value;
+      return hasTypographyProps;  // Only true for leaf tokens
+    }
+  }
+  // ... same for shadow tokens
+}
+```
+
+**Result**:
+- ✅ Leaf tokens synced as styles
+- ❌ Group tokens skipped
+
+---
+
+## Text Styles (Typography Tokens)
 
 **Font Weight Mapping**:
 ```typescript
@@ -211,14 +316,27 @@ await figma.loadFontAsync({
 textStyle.fontName = { family: fontFamily, style: fontStyle };
 ```
 
-**Line Height & Letter Spacing**:
+**Line Height** (CRITICAL: Unit handling):
 ```typescript
-// Use PIXELS unit (not AUTO or PERCENT)
-textStyle.lineHeight = {
-  value: lineHeightInPixels,
-  unit: 'PIXELS'
-};
+// Unitless values → PERCENT (CSS standard)
+// 1.3 → { value: 130, unit: 'PERCENT' }
+// 1.5 → { value: 150, unit: 'PERCENT' }
 
+// Pixel values → PIXELS
+// "24px" → { value: 24, unit: 'PIXELS' }
+
+// Percentage values → PERCENT
+// "150%" → { value: 150, unit: 'PERCENT' }
+
+// Rem/em values → PIXELS (converted)
+// "1.5rem" → { value: 24, unit: 'PIXELS' }
+
+textStyle.lineHeight = this.convertLineHeight(value);
+```
+
+**Letter Spacing**:
+```typescript
+// Use PIXELS unit
 textStyle.letterSpacing = {
   value: letterSpacingInPixels,
   unit: 'PIXELS'
@@ -394,23 +512,35 @@ component.init(); // ✅ Bind events after construction
 
 ## Common Pitfalls
 
-### 1. Using `resize()` Too Early
+### 1. Nested References Not Resolved
+❌ Typography token with `fontFamily: "{primitive.typography.font-family.primary}"` causes font loading error
+✅ Use `resolveNestedReferences()` to resolve all references before creating styles
+
+### 2. Group Tokens Synced as Styles
+❌ Parent tokens without actual properties create empty styles
+✅ Check for leaf token properties (`fontFamily`, `fontSize`, etc.) before syncing
+
+### 3. Unitless Line Height Interpreted as Pixels
+❌ `lineHeight: 1.3` → `{ value: 1.3, unit: 'PIXELS' }` (incorrect!)
+✅ `lineHeight: 1.3` → `{ value: 130, unit: 'PERCENT' }` (CSS standard)
+
+### 4. Using `resize()` Too Early
 ❌ `frame.resize(width, 1)` before `appendChild()`
 ✅ `appendChild()` first, then `frame.resize(width, frame.height)`
 
-### 2. Wrong Text Auto-Resize Mode
+### 5. Wrong Text Auto-Resize Mode
 ❌ `text.textAutoResize = 'WIDTH_AND_HEIGHT'` (text won't fill width)
 ✅ `text.textAutoResize = 'HEIGHT'` + `text.resize(width, text.height)`
 
-### 3. Forgetting Both Axis Sizing Modes
+### 6. Forgetting Both Axis Sizing Modes
 ❌ Only setting `counterAxisSizingMode = 'AUTO'`
 ✅ Set both `primaryAxisSizingMode = 'FIXED'` and `counterAxisSizingMode = 'AUTO'`
 
-### 4. Using RGB for Shadows
+### 7. Using RGB for Shadows
 ❌ `color: convertColorValue(value)` returns RGB (no alpha)
 ✅ `color: convertColorToRGBA(value)` returns RGBA (with alpha)
 
-### 5. Using Synchronous Style APIs
+### 8. Using Synchronous Style APIs
 ❌ `figma.getLocalTextStyles()` fails with dynamic-page
 ✅ `await figma.getLocalTextStylesAsync()` works everywhere
 
@@ -431,8 +561,19 @@ component.init(); // ✅ Bind events after construction
 [FigmaSyncService] Converted 50% to 8px (base: 16px)
 ```
 
+**Nested reference resolution**:
+```
+[FigmaSyncService] Resolved nested reference {primitive.typography.font-family.primary} → "Inter"
+[FigmaSyncService] Resolved nested reference {primitive.typography.font-size.md} → "16px"
+```
+
 **Text style creation**:
 ```
+[FigmaSyncService] Processing typography token semantic.typography.body.md: { fontFamily: "Inter", fontSize: "16px", ... }
+[FigmaSyncService] Loading font: Inter Regular
+[FigmaSyncService] Font size converted: 16px → 16px
+[FigmaSyncService] Line height converted: 1.5 → 150%
+[FigmaSyncService] Letter spacing converted: 0.02em → 0.32px
 [FigmaSyncService] Created text style: typography/heading/h1
 [FigmaSyncService] Updated text style: typography/body/regular
 ```
@@ -470,6 +611,26 @@ component.init(); // ✅ Bind events after construction
 **Issue**: Shadow has no transparency
 - **Cause**: Using `convertColorValue()` instead of `convertColorToRGBA()`
 - **Fix**: Use RGBA converter for shadows
+
+**Issue**: Font loading error with reference string
+- **Cause**: Nested reference not resolved: `fontFamily: "{primitive.typography.font-family.primary}"`
+- **Check**: Console for "Could not load font {primitive.typography.font-family.primary}"
+- **Fix**: Ensure `resolveNestedReferences()` is called before creating styles
+
+**Issue**: Group tokens creating empty styles
+- **Cause**: Parent tokens without actual properties being synced
+- **Check**: Verify only leaf tokens with properties are synced
+- **Fix**: Use property checks in `isStyleToken()` method
+
+**Issue**: Line height showing as tiny value (1.3px instead of 130%)
+- **Cause**: Unitless line height converted to PIXELS instead of PERCENT
+- **Check**: Console for "Line height converted: 1.3 → 1.3px"
+- **Fix**: Use `convertLineHeight()` which returns PERCENT for unitless values
+
+**Issue**: Font size < 1 validation error
+- **Cause**: Invalid unit conversion returning 0 or negative value
+- **Check**: Console for "Invalid font size: 0px (must be >= 1)"
+- **Fix**: Debug unit conversion, ensure proper rem/em/px handling
 
 ---
 
