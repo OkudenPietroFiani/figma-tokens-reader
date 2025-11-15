@@ -8,6 +8,7 @@ import { ProcessedToken, TokenData } from '../../shared/types';
 import { ITokenFormatStrategy } from '../interfaces/ITokenFormatStrategy';
 import { TokenFormatRegistry } from '../registries/TokenFormatRegistry';
 import { Result, Success, Failure } from '../../shared/types';
+import { deepClone } from '../../shared/utils';
 
 /**
  * Token processing options
@@ -171,16 +172,16 @@ export class TokenProcessor {
       const formatInfo = strategy.getFormatInfo();
       const sourceFormat = this.mapFormatName(formatInfo.name);
 
-      // Create token
+      // Create token (deep clone values to prevent shared references)
       const token: Token = {
         id,
         path: pt.path,
         name,
         qualifiedName,
         type,
-        rawValue: pt.originalValue !== undefined ? pt.originalValue : pt.value,
-        value: pt.value,
-        resolvedValue: isAlias ? undefined : pt.value,
+        rawValue: deepClone(pt.originalValue !== undefined ? pt.originalValue : pt.value),
+        value: deepClone(pt.value),
+        resolvedValue: isAlias ? undefined : deepClone(pt.value),
         aliasTo: aliasTo ? this.generateTokenId(options.projectId, aliasTo.split('.')) : undefined,
         projectId: options.projectId,
         collection,

@@ -8,6 +8,7 @@ import { ErrorHandler } from '../utils/ErrorHandler';
 import { StorageService } from '../services/StorageService';
 import { FigmaSyncService } from '../../core/services/FigmaSyncService';
 import { TokenRepository } from '../../core/services/TokenRepository';
+import { TokenResolver } from '../../core/services/TokenResolver';
 import { TokenProcessor } from '../../core/services/TokenProcessor';
 import { SUCCESS_MESSAGES } from '../../shared/constants';
 
@@ -28,15 +29,18 @@ export class TokenController {
   private figmaSyncService: FigmaSyncService;
   private storage: StorageService;
   private tokenRepository: TokenRepository;
+  private tokenResolver: TokenResolver;
 
   constructor(
     figmaSyncService: FigmaSyncService,
     storage: StorageService,
-    tokenRepository: TokenRepository
+    tokenRepository: TokenRepository,
+    tokenResolver: TokenResolver
   ) {
     this.figmaSyncService = figmaSyncService;
     this.storage = storage;
     this.tokenRepository = tokenRepository;
+    this.tokenResolver = tokenResolver;
   }
 
   /**
@@ -95,12 +99,47 @@ export class TokenController {
         }
       }
 
-      // Add to repository
-      for (const token of allTokens) {
-        this.tokenRepository.add(token);
+      // Add to repository (batch operation)
+      this.tokenRepository.add(allTokens);
+
+      // CRITICAL: Resolve all token aliases and references
+      ErrorHandler.info(
+        `Resolving ${allTokens.length} tokens...`,
+        'TokenController'
+      );
+      const resolveResult = await this.tokenResolver.resolveAllTokens('default');
+
+      if (!resolveResult.success) {
+        ErrorHandler.warn(
+          `Token resolution failed: ${resolveResult.error}. Continuing with unresolved values.`,
+          'TokenController'
+        );
+        // Continue anyway - non-aliases will still work
+      } else {
+        const resolvedValues = resolveResult.data!;
+        ErrorHandler.info(
+          `Resolved ${resolvedValues.size} token values`,
+          'TokenController'
+        );
+
+        // Update each token's resolvedValue in the repository
+        for (const [tokenId, resolvedValue] of resolvedValues.entries()) {
+          this.tokenRepository.update(tokenId, { resolvedValue });
+        }
+
+        // Refresh allTokens array with updated tokens from repository
+        const updatedTokens = [];
+        for (const token of allTokens) {
+          const updated = this.tokenRepository.get(token.id);
+          if (updated) {
+            updatedTokens.push(updated);
+          }
+        }
+        allTokens.length = 0;
+        allTokens.push(...updatedTokens);
       }
 
-      // Sync to Figma using FigmaSyncService
+      // Sync to Figma using FigmaSyncService (with resolved values)
       const syncResult = await this.figmaSyncService.syncTokens(allTokens);
 
       if (!syncResult.success) {

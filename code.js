@@ -1827,6 +1827,7 @@
     }
     /**
      * Convert numeric value (handle units like px, rem)
+     * Supports: numbers, strings with units, DimensionValue objects
      */
     convertNumericValue(value) {
       if (typeof value === "number") {
@@ -1836,6 +1837,22 @@
         const numeric = parseFloat(value.replace(/[^\d.-]/g, ""));
         return isNaN(numeric) ? 0 : numeric;
       }
+      if (typeof value === "object" && value !== null) {
+        if ("value" in value && typeof value.value === "number") {
+          return value.value;
+        }
+        if ("components" in value && Array.isArray(value.components) && value.components.length > 0) {
+          const firstComponent = value.components[0];
+          if (typeof firstComponent === "number") {
+            return firstComponent;
+          }
+          if (typeof firstComponent === "string") {
+            const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ""));
+            return isNaN(numeric) ? 0 : numeric;
+          }
+        }
+      }
+      console.warn("[FigmaSyncService] Could not convert value to number:", value);
       return 0;
     }
     /**
@@ -1980,6 +1997,36 @@
   };
   TokenFormatRegistry.strategies = /* @__PURE__ */ new Map();
 
+  // src/shared/utils.ts
+  function deepClone(obj) {
+    if (obj === null || typeof obj !== "object") {
+      return obj;
+    }
+    if (obj instanceof Date) {
+      return new Date(obj.getTime());
+    }
+    if (obj instanceof Array) {
+      return obj.map((item) => deepClone(item));
+    }
+    if (obj instanceof Set) {
+      return new Set(Array.from(obj).map(deepClone));
+    }
+    if (obj instanceof Map) {
+      const cloned2 = /* @__PURE__ */ new Map();
+      obj.forEach((value, key) => {
+        cloned2.set(deepClone(key), deepClone(value));
+      });
+      return cloned2;
+    }
+    const cloned = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        cloned[key] = deepClone(obj[key]);
+      }
+    }
+    return cloned;
+  }
+
   // src/core/services/TokenProcessor.ts
   var TokenProcessor = class {
     /**
@@ -2072,9 +2119,9 @@
           name,
           qualifiedName,
           type,
-          rawValue: pt.originalValue !== void 0 ? pt.originalValue : pt.value,
-          value: pt.value,
-          resolvedValue: isAlias ? void 0 : pt.value,
+          rawValue: deepClone(pt.originalValue !== void 0 ? pt.originalValue : pt.value),
+          value: deepClone(pt.value),
+          resolvedValue: isAlias ? void 0 : deepClone(pt.value),
           aliasTo: aliasTo ? this.generateTokenId(options.projectId, aliasTo.split(".")) : void 0,
           projectId: options.projectId,
           collection,
@@ -2206,10 +2253,11 @@
 
   // src/backend/controllers/TokenController.ts
   var TokenController = class {
-    constructor(figmaSyncService, storage, tokenRepository) {
+    constructor(figmaSyncService, storage, tokenRepository, tokenResolver) {
       this.figmaSyncService = figmaSyncService;
       this.storage = storage;
       this.tokenRepository = tokenRepository;
+      this.tokenResolver = tokenResolver;
     }
     /**
      * Import tokens to Figma variables (v2.0)
@@ -2257,8 +2305,35 @@
             throw new Error(`Failed to process semantics: ${semResult.error}`);
           }
         }
-        for (const token of allTokens) {
-          this.tokenRepository.add(token);
+        this.tokenRepository.add(allTokens);
+        ErrorHandler.info(
+          `Resolving ${allTokens.length} tokens...`,
+          "TokenController"
+        );
+        const resolveResult = await this.tokenResolver.resolveAllTokens("default");
+        if (!resolveResult.success) {
+          ErrorHandler.warn(
+            `Token resolution failed: ${resolveResult.error}. Continuing with unresolved values.`,
+            "TokenController"
+          );
+        } else {
+          const resolvedValues = resolveResult.data;
+          ErrorHandler.info(
+            `Resolved ${resolvedValues.size} token values`,
+            "TokenController"
+          );
+          for (const [tokenId, resolvedValue] of resolvedValues.entries()) {
+            this.tokenRepository.update(tokenId, { resolvedValue });
+          }
+          const updatedTokens = [];
+          for (const token of allTokens) {
+            const updated = this.tokenRepository.get(token.id);
+            if (updated) {
+              updatedTokens.push(updated);
+            }
+          }
+          allTokens.length = 0;
+          allTokens.push(...updatedTokens);
         }
         const syncResult = await this.figmaSyncService.syncTokens(allTokens);
         if (!syncResult.success) {
@@ -4572,7 +4647,7 @@
       this.tokenRepository = new TokenRepository();
       this.tokenResolver = new TokenResolver(this.tokenRepository);
       this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
-      this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository);
+      this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
       this.githubController = new GitHubController(this.githubService, this.storage);
       this.scopeController = new ScopeController();
       const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
