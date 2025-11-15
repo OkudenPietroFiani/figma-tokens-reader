@@ -1737,7 +1737,7 @@
     }
     /**
      * Convert color value to Figma RGB format
-     * Handles: hex strings, RGB objects, color objects with components
+     * Handles: hex strings, RGB objects, HSL objects (uses hex), color objects with components
      * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
      */
     convertColorValue(value) {
@@ -1761,7 +1761,11 @@
             b: value.b / 255
           };
         }
-        if ("components" in value && Array.isArray(value.components)) {
+        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
+          console.log("[FigmaSyncService] Converting HSL color using hex fallback:", value.hex);
+          return this.hexToRgb(value.hex);
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
           const [r, g, b] = value.components;
           return {
             r: r / 255,
@@ -1769,7 +1773,7 @@
             b: b / 255
           };
         }
-        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
+        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
           const [r, g, b] = value.components;
           return {
             r: r / 255,
@@ -1826,20 +1830,39 @@
       return { r: 0, g: 0, b: 0 };
     }
     /**
-     * Convert numeric value (handle units like px, rem)
+     * Convert numeric value (handle units like px, rem, em)
      * Supports: numbers, strings with units, DimensionValue objects
+     * Note: Converts rem/em to px using 16px base size (standard browser default)
      */
     convertNumericValue(value) {
       if (typeof value === "number") {
         return value;
       }
       if (typeof value === "string") {
+        const match = value.match(/^([\d.-]+)(px|rem|em)?$/);
+        if (match) {
+          const numericValue = parseFloat(match[1]);
+          const unit = match[2] || "";
+          if (unit === "rem" || unit === "em") {
+            const converted = numericValue * 16;
+            console.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
+            return converted;
+          }
+          return numericValue;
+        }
         const numeric = parseFloat(value.replace(/[^\d.-]/g, ""));
         return isNaN(numeric) ? 0 : numeric;
       }
       if (typeof value === "object" && value !== null) {
         if ("value" in value && typeof value.value === "number") {
-          return value.value;
+          const numericValue = value.value;
+          const unit = value.unit || "";
+          if (unit === "rem" || unit === "em") {
+            const converted = numericValue * 16;
+            console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
+            return converted;
+          }
+          return numericValue;
         }
         if ("components" in value && Array.isArray(value.components) && value.components.length > 0) {
           const firstComponent = value.components[0];

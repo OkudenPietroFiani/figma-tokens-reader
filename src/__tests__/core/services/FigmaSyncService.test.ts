@@ -249,7 +249,7 @@ describe('FigmaSyncService', () => {
       expect(callArgs).not.toHaveProperty('a');
     });
 
-    test('converts colorSpace object to RGB', async () => {
+    test('converts RGB colorSpace object to RGB', async () => {
       const token: Token = {
         id: 'token-6',
         path: ['color', 'purple'],
@@ -280,6 +280,42 @@ describe('FigmaSyncService', () => {
           r: expect.closeTo(0.502, 2),
           g: expect.closeTo(0.0, 2),
           b: expect.closeTo(1.0, 2),
+        })
+      );
+    });
+
+    test('converts HSL colorSpace object using hex fallback', async () => {
+      const token: Token = {
+        id: 'token-6b',
+        path: ['color', 'primary-50'],
+        name: 'primary-50',
+        qualifiedName: 'color.primary-50',
+        type: 'color',
+        value: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' } as any,
+        rawValue: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' },
+        resolvedValue: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' } as any,
+        projectId: 'test',
+        collection: 'primitive',
+        sourceFormat: 'w3c',
+        source: { type: 'local', location: 'test', imported: '2025-01-01' },
+        extensions: {},
+        tags: [],
+        status: 'active',
+        created: '2025-01-01',
+        lastModified: '2025-01-01',
+      };
+
+      repository.add([token]);
+      const result = await service.syncTokens([token]);
+
+      expect(result.success).toBe(true);
+      // HSL should use hex fallback #E8E9EC = RGB(232, 233, 236)
+      expect(mockVariable.setValueForMode).toHaveBeenCalledWith(
+        'mode-1',
+        expect.objectContaining({
+          r: expect.closeTo(0.910, 2),
+          g: expect.closeTo(0.914, 2),
+          b: expect.closeTo(0.925, 2),
         })
       );
     });
@@ -413,7 +449,7 @@ describe('FigmaSyncService', () => {
       expect(mockVariable.setValueForMode).toHaveBeenCalledWith('mode-1', 32);
     });
 
-    test('converts string with rem unit to number', async () => {
+    test('converts string with rem unit to px', async () => {
       const token: Token = {
         id: 'token-11',
         path: ['spacing', 'xlarge'],
@@ -439,7 +475,38 @@ describe('FigmaSyncService', () => {
       const result = await service.syncTokens([token]);
 
       expect(result.success).toBe(true);
-      expect(mockVariable.setValueForMode).toHaveBeenCalledWith('mode-1', 2.5);
+      // 2.5rem × 16 = 40px
+      expect(mockVariable.setValueForMode).toHaveBeenCalledWith('mode-1', 40);
+    });
+
+    test('converts DimensionValue object with rem unit to px', async () => {
+      const token: Token = {
+        id: 'token-11b',
+        path: ['font-size', '10'],
+        name: '10',
+        qualifiedName: 'font-size.10',
+        type: 'dimension',
+        value: { value: 0.625, unit: 'rem' } as any,
+        rawValue: { value: 0.625, unit: 'rem' },
+        resolvedValue: { value: 0.625, unit: 'rem' } as any,
+        projectId: 'test',
+        collection: 'primitive',
+        sourceFormat: 'w3c',
+        source: { type: 'local', location: 'test', imported: '2025-01-01' },
+        extensions: {},
+        tags: [],
+        status: 'active',
+        created: '2025-01-01',
+        lastModified: '2025-01-01',
+      };
+
+      mockVariable.resolvedType = 'FLOAT';
+      repository.add([token]);
+      const result = await service.syncTokens([token]);
+
+      expect(result.success).toBe(true);
+      // 0.625rem × 16 = 10px
+      expect(mockVariable.setValueForMode).toHaveBeenCalledWith('mode-1', 10);
     });
   });
 
