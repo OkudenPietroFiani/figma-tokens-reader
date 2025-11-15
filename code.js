@@ -1977,7 +1977,7 @@
         }
         const typValue = value;
         const styleName = token.path.join("/");
-        const existingStyles = figma.getLocalTextStyles();
+        const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
         if (!textStyle) {
           textStyle = figma.createTextStyle();
@@ -2040,7 +2040,7 @@
         }
         const shadowValue = value;
         const styleName = token.path.join("/");
-        const existingStyles = figma.getLocalEffectStyles();
+        const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
         if (!effectStyle) {
           effectStyle = figma.createEffectStyle();

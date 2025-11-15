@@ -724,8 +724,8 @@ export class FigmaSyncService {
       const typValue = value as any; // TypographyValue
       const styleName = token.path.join('/');
 
-      // Find existing text style
-      const existingStyles = figma.getLocalTextStyles();
+      // Find existing text style (use async API)
+      const existingStyles = await figma.getLocalTextStylesAsync();
       let textStyle = existingStyles.find(s => s.name === styleName);
 
       if (!textStyle) {
@@ -806,8 +806,8 @@ export class FigmaSyncService {
       const shadowValue = value as any; // ShadowValue
       const styleName = token.path.join('/');
 
-      // Find existing effect style
-      const existingStyles = figma.getLocalEffectStyles();
+      // Find existing effect style (use async API)
+      const existingStyles = await figma.getLocalEffectStylesAsync();
       let effectStyle = existingStyles.find(s => s.name === styleName);
 
       if (!effectStyle) {
