@@ -202,6 +202,21 @@ After syncing tokens, verify:
 - **Solution**: Update Figma to latest version
 - **Check Console**: Look for `setVariableCodeSyntax method not available`
 
+**Issue: Typography/shadow tokens not syncing**
+- **Cause**: These token types should be Figma styles (not variables)
+- **Current Status**: Not yet implemented - tokens are skipped
+- **Check Console**: Look for `Skipping typography token ... - text styles not yet implemented`
+- **Workaround**: Manually create text styles and effect styles in Figma
+- **Future**: Will be implemented as `createTextStyle()` and `createEffectStyle()` methods
+
+### Known Limitations
+
+- **Typography tokens**: Not synced (should be text styles)
+- **Shadow tokens**: Not synced (should be effect styles)
+- **Alpha channels**: Ignored for colors (Figma COLOR limitation)
+- **HSL colors**: Must include hex fallback
+- **Percentage values**: Not supported for dimensions
+
 ## Development
 
 ### Build Commands

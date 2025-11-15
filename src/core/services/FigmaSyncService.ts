@@ -24,6 +24,9 @@ export interface SyncOptions {
   updateExisting?: boolean; // Update existing variables (default: true)
   preserveScopes?: boolean; // Preserve existing scopes (default: true)
   skipStyles?: boolean; // Skip typography/shadow tokens (default: false)
+                        // NOTE: Typography and shadow tokens are currently ALWAYS skipped
+                        // They should be synced as Figma Text Styles and Effect Styles instead
+                        // TODO: Implement text style and effect style sync in future version
 }
 
 /**
@@ -621,16 +624,24 @@ export class FigmaSyncService {
   }
 
   /**
-   * Check if token should be skipped (handled as style instead)
+   * Check if token should be skipped (should be handled as Figma style instead of variable)
+   *
+   * Typography tokens should become Text Styles (not COLOR/FLOAT/STRING variables)
+   * Shadow tokens should become Effect Styles (not variables)
+   *
+   * NOTE: Currently these tokens are SKIPPED and NOT synced at all
+   * TODO: Implement createTextStyle() and createEffectStyle() methods to properly sync these
    */
   private shouldSkipAsStyle(token: Token): boolean {
-    // Skip composite typography tokens
+    // Skip composite typography tokens (should be text styles)
     if (token.type === 'typography' && typeof token.value === 'object') {
+      console.warn(`[FigmaSyncService] Skipping typography token ${token.qualifiedName} - text styles not yet implemented`);
       return true;
     }
 
-    // Skip shadow tokens
+    // Skip shadow tokens (should be effect styles)
     if (token.type === 'shadow') {
+      console.warn(`[FigmaSyncService] Skipping shadow token ${token.qualifiedName} - effect styles not yet implemented`);
       return true;
     }
 

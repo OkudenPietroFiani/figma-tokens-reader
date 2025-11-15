@@ -792,6 +792,24 @@ Then: Each collection created separately, no mixing
    - Falls back to raw value
    - Warning logged in console
 
+#### Style Token Limitations
+
+1. **Typography Tokens Not Synced**: Composite typography tokens are currently skipped
+   - Should be synced as Figma Text Styles (not variables)
+   - Not yet implemented
+   - Warning logged in console: `Skipping typography token ... - text styles not yet implemented`
+   - Workaround: Manually create text styles in Figma
+
+2. **Shadow Tokens Not Synced**: Shadow/effect tokens are currently skipped
+   - Should be synced as Figma Effect Styles (not variables)
+   - Not yet implemented
+   - Warning logged in console: `Skipping shadow token ... - effect styles not yet implemented`
+   - Workaround: Manually create effect styles in Figma
+
+**Future Implementation Needed:**
+- `createTextStyle()`: Convert typography tokens to Figma text styles
+- `createEffectStyle()`: Convert shadow tokens to Figma effect styles
+
 ---
 
 ### Debugging Guide

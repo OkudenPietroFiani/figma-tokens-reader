@@ -1900,13 +1900,21 @@
       }
     }
     /**
-     * Check if token should be skipped (handled as style instead)
+     * Check if token should be skipped (should be handled as Figma style instead of variable)
+     *
+     * Typography tokens should become Text Styles (not COLOR/FLOAT/STRING variables)
+     * Shadow tokens should become Effect Styles (not variables)
+     *
+     * NOTE: Currently these tokens are SKIPPED and NOT synced at all
+     * TODO: Implement createTextStyle() and createEffectStyle() methods to properly sync these
      */
     shouldSkipAsStyle(token) {
       if (token.type === "typography" && typeof token.value === "object") {
+        console.warn(`[FigmaSyncService] Skipping typography token ${token.qualifiedName} - text styles not yet implemented`);
         return true;
       }
       if (token.type === "shadow") {
+        console.warn(`[FigmaSyncService] Skipping shadow token ${token.qualifiedName} - effect styles not yet implemented`);
         return true;
       }
       return false;
