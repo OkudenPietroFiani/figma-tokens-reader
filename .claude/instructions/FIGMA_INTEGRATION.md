@@ -431,6 +431,433 @@ When implementing auto-layout frames:
 
 ---
 
-**Last Updated**: 2025-11-11
-**Version**: 3.0
+## Token Sync to Figma Variables
+
+### Overview
+
+The plugin syncs design tokens to Figma variables with full type preservation, reference resolution, and unit conversion.
+
+---
+
+### Supported Token Formats
+
+#### Color Tokens
+
+**Input Formats**:
+1. **Hex strings**: `"#ff8800"`, `"#f80"` (3-digit), `"#ff8800ff"` (8-digit with alpha)
+2. **RGB objects (0-255)**: `{ r: 255, g: 128, b: 0 }`
+3. **RGB objects (0-1)**: `{ r: 1.0, g: 0.5, b: 0.0 }`
+4. **RGB strings**: `"rgb(255, 128, 0)"`, `"rgba(255, 128, 0, 0.5)"`
+5. **HSL with hex fallback**: `{ colorSpace: "hsl", components: [225, 16, 92], alpha: 1, hex: "#E8E9EC" }`
+6. **RGB colorSpace**: `{ colorSpace: "rgb", components: [255, 128, 0] }`
+7. **W3C components**: `{ components: [255, 128, 0], alpha: 1 }`
+
+**Output Format**: Figma RGB `{ r: 0-1, g: 0-1, b: 0-1 }`
+
+**Important**:
+- Figma COLOR type only accepts RGB (3 properties), NOT RGBA with 'a' property
+- Alpha channels are ignored (Figma limitation)
+- HSL colors use hex fallback for accurate conversion
+
+---
+
+#### Numeric/Dimension Tokens
+
+**Input Formats**:
+1. **Direct numbers**: `16`
+2. **Strings with px**: `"32px"`
+3. **Strings with rem**: `"2.5rem"` → converted to **40px** (× 16)
+4. **Strings with em**: `"1.5em"` → converted to **24px** (× 16)
+5. **DimensionValue objects with px**: `{ value: 16, unit: "px" }`
+6. **DimensionValue objects with rem**: `{ value: 0.625, unit: "rem" }` → converted to **10px**
+7. **DimensionValue objects with em**: `{ value: 1.5, unit: "em" }` → converted to **24px**
+
+**Output Format**: Number (pixels)
+
+**Unit Conversion**:
+- **px**: No conversion (1px = 1)
+- **rem**: Multiply by 16 (standard browser base)
+- **em**: Multiply by 16 (standard browser base)
+
+**Examples**:
+- `0.625rem` → `10px`
+- `0.75rem` → `12px`
+- `1rem` → `16px`
+- `1.5rem` → `24px`
+- `2.5rem` → `40px`
+
+---
+
+#### String Tokens
+
+**Input**: Any string value
+
+**Output**: String (unchanged)
+
+**Examples**:
+- Font families: `"Inter"`, `["Inter", "system-ui", "sans-serif"]`
+- CSS values: `"bold"`, `"italic"`
+
+---
+
+#### Boolean Tokens
+
+**Input**: `true`, `false`
+
+**Output**: Boolean (unchanged)
+
+---
+
+### Token Reference Resolution
+
+**Critical Requirement**: Token resolution **MUST** happen before Figma sync.
+
+#### Resolution Flow
+
+```typescript
+// 1. Import and process tokens
+const tokens = await processor.processTokenData(data);
+
+// 2. Add to repository
+repository.add(tokens);
+
+// 3. CRITICAL: Resolve all aliases and references
+const resolveResult = await resolver.resolveAllTokens('default');
+
+// 4. Update tokens with resolved values
+for (const [tokenId, resolvedValue] of resolvedValues.entries()) {
+  repository.update(tokenId, { resolvedValue });
+}
+
+// 5. Sync to Figma (uses resolvedValue)
+await figmaSyncService.syncTokens(tokens);
+```
+
+#### Reference Formats
+
+**Alias tokens** (entire value is reference):
+```json
+{
+  "$type": "color",
+  "$value": "{primitive.color.primary.600}"
+}
+```
+
+**Embedded references** (references within values):
+```json
+{
+  "$type": "color",
+  "$value": {
+    "colorSpace": "hsl",
+    "components": "{primitive.color.neutral.700}",
+    "alpha": "{primitive.color.transparency.25}"
+  }
+}
+```
+
+**Resolution Requirement**: Both formats must be resolved to actual values before sync.
+
+---
+
+### Figma Variable Creation
+
+#### Variable Types
+
+**Mapping**: TokenType → Figma VariableResolvedDataType
+
+```typescript
+{
+  color: 'COLOR',
+  number: 'FLOAT',
+  boolean: 'BOOLEAN',
+  string: 'STRING',
+  dimension: 'FLOAT',
+  fontSize: 'FLOAT',
+  spacing: 'FLOAT',
+  lineHeight: 'FLOAT',
+  letterSpacing: 'FLOAT',
+  fontWeight: 'FLOAT',
+}
+```
+
+#### Variable Collections
+
+**Organization**:
+- Tokens grouped by `collection` property
+- Collections: `primitive`, `semantic`, custom names
+- Dynamic collection creation (no hardcoding)
+
+#### Code Syntax
+
+**Generated for all variables**:
+- **WEB**: `--color-primary` (CSS custom properties)
+- **ANDROID**: `@dimen/color_primary` (Android resources)
+- **iOS**: `color.primary` (iOS tokens)
+
+**Format**: Uses Figma's `setVariableCodeSyntax()` API
+
+---
+
+### Acceptance Criteria
+
+#### ✅ Color Sync Acceptance
+
+**Test Case 1: Hex Colors**
+```
+Given: Token with value "#E8E9EC"
+When: Synced to Figma
+Then: Variable shows RGB(232, 233, 236) = { r: 0.910, g: 0.914, b: 0.925 }
+```
+
+**Test Case 2: HSL Colors**
+```
+Given: Token with { colorSpace: "hsl", components: [225, 16, 92], hex: "#E8E9EC" }
+When: Synced to Figma
+Then: Variable shows RGB from hex fallback, NOT black
+```
+
+**Test Case 3: Token References**
+```
+Given: Semantic token "{primitive.color.primary.600}"
+When: Resolved and synced
+Then: Variable shows resolved color, NOT "{primitive.color.primary.600}" string
+```
+
+**Fail Condition**: Variable shows black (#000000) or gray (#808080) → indicates unresolved reference or unsupported format
+
+---
+
+#### ✅ Dimension Sync Acceptance
+
+**Test Case 1: Direct Pixels**
+```
+Given: Token with value { value: 16, unit: "px" }
+When: Synced to Figma
+Then: Variable shows 16
+```
+
+**Test Case 2: REM to Pixels**
+```
+Given: Token with value { value: 0.625, unit: "rem" }
+When: Synced to Figma
+Then: Variable shows 10 (0.625 × 16)
+```
+
+**Test Case 3: Font Size REM**
+```
+Given: Font-size token with 0.625rem
+When: Synced to Figma
+Then: Variable shows 10px, NOT 0.625
+```
+
+**Fail Condition**: Variable shows fractional rem value (0.625, 0.75, etc.) instead of pixel equivalent
+
+---
+
+#### ✅ Type Matching Acceptance
+
+**Test Case 1: Color Type**
+```
+Given: Token with type "color"
+When: Synced to Figma
+Then: Figma variable type = COLOR
+```
+
+**Test Case 2: Dimension Types**
+```
+Given: Token with type "fontSize" | "spacing" | "dimension"
+When: Synced to Figma
+Then: Figma variable type = FLOAT
+```
+
+**Test Case 3: String Type**
+```
+Given: Token with type "fontFamily" | "string"
+When: Synced to Figma
+Then: Figma variable type = STRING
+```
+
+**Fail Condition**: Type mismatch (e.g., color token creates FLOAT variable)
+
+---
+
+#### ✅ Code Syntax Acceptance
+
+**Test Case 1: Simple Path**
+```
+Given: Token with path ["color", "primary"]
+When: Synced to Figma
+Then: Variable has code syntax:
+  - WEB: --color-primary
+  - ANDROID: @dimen/color_primary
+  - iOS: color.primary
+```
+
+**Test Case 2: Nested Path**
+```
+Given: Token with path ["color", "background", "primary", "default"]
+When: Synced to Figma
+Then: Variable has code syntax:
+  - WEB: --color-background-primary-default
+  - ANDROID: @dimen/color_background_primary_default
+  - iOS: color.background.primary.default
+```
+
+**Fail Condition**: Code syntax missing or incorrect format
+
+---
+
+#### ✅ Reference Resolution Acceptance
+
+**Test Case 1: Single-Level Alias**
+```
+Given: semantic.color.text = "{primitive.color.neutral.900}"
+When: Resolved and synced
+Then: Variable value = primitive.color.neutral.900's value
+```
+
+**Test Case 2: Multi-Level Alias**
+```
+Given: alias1 → alias2 → primitive value
+When: Resolved and synced
+Then: All aliases resolve to primitive value
+```
+
+**Test Case 3: Cross-Collection Reference**
+```
+Given: Semantic token referencing primitive token
+When: Resolved and synced
+Then: Both collections exist, semantic uses primitive value
+```
+
+**Fail Condition**: Variable shows "{...}" reference string instead of resolved value
+
+---
+
+#### ✅ Collection Organization Acceptance
+
+**Test Case 1: Primitive Collection**
+```
+Given: Tokens with collection = "primitive"
+When: Synced to Figma
+Then: Variables appear in "primitive" collection
+```
+
+**Test Case 2: Semantic Collection**
+```
+Given: Tokens with collection = "semantic"
+When: Synced to Figma
+Then: Variables appear in "semantic" collection
+```
+
+**Test Case 3: Multiple Collections**
+```
+Given: Tokens with different collection values
+When: Synced to Figma
+Then: Each collection created separately, no mixing
+```
+
+**Fail Condition**: All tokens in single collection or collection names incorrect
+
+---
+
+### Known Limitations
+
+#### Color Limitations
+
+1. **No Alpha Channel**: Figma COLOR type doesn't support RGBA
+   - Alpha values are silently ignored
+   - Semi-transparent colors sync as fully opaque
+
+2. **HSL Requires Hex**: HSL colors must include hex fallback
+   - Without hex, falls back to black
+   - Pure HSL calculation not implemented
+
+#### Dimension Limitations
+
+1. **Fixed Base Size**: REM/EM use 16px base
+   - Not configurable
+   - Assumes standard browser default
+
+2. **Percentage Not Supported**: Values like "50%" fall back to 0
+   - Must be absolute units (px, rem, em)
+
+#### Reference Limitations
+
+1. **Circular References**: Detected but may cause partial resolution
+   - Tokens involved in cycle use unresolved values
+   - Warning logged in console
+
+2. **Missing Targets**: References to non-existent tokens
+   - Falls back to raw value
+   - Warning logged in console
+
+---
+
+### Debugging Guide
+
+#### Console Logging
+
+**Color conversions**:
+```
+[FigmaSyncService] Converting HSL color using hex fallback: #E8E9EC
+```
+
+**Unit conversions**:
+```
+[FigmaSyncService] Converted 0.625rem to 10px
+[FigmaSyncService] Converted 2.5rem to 40px
+```
+
+**Resolution**:
+```
+[TokenController] Resolving 245 tokens...
+[TokenController] Resolved 245 token values
+```
+
+**Sync**:
+```
+[FigmaSyncService] Setting value for primitive/color/primary/600: {...}
+[FigmaSyncService] Converted value for primitive/color/primary/600: { r: 0.2, g: 0.4, b: 0.8 }
+[FigmaSyncService] Code syntax set successfully for primitive.color.primary.600
+```
+
+#### Common Issues
+
+**Issue**: All colors are black
+- **Cause**: HSL colors without hex fallback OR unresolved references
+- **Check**: Console for "Could not convert color value" warnings
+- **Fix**: Ensure resolution step runs AND HSL tokens have hex property
+
+**Issue**: Dimensions show fractional values (0.625 instead of 10)
+- **Cause**: REM/EM not being converted to pixels
+- **Check**: Console for "Converted X rem to Y px" messages
+- **Fix**: Ensure unit property is present and recognized
+
+**Issue**: Variables missing code syntax
+- **Cause**: setVariableCodeSyntax() API not available
+- **Check**: Console for "setVariableCodeSyntax method not available"
+- **Fix**: Update Figma desktop app to latest version
+
+---
+
+### Testing Checklist
+
+Before releasing sync feature:
+
+- [ ] Import tokens with HSL colors → verify correct RGB values (not black)
+- [ ] Import tokens with rem units → verify pixel conversion (10px not 0.625)
+- [ ] Import alias tokens → verify resolution (actual values not "{...}" strings)
+- [ ] Check primitive collection → verify all primitive tokens present
+- [ ] Check semantic collection → verify all semantic tokens present
+- [ ] Verify variable types → COLOR for colors, FLOAT for dimensions
+- [ ] Check code syntax → WEB, ANDROID, iOS formats present
+- [ ] Test cross-collection references → semantic resolves to primitive
+- [ ] Check console → no "Could not convert" warnings
+- [ ] Reload plugin → variables persist correctly
+
+---
+
+**Last Updated**: 2025-11-15
+**Version**: 4.0
 **Status**: Production Ready ✅

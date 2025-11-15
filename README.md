@@ -87,6 +87,121 @@ A Figma plugin that imports W3C Design Tokens and Style Dictionary formats from 
 }
 ```
 
+## Token Sync Features
+
+### Supported Token Types
+
+#### Colors
+The plugin supports multiple color formats with automatic conversion to Figma RGB:
+
+**✅ Supported Formats:**
+- Hex: `"#E8E9EC"`, `"#f80"` (3-digit), `"#ff8800ff"` (8-digit)
+- RGB strings: `"rgb(255, 128, 0)"`, `"rgba(255, 128, 0, 0.5)"`
+- RGB objects: `{ r: 255, g: 128, b: 0 }` or `{ r: 1.0, g: 0.5, b: 0.0 }`
+- HSL with hex: `{ colorSpace: "hsl", components: [225, 16, 92], hex: "#E8E9EC" }`
+
+**Expected Result**: Colors display correctly in Figma variables (not black or gray)
+
+#### Dimensions (Font Size, Spacing, Border Radius)
+The plugin automatically converts rem/em units to pixels:
+
+**✅ Supported Formats:**
+- Direct pixels: `16`, `"32px"`, `{ value: 16, unit: "px" }`
+- REM units: `"0.625rem"` → **10px**, `{ value: 0.625, unit: "rem" }` → **10px**
+- EM units: `"1.5em"` → **24px**, `{ value: 1.5, unit: "em" }` → **24px**
+
+**Conversion Rule**: REM/EM values × 16 = Pixels (standard browser base)
+
+**Examples:**
+- `0.625rem` → `10px`
+- `0.75rem` → `12px`
+- `1rem` → `16px`
+- `1.5rem` → `24px`
+- `2.5rem` → `40px`
+
+**Expected Result**: Dimensions show pixel values in Figma (not fractional rem values like 0.625)
+
+#### Token References
+The plugin resolves all token references before syncing:
+
+**✅ Supported Formats:**
+- Simple alias: `"{primitive.color.primary.600}"`
+- Nested references: `"{semantic.button.background}"`
+- Cross-collection: Semantic tokens can reference primitive tokens
+
+**Expected Result**: Variables show resolved values (not `"{...}"` reference strings)
+
+### Code Syntax Generation
+
+All synced variables include platform-specific code syntax:
+
+- **WEB**: `--color-primary` (CSS custom properties)
+- **ANDROID**: `@dimen/color_primary` (Android resources)
+- **iOS**: `color.primary` (iOS tokens)
+
+**How to View**: In Figma, select a variable → right panel shows code syntax for each platform
+
+### Collections
+
+Tokens are organized into separate Figma variable collections:
+
+- **primitive** collection: Base design tokens (colors, spacing, etc.)
+- **semantic** collection: Contextual tokens (button.background, text.primary, etc.)
+- Custom collections: Any collection name from your tokens
+
+**Expected Result**: Each collection appears separately in Figma's variable panel
+
+### Verification Checklist
+
+After syncing tokens, verify:
+
+✅ **Colors display correctly**
+- Primitive colors show RGB values (not black)
+- HSL colors use hex fallback (not black)
+- Semantic colors resolve to primitive values
+
+✅ **Dimensions show pixel values**
+- Font sizes: `10px`, `12px`, `16px` (not `0.625`, `0.75`, `1`)
+- Spacing: `4px`, `8px`, `16px` (not fractional rem values)
+- Border radius: pixel values (not rem values)
+
+✅ **Variable types match token types**
+- Color tokens → COLOR variables
+- Dimension/number tokens → FLOAT variables
+- String tokens → STRING variables
+
+✅ **Code syntax present**
+- WEB syntax shows `--token-name`
+- ANDROID syntax shows `@dimen/token_name`
+- iOS syntax shows `token.name`
+
+✅ **Collections organized**
+- Primitive collection exists with base tokens
+- Semantic collection exists with contextual tokens
+- No mixing of collections
+
+### Troubleshooting Sync Issues
+
+**Issue: All colors are black**
+- **Cause**: HSL colors without hex fallback OR unresolved references
+- **Solution**: Ensure your HSL color tokens include a `hex` property
+- **Check Console**: Look for `[FigmaSyncService] Converting HSL color using hex fallback: #...`
+
+**Issue: Font sizes show 0.625 instead of 10px**
+- **Cause**: REM/EM units not being converted
+- **Solution**: Verify tokens have `unit: "rem"` property
+- **Check Console**: Look for `[FigmaSyncService] Converted 0.625rem to 10px`
+
+**Issue: Variables show "{primitive.color...}" instead of color**
+- **Cause**: References not resolved before sync
+- **Solution**: Reload plugin (fix implemented in latest version)
+- **Check Console**: Look for `[TokenController] Resolved X token values`
+
+**Issue: Code syntax missing**
+- **Cause**: Outdated Figma desktop app
+- **Solution**: Update Figma to latest version
+- **Check Console**: Look for `setVariableCodeSyntax method not available`
+
 ## Development
 
 ### Build Commands
