@@ -87,19 +87,46 @@ export class ColorVisualizer implements ITokenVisualizer {
    * Supports Figma RGB objects, hex, rgb, hsl formats
    */
   private parseColor(value: any): RGB {
-    // If already RGB object (Figma format: 0-1 floats)
-    if (typeof value === 'object' && value !== null && 'r' in value && 'g' in value && 'b' in value) {
-      // Validate RGB values are numbers
-      if (typeof value.r === 'number' && typeof value.g === 'number' && typeof value.b === 'number') {
+    // Handle object formats
+    if (typeof value === 'object' && value !== null) {
+      // RGB object (Figma format: 0-1 floats)
+      if ('r' in value && 'g' in value && 'b' in value) {
+        if (typeof value.r === 'number' && typeof value.g === 'number' && typeof value.b === 'number') {
+          return {
+            r: value.r,
+            g: value.g,
+            b: value.b,
+          } as RGB;
+        }
+      }
+
+      // HSL colorSpace with hex fallback: { colorSpace: "hsl", components: [...], hex: "#..." }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
+        return this.parseHex(value.hex);
+      }
+
+      // RGB colorSpace: { colorSpace: "rgb", components: [r, g, b] }
+      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
+        const [r, g, b] = value.components;
         return {
-          r: value.r,
-          g: value.g,
-          b: value.b,
-        } as RGB;
+          r: r / 255,
+          g: g / 255,
+          b: b / 255,
+        };
+      }
+
+      // W3C components format: { components: [r, g, b], alpha: ... }
+      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
+        const [r, g, b] = value.components;
+        return {
+          r: r / 255,
+          g: g / 255,
+          b: b / 255,
+        };
       }
     }
 
-    // If string, parse it
+    // Handle string formats
     if (typeof value === 'string') {
       const trimmed = value.trim();
 

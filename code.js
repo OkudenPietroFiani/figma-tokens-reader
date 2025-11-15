@@ -1900,13 +1900,21 @@
       }
     }
     /**
-     * Check if token should be skipped (handled as style instead)
+     * Check if token should be skipped (should be handled as Figma style instead of variable)
+     *
+     * Typography tokens should become Text Styles (not COLOR/FLOAT/STRING variables)
+     * Shadow tokens should become Effect Styles (not variables)
+     *
+     * NOTE: Currently these tokens are SKIPPED and NOT synced at all
+     * TODO: Implement createTextStyle() and createEffectStyle() methods to properly sync these
      */
     shouldSkipAsStyle(token) {
       if (token.type === "typography" && typeof token.value === "object") {
+        console.warn(`[FigmaSyncService] Skipping typography token ${token.qualifiedName} - text styles not yet implemented`);
         return true;
       }
       if (token.type === "shadow") {
+        console.warn(`[FigmaSyncService] Skipping shadow token ${token.qualifiedName} - effect styles not yet implemented`);
         return true;
       }
       return false;
@@ -3708,12 +3716,33 @@
      * Supports Figma RGB objects, hex, rgb, hsl formats
      */
     parseColor(value) {
-      if (typeof value === "object" && value !== null && "r" in value && "g" in value && "b" in value) {
-        if (typeof value.r === "number" && typeof value.g === "number" && typeof value.b === "number") {
+      if (typeof value === "object" && value !== null) {
+        if ("r" in value && "g" in value && "b" in value) {
+          if (typeof value.r === "number" && typeof value.g === "number" && typeof value.b === "number") {
+            return {
+              r: value.r,
+              g: value.g,
+              b: value.b
+            };
+          }
+        }
+        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
+          return this.parseHex(value.hex);
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
           return {
-            r: value.r,
-            g: value.g,
-            b: value.b
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
+          };
+        }
+        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
+          const [r, g, b] = value.components;
+          return {
+            r: r / 255,
+            g: g / 255,
+            b: b / 255
           };
         }
       }
@@ -4404,10 +4433,50 @@
       if (typeof value === "boolean") {
         return value ? "true" : "false";
       }
+      if (Array.isArray(value)) {
+        return value.join(", ");
+      }
       if (typeof value === "object") {
         if ("r" in value && "g" in value && "b" in value) {
           return this.rgbToHex(value);
         }
+        if ("value" in value && "unit" in value) {
+          const numVal = typeof value.value === "number" ? value.value : parseFloat(value.value);
+          const unit = value.unit || "";
+          if (unit === "rem" || unit === "em") {
+            const pxValue = numVal * 16;
+            return `${formatNumber(pxValue)}px (${formatNumber(numVal)}${unit})`;
+          }
+          return `${formatNumber(numVal)}${unit}`;
+        }
+        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value) {
+          return value.hex;
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && "components" in value) {
+          const [r, g, b] = value.components;
+          return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+        }
+        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
+          const [r, g, b] = value.components;
+          return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+        }
+        if (type === "typography" && "fontFamily" in value) {
+          const parts = [];
+          if (value.fontFamily) parts.push(value.fontFamily);
+          if (value.fontSize) parts.push(`${value.fontSize}px`);
+          if (value.fontWeight) parts.push(`weight: ${value.fontWeight}`);
+          if (value.lineHeight) parts.push(`line: ${value.lineHeight}`);
+          return parts.length > 0 ? parts.join(" / ") : JSON.stringify(value);
+        }
+        if (type === "shadow" && ("offsetX" in value || "x" in value)) {
+          const x = value.offsetX || value.x || 0;
+          const y = value.offsetY || value.y || 0;
+          const blur = value.blur || 0;
+          const spread = value.spread || 0;
+          const color = value.color || "#000000";
+          return `${x}px ${y}px ${blur}px ${spread}px ${color}`;
+        }
+        console.warn("[DocumentationGenerator] Unhandled object format:", { type, value });
         return JSON.stringify(value);
       }
       return String(value);
@@ -4419,8 +4488,21 @@
       if (typeof value === "string") {
         return value;
       }
-      if (typeof value === "object" && "r" in value && "g" in value && "b" in value) {
-        return this.rgbToHex(value);
+      if (typeof value === "object" && value !== null) {
+        if ("r" in value && "g" in value && "b" in value) {
+          return this.rgbToHex(value);
+        }
+        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value) {
+          return value.hex;
+        }
+        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
+          const [r, g, b] = value.components;
+          return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+        }
+        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
+          const [r, g, b] = value.components;
+          return this.rgbToHex({ r: r / 255, g: g / 255, b: b / 255 });
+        }
       }
       return formatTokenValue(value, "color");
     }
