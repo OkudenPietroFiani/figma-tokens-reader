@@ -776,11 +776,12 @@ Then: Each collection created separately, no mixing
 #### Dimension Limitations
 
 1. **Fixed Base Size**: REM/EM use 16px base
-   - Not configurable
+   - Configurable via `percentageBase` option (default: 16px)
    - Assumes standard browser default
 
-2. **Percentage Not Supported**: Values like "50%" fall back to 0
-   - Must be absolute units (px, rem, em)
+2. **Percentage Supported**: Values like "50%" are converted using `percentageBase`
+   - Default: "50%" with 16px base = 8px
+   - Configurable via sync options
 
 #### Reference Limitations
 
@@ -792,23 +793,24 @@ Then: Each collection created separately, no mixing
    - Falls back to raw value
    - Warning logged in console
 
-#### Style Token Limitations
+#### Style Token Support ✅
 
-1. **Typography Tokens Not Synced**: Composite typography tokens are currently skipped
-   - Should be synced as Figma Text Styles (not variables)
-   - Not yet implemented
-   - Warning logged in console: `Skipping typography token ... - text styles not yet implemented`
-   - Workaround: Manually create text styles in Figma
+1. **Typography Tokens**: ✅ **Now Supported**
+   - Synced as Figma Text Styles (not variables)
+   - Supports: fontFamily, fontSize, fontWeight, lineHeight, letterSpacing
+   - Automatically maps font weights to Figma font styles
+   - Console logging: `Created text style: ...` or `Updated text style: ...`
 
-2. **Shadow Tokens Not Synced**: Shadow/effect tokens are currently skipped
-   - Should be synced as Figma Effect Styles (not variables)
-   - Not yet implemented
-   - Warning logged in console: `Skipping shadow token ... - effect styles not yet implemented`
-   - Workaround: Manually create effect styles in Figma
+2. **Shadow Tokens**: ✅ **Now Supported**
+   - Synced as Figma Effect Styles (not variables)
+   - Supports: offsetX, offsetY, blur, spread, color, inset
+   - Creates DROP_SHADOW or INNER_SHADOW based on inset property
+   - Console logging: `Created effect style: ...` or `Updated effect style: ...`
 
-**Future Implementation Needed:**
-- `createTextStyle()`: Convert typography tokens to Figma text styles
-- `createEffectStyle()`: Convert shadow tokens to Figma effect styles
+**Configuration Options:**
+- `createStyles`: Enable/disable style creation (default: true)
+- `updateExisting`: Update existing styles (default: true)
+- `percentageBase`: Base size for percentage calculations (default: 16px)
 
 ---
 

@@ -10,7 +10,9 @@ A Figma plugin that imports W3C Design Tokens and Style Dictionary formats from 
 - **Parallel Processing**: 6x faster file fetching with batched parallel processing
 - **Auto-Format Detection**: Automatically detects token format with confidence scoring
 - **Smart References**: Resolves token references and creates Figma variable aliases
-- **Comprehensive Types**: Colors (HSL, RGB, HEX), spacing, dimensions, typography, numbers
+- **Comprehensive Types**: Colors (HSL, RGB, HEX), spacing, dimensions, typography, shadows, numbers
+- **Text & Effect Styles**: Typography tokens → Text Styles, Shadow tokens → Effect Styles
+- **Unit Conversion**: Automatic conversion of rem/em/% to pixels
 - **Scope Management**: Apply Figma variable scopes via dedicated UI
 - **Modern Architecture**: SOLID principles, registry pattern, dependency injection
 
@@ -202,20 +204,17 @@ After syncing tokens, verify:
 - **Solution**: Update Figma to latest version
 - **Check Console**: Look for `setVariableCodeSyntax method not available`
 
-**Issue: Typography/shadow tokens not syncing**
-- **Cause**: These token types should be Figma styles (not variables)
-- **Current Status**: Not yet implemented - tokens are skipped
-- **Check Console**: Look for `Skipping typography token ... - text styles not yet implemented`
-- **Workaround**: Manually create text styles and effect styles in Figma
-- **Future**: Will be implemented as `createTextStyle()` and `createEffectStyle()` methods
+**Issue: Typography/shadow tokens not showing in Variables panel**
+- **Solution**: ✅ **Fixed** - Typography tokens now create Figma Text Styles
+- **Solution**: ✅ **Fixed** - Shadow tokens now create Figma Effect Styles
+- **Check**: Look in Figma's Text Styles and Effect Styles panels (not Variables panel)
+- **Console**: Look for `Created text style: ...` or `Created effect style: ...`
 
 ### Known Limitations
 
-- **Typography tokens**: Not synced (should be text styles)
-- **Shadow tokens**: Not synced (should be effect styles)
-- **Alpha channels**: Ignored for colors (Figma COLOR limitation)
-- **HSL colors**: Must include hex fallback
-- **Percentage values**: Not supported for dimensions
+- **Alpha channels**: Ignored for variable colors (Figma COLOR limitation - shadows support alpha)
+- **HSL colors**: Must include hex fallback for variables
+- **Font loading**: Typography styles require fonts to be available in Figma
 
 ## Development
 
