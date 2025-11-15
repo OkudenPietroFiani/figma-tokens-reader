@@ -1,6 +1,6 @@
-# Design System Documentation
+# Design System
 
-Complete guide to the UI design system used in the Figma Tokens Reader plugin.
+Complete UI design system for the Figma Tokens Reader plugin.
 
 ---
 
@@ -8,37 +8,26 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 
 ### Color System
 
-**Location**: `src/frontend/styles/main.css`
-
 ```css
 :root {
-  /* Text Colors */
+  /* Text */
   --color-text-strong: #282828;
   --color-text-weak: #787878;
-  
-  /* Border Colors */
+
+  /* Borders */
   --color-border-light: #F0F0F0;
   --color-border-medium: #D7D7D7;
-  
-  /* Background Colors */
+
+  /* Background */
   --color-background: #FFFFFF;
-  
-  /* Functional Colors */
+
+  /* Functional */
   --color-success: #0ACF83;
   --color-error: #F24822;
   --color-info: #0066FF;
   --color-hover: #F5F5F5;
 }
 ```
-
-**Usage**:
-```css
-.error-message {
-  color: var(--color-error);
-}
-```
-
----
 
 ### Spacing Scale
 
@@ -54,21 +43,11 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
-**Usage**:
-```css
-.card {
-  padding: var(--space-lg);
-  gap: var(--space-md);
-}
-```
-
----
-
-### Typography System
+### Typography
 
 ```css
 :root {
-  /* Font Sizes */
+  /* Sizes */
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;
@@ -76,8 +55,8 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
   --text-lg: 16px;
   --text-xl: 20px;
   --text-2xl: 24px;
-  
-  /* Font Weights */
+
+  /* Weights */
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -85,9 +64,7 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
-**Default Font**: Inter (fallback: system fonts)
-
----
+**Font**: Inter (fallback: system fonts)
 
 ### Border Radius
 
@@ -100,15 +77,26 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
+### Transitions
+
+```css
+:root {
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+```
+
 ---
 
-## Component Library
+## Components
 
 ### Buttons
 
-#### Primary Button
 ```html
 <button class="btn btn-primary">Primary Action</button>
+<button class="btn btn-secondary">Secondary Action</button>
+<button class="btn btn-primary btn-full">Full Width</button>
 ```
 
 ```css
@@ -124,23 +112,19 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
   background: var(--color-info);
   color: white;
 }
-```
 
-#### Secondary Button
-```html
-<button class="btn btn-secondary">Secondary Action</button>
-```
+.btn:hover {
+  opacity: 0.9;
+}
 
-#### Full Width Button
-```html
-<button class="btn btn-primary btn-full">Full Width</button>
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 ```
-
----
 
 ### Input Fields
 
-#### Text Input
 ```html
 <div class="input-group">
   <label for="name">Label</label>
@@ -156,35 +140,28 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
   border-radius: var(--radius-sm);
   font-size: var(--text-base);
 }
-```
 
-#### Select Dropdown
-```html
-<select class="select-input">
-  <option>Option 1</option>
-  <option>Option 2</option>
-</select>
+.text-input:focus {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
 ```
-
----
 
 ### Screens
 
-#### Screen Structure
 ```html
 <div class="screen-content">
   <div class="screen-header">
     <h1 class="screen-title">Screen Title</h1>
     <p class="screen-subtitle">Description</p>
   </div>
-  
+
   <div class="screen-body">
-    <!-- Content here -->
+    <!-- Content -->
   </div>
 </div>
 ```
 
-**Styles**:
 ```css
 .screen-header {
   padding: var(--space-2xl) var(--space-2xl) var(--space-lg);
@@ -204,14 +181,12 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
----
-
 ### Cards
 
 ```html
 <div class="card">
   <h3 class="card-title">Card Title</h3>
-  <p class="card-content">Card content goes here</p>
+  <p class="card-content">Card content</p>
 </div>
 ```
 
@@ -226,24 +201,9 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 
 ---
 
-### Lists
+## Layout Utilities
 
-#### File List
-```html
-<div class="file-list">
-  <div class="file-list-header">Files</div>
-  <div class="file-item">
-    <input type="checkbox" class="file-checkbox">
-    <span>file-name.json</span>
-  </div>
-</div>
-```
-
----
-
-## Layout Patterns
-
-### Flexbox Utilities
+### Flexbox
 
 ```css
 .flex-center {
@@ -264,9 +224,7 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
----
-
-### Grid System
+### Grid
 
 ```css
 .two-column {
@@ -278,28 +236,10 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 
 ---
 
-## Transitions
-
-```css
-:root {
-  --transition-fast: 0.15s ease;
-  --transition-base: 0.2s ease;
-  --transition-slow: 0.3s ease;
-}
-```
-
-**Usage**:
-```css
-.button {
-  transition: background var(--transition-base);
-}
-```
-
----
-
 ## States
 
-### Hover States
+### Hover
+
 ```css
 .btn:hover {
   opacity: 0.9;
@@ -310,15 +250,18 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 }
 ```
 
-### Disabled States
+### Focus
+
 ```css
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+input:focus,
+select:focus {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
 }
 ```
 
-### Loading States
+### Loading
+
 ```html
 <div class="loading">
   <div class="spinner"></div>
@@ -328,76 +271,15 @@ Complete guide to the UI design system used in the Figma Tokens Reader plugin.
 
 ---
 
-## Accessibility
-
-### Focus States
-```css
-input:focus,
-select:focus {
-  outline: 2px solid var(--color-info);
-  outline-offset: 2px;
-}
-```
-
-### Semantic HTML
-- Use `<button>` for clickable actions
-- Use `<label>` with `for` attribute
-- Use semantic elements (`<header>`, `<main>`, `<section>`)
-
----
-
-## Documentation-Specific Styles
-
-### Documentation Configuration
-```typescript
-export const DOCUMENTATION_LAYOUT_CONFIG = {
-  table: {
-    width: 1200,
-    minColumnWidth: 80,
-    rowHeight: 40,
-    gap: 8,
-  },
-  cell: {
-    padding: 12,
-    fontSize: 13,
-  },
-  header: {
-    fontSize: 14,
-    backgroundColor: { r: 0.96, g: 0.96, b: 0.96 },
-  },
-};
-```
-
----
-
 ## Best Practices
 
-### DRY CSS
-❌ **Don't**:
-```css
-.button-1 {
-  padding: 8px;
-  border-radius: 6px;
-}
-.button-2 {
-  padding: 8px;
-  border-radius: 6px;
-}
-```
+### Use CSS Variables
 
-✅ **Do**:
-```css
-.btn {
-  padding: var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-```
-
-### Use Variables
 ❌ **Don't**:
 ```css
 .text {
   color: #282828;
+  padding: 16px;
 }
 ```
 
@@ -405,10 +287,45 @@ export const DOCUMENTATION_LAYOUT_CONFIG = {
 ```css
 .text {
   color: var(--color-text-strong);
+  padding: var(--space-lg);
+}
+```
+
+### DRY Principle
+
+❌ **Don't**:
+```css
+.button-1 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.button-2 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+```
+
+✅ **Do**:
+```css
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 ```
 
 ---
 
-**Last Updated**: 2025-11-11
-**Version**: 3.0
+## Accessibility
+
+- Use semantic HTML (`<button>`, `<label>`, `<header>`, etc.)
+- Include focus states for keyboard navigation
+- Use `for` attribute on labels
+- Provide sufficient color contrast
+
+---
+
+**Version**: 1.0
+**Last Updated**: 2025-11-15
