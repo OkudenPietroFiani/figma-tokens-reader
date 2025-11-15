@@ -435,7 +435,35 @@ When implementing auto-layout frames:
 
 ### Overview
 
-The plugin syncs design tokens to Figma variables with full type preservation, reference resolution, and unit conversion.
+The plugin syncs design tokens to Figma with full type preservation, reference resolution, and unit conversion. Tokens are converted to the appropriate Figma object type based on their token type:
+
+- **Variables**: Color, dimension, number, string, boolean tokens
+- **Text Styles**: Typography tokens (fontFamily, fontSize, fontWeight, lineHeight, letterSpacing)
+- **Effect Styles**: Shadow tokens (offsetX, offsetY, blur, spread, color, inset)
+
+### Feature Summary
+
+| Token Type | Figma Type | Supported Properties | Unit Conversion |
+|------------|------------|---------------------|-----------------|
+| `color` | Variable (COLOR) | Hex, RGB, HSL (with hex), RGBA (alpha ignored) | N/A |
+| `dimension` | Variable (FLOAT) | px, rem, em, % | rem/em × 16, % × base |
+| `fontSize` | Variable (FLOAT) | px, rem, em, % | rem/em × 16, % × base |
+| `spacing` | Variable (FLOAT) | px, rem, em, % | rem/em × 16, % × base |
+| `number` | Variable (FLOAT) | Any number | N/A |
+| `string` | Variable (STRING) | Any string | N/A |
+| `boolean` | Variable (BOOLEAN) | true, false | N/A |
+| `typography` | Text Style | fontFamily, fontSize, fontWeight, lineHeight, letterSpacing | All units converted |
+| `shadow` | Effect Style | offsetX, offsetY, blur, spread, color (RGBA), inset | All units converted |
+
+**Key Features:**
+- ✅ Automatic unit conversion (rem, em, % → pixels)
+- ✅ Token reference resolution (aliases and embedded references)
+- ✅ Code syntax generation (CSS, Android, iOS)
+- ✅ Multiple collections (primitive, semantic, custom)
+- ✅ Font weight mapping (100-900 → Thin/Regular/Bold/etc.)
+- ✅ Shadow alpha channel support (RGBA)
+- ✅ Configurable percentage base
+- ✅ Update existing styles/variables
 
 ---
 
@@ -505,6 +533,136 @@ The plugin syncs design tokens to Figma variables with full type preservation, r
 **Input**: `true`, `false`
 
 **Output**: Boolean (unchanged)
+
+---
+
+#### Typography Tokens
+
+**Input Formats** (composite object):
+```json
+{
+  "$type": "typography",
+  "$value": {
+    "fontFamily": "Inter" | ["Inter", "system-ui"],
+    "fontSize": "1rem" | "16px" | "100%",
+    "fontWeight": 400 | "700",
+    "lineHeight": "1.5rem" | "24px" | "150%",
+    "letterSpacing": "0.02em" | "0.32px"
+  }
+}
+```
+
+**Output Format**: Figma Text Style
+
+**Font Weight Mapping**:
+- 100 → Thin
+- 200 → ExtraLight
+- 300 → Light
+- 400 → Regular (default)
+- 500 → Medium
+- 600 → SemiBold
+- 700 → Bold
+- 800 → ExtraBold
+- 900 → Black
+
+**Unit Conversion**:
+- `fontSize`, `lineHeight`, `letterSpacing`: rem/em/% → pixels
+- Line height: PIXELS unit (not AUTO or PERCENT)
+- Letter spacing: PIXELS unit
+
+**Examples**:
+```json
+{
+  "heading/h1": {
+    "$type": "typography",
+    "$value": {
+      "fontFamily": "Inter",
+      "fontSize": "2.5rem",     // → 40px
+      "fontWeight": 700,          // → Bold
+      "lineHeight": "3rem",       // → 48px (PIXELS)
+      "letterSpacing": "0.02em"   // → 0.32px (PIXELS, 0.02 × 16)
+    }
+  }
+}
+```
+
+**Important**:
+- Font must be available in Figma (plugin loads font asynchronously)
+- Font style must exist (e.g., Inter Bold must be installed)
+- If font loading fails, text style creation is skipped with warning
+
+---
+
+#### Shadow Tokens
+
+**Input Formats** (composite object):
+```json
+{
+  "$type": "shadow",
+  "$value": {
+    "offsetX": "0px" | "0.5rem" | "50%",
+    "offsetY": "4px" | "1rem" | "100%",
+    "blur": "8px" | "2rem",
+    "spread": "0px" | "0.5rem" (optional),
+    "color": "#000000" | "rgba(0,0,0,0.1)" | { r, g, b, a },
+    "inset": true | false (optional, default: false)
+  }
+}
+```
+
+**Output Format**: Figma Effect Style (DROP_SHADOW or INNER_SHADOW)
+
+**Shadow Type**:
+- `inset: false` or undefined → DROP_SHADOW
+- `inset: true` → INNER_SHADOW
+
+**Unit Conversion**:
+- `offsetX`, `offsetY`, `blur`, `spread`: rem/em/% → pixels
+- All numeric values converted to absolute pixels
+
+**Color Format**: RGBA (alpha channel supported, unlike variables)
+
+**Examples**:
+```json
+{
+  "shadow/card/default": {
+    "$type": "shadow",
+    "$value": {
+      "offsetX": "0px",
+      "offsetY": "4px",
+      "blur": "8px",
+      "spread": "0px",
+      "color": "rgba(0, 0, 0, 0.1)"  // Alpha preserved!
+    }
+  },
+  "shadow/card/hover": {
+    "$type": "shadow",
+    "$value": {
+      "offsetX": "0px",
+      "offsetY": "8px",
+      "blur": "16px",
+      "spread": "0px",
+      "color": "rgba(0, 0, 0, 0.15)",
+      "inset": false                  // DROP_SHADOW
+    }
+  },
+  "shadow/inset": {
+    "$type": "shadow",
+    "$value": {
+      "offsetX": "0px",
+      "offsetY": "2px",
+      "blur": "4px",
+      "color": "rgba(0, 0, 0, 0.1)",
+      "inset": true                   // INNER_SHADOW
+    }
+  }
+}
+```
+
+**Important**:
+- Alpha channel IS supported for shadows (unlike variable colors)
+- Shadow color can use any color format (hex, rgb, rgba, object)
+- All dimension values support unit conversion
 
 ---
 
@@ -595,6 +753,59 @@ await figmaSyncService.syncTokens(tokens);
 - **iOS**: `color.primary` (iOS tokens)
 
 **Format**: Uses Figma's `setVariableCodeSyntax()` API
+
+---
+
+### Sync Configuration Options
+
+The `FigmaSyncService.syncTokens()` method accepts an optional `SyncOptions` parameter to control sync behavior:
+
+```typescript
+interface SyncOptions {
+  updateExisting?: boolean;    // Update existing variables/styles (default: true)
+  preserveScopes?: boolean;    // Preserve existing variable scopes (default: true)
+  createStyles?: boolean;      // Create text/effect styles from typography/shadow tokens (default: true)
+  percentageBase?: number;     // Base size for percentage calculations in pixels (default: 16)
+}
+```
+
+**Option Details:**
+
+| Option | Default | Description | Impact |
+|--------|---------|-------------|--------|
+| `updateExisting` | `true` | Update existing variables and styles | If `false`, existing items are skipped (not updated) |
+| `preserveScopes` | `true` | Keep existing variable scope assignments | If `false`, scopes might be reset (use Scopes tab instead) |
+| `createStyles` | `true` | Create Text Styles and Effect Styles | If `false`, typography/shadow tokens are skipped |
+| `percentageBase` | `16` | Base size for % unit conversion (pixels) | Used for all percentage calculations across all token types |
+
+**Usage Examples:**
+
+```typescript
+// Default behavior (all features enabled)
+await figmaSyncService.syncTokens(tokens);
+
+// Disable style creation (only sync variables)
+await figmaSyncService.syncTokens(tokens, {
+  createStyles: false
+});
+
+// Custom percentage base (20px instead of 16px)
+await figmaSyncService.syncTokens(tokens, {
+  percentageBase: 20  // 50% = 10px instead of 8px
+});
+
+// Skip updates (only create new items)
+await figmaSyncService.syncTokens(tokens, {
+  updateExisting: false
+});
+
+// Combination of options
+await figmaSyncService.syncTokens(tokens, {
+  updateExisting: true,
+  createStyles: true,
+  percentageBase: 18
+});
+```
 
 ---
 
@@ -761,6 +972,207 @@ Then: Each collection created separately, no mixing
 
 ---
 
+#### ✅ Typography Style Sync Acceptance
+
+**Test Case 1: Basic Typography Token**
+```
+Given: Token with type "typography" and value:
+  {
+    fontFamily: "Inter",
+    fontSize: "1rem",
+    fontWeight: 400
+  }
+When: Synced to Figma with createStyles=true
+Then: Text Style created with:
+  - Name: token path joined with "/"
+  - Font: Inter Regular
+  - Size: 16px (not 1rem)
+```
+
+**Test Case 2: Font Weight Mapping**
+```
+Given: Typography token with fontWeight: 700
+When: Synced to Figma
+Then: Text Style uses "Bold" font style (not "Regular")
+```
+
+**Test Case 3: Full Typography Properties**
+```
+Given: Typography token with:
+  {
+    fontFamily: "Inter",
+    fontSize: "2.5rem",
+    fontWeight: 600,
+    lineHeight: "3rem",
+    letterSpacing: "0.02em"
+  }
+When: Synced to Figma
+Then: Text Style has:
+  - Font: Inter SemiBold
+  - Size: 40px
+  - Line height: 48px (PIXELS unit)
+  - Letter spacing: 0.32px (PIXELS unit)
+```
+
+**Test Case 4: Typography with Percentage Units**
+```
+Given: Typography token with fontSize: "150%"
+When: Synced with percentageBase=16
+Then: Text Style has fontSize: 24px (150% of 16px)
+```
+
+**Test Case 5: Update Existing Text Style**
+```
+Given: Existing text style "heading/h1"
+  And: Typography token "heading/h1" with updated fontSize
+When: Synced with updateExisting=true
+Then: Existing text style is updated (not duplicated)
+```
+
+**Fail Condition**: Typography token creates variable instead of text style, or text style missing properties
+
+---
+
+#### ✅ Shadow Effect Style Sync Acceptance
+
+**Test Case 1: Basic Drop Shadow**
+```
+Given: Token with type "shadow" and value:
+  {
+    offsetX: "0px",
+    offsetY: "4px",
+    blur: "8px",
+    spread: "0px",
+    color: "#000000"
+  }
+When: Synced to Figma with createStyles=true
+Then: Effect Style created with:
+  - Name: token path joined with "/"
+  - Type: DROP_SHADOW
+  - Offset: {x: 0, y: 4}
+  - Radius: 8
+  - Spread: 0
+  - Color: {r: 0, g: 0, b: 0, a: 1}
+```
+
+**Test Case 2: Inner Shadow**
+```
+Given: Shadow token with inset: true
+When: Synced to Figma
+Then: Effect Style has type: INNER_SHADOW (not DROP_SHADOW)
+```
+
+**Test Case 3: Shadow with Alpha Color**
+```
+Given: Shadow token with color: "rgba(0, 0, 0, 0.1)"
+When: Synced to Figma
+Then: Effect Style color has alpha: 0.1 (not 1.0)
+  - Note: Shadows support alpha, unlike variables
+```
+
+**Test Case 4: Shadow with Unit Conversion**
+```
+Given: Shadow token with:
+  {
+    offsetX: "0.5rem",
+    offsetY: "1rem",
+    blur: "2rem",
+    spread: "50%"
+  }
+When: Synced with percentageBase=16
+Then: Effect Style has:
+  - Offset: {x: 8, y: 16} (rem converted)
+  - Radius: 32 (rem converted)
+  - Spread: 8 (50% of 16px)
+```
+
+**Test Case 5: Update Existing Effect Style**
+```
+Given: Existing effect style "shadow/card"
+  And: Shadow token "shadow/card" with updated blur
+When: Synced with updateExisting=true
+Then: Existing effect style is updated (not duplicated)
+```
+
+**Fail Condition**: Shadow token creates variable instead of effect style, or effect style has wrong shadow type (inner/drop)
+
+---
+
+#### ✅ Percentage Unit Conversion Acceptance
+
+**Test Case 1: Basic Percentage Conversion**
+```
+Given: Dimension token with value "50%"
+When: Synced with percentageBase=16 (default)
+Then: Variable shows 8 (50% of 16px)
+```
+
+**Test Case 2: Custom Percentage Base**
+```
+Given: Dimension token with value "50%"
+When: Synced with percentageBase=20
+Then: Variable shows 10 (50% of 20px)
+```
+
+**Test Case 3: Percentage in DimensionValue Object**
+```
+Given: Token with value { value: 75, unit: "%" }
+When: Synced with percentageBase=16
+Then: Variable shows 12 (75% of 16px)
+```
+
+**Test Case 4: Percentage in Typography**
+```
+Given: Typography token with fontSize: "125%"
+When: Synced with percentageBase=16
+Then: Text Style has fontSize: 20px (125% of 16px)
+```
+
+**Test Case 5: Percentage in Shadow**
+```
+Given: Shadow token with blur: "200%"
+When: Synced with percentageBase=16
+Then: Effect Style has radius: 32px (200% of 16px)
+```
+
+**Fail Condition**: Percentage values show as 0 or show the raw percentage value (e.g., 50 instead of 8)
+
+---
+
+#### ✅ Style Creation Configuration Acceptance
+
+**Test Case 1: Disable Style Creation**
+```
+Given: Typography and shadow tokens
+When: Synced with createStyles=false
+Then: Typography and shadow tokens are skipped
+  And: Only color/dimension/string tokens create variables
+```
+
+**Test Case 2: Skip Updates on Existing Styles**
+```
+Given: Existing text style "heading/h1"
+  And: Typography token "heading/h1" with different fontSize
+When: Synced with updateExisting=false
+Then: Existing text style is NOT updated (remains unchanged)
+  And: Stats show token as "skipped"
+```
+
+**Test Case 3: Mixed Token Types**
+```
+Given: 10 color tokens, 5 typography tokens, 3 shadow tokens
+When: Synced with createStyles=true
+Then:
+  - 10 variables created (colors)
+  - 5 text styles created (typography)
+  - 3 effect styles created (shadows)
+  - Stats: {added: 18, updated: 0, skipped: 0}
+```
+
+**Fail Condition**: Style configuration options don't affect behavior, or wrong token types create wrong Figma objects
+
+---
+
 ### Known Limitations
 
 #### Color Limitations
@@ -842,6 +1254,24 @@ Then: Each collection created separately, no mixing
 [FigmaSyncService] Code syntax set successfully for primitive.color.primary.600
 ```
 
+**Text Style Creation**:
+```
+[FigmaSyncService] Created text style: typography/heading/h1
+[FigmaSyncService] Updated text style: typography/body/regular
+```
+
+**Effect Style Creation**:
+```
+[FigmaSyncService] Created effect style: shadow/card/default
+[FigmaSyncService] Updated effect style: shadow/card/hover
+```
+
+**Percentage Conversions**:
+```
+[FigmaSyncService] Converted 50% to 8px (base: 16px)
+[FigmaSyncService] Converted 150% to 24px (base: 16px)
+```
+
 #### Common Issues
 
 **Issue**: All colors are black
@@ -859,25 +1289,85 @@ Then: Each collection created separately, no mixing
 - **Check**: Console for "setVariableCodeSyntax method not available"
 - **Fix**: Update Figma desktop app to latest version
 
+**Issue**: Typography tokens not creating text styles
+- **Cause**: createStyles option disabled OR font not available
+- **Check**: Console for "Created text style" or "Could not load font" messages
+- **Fix**: Ensure createStyles=true (default) AND font is installed in Figma
+
+**Issue**: Text style has wrong font style (Regular instead of Bold)
+- **Cause**: Font weight not mapped correctly OR font style not available
+- **Check**: Verify font has the required style (Bold, SemiBold, etc.)
+- **Fix**: Install all font weights, or adjust fontWeight value to available style
+
+**Issue**: Shadow tokens not creating effect styles
+- **Cause**: createStyles option disabled OR shadow value format invalid
+- **Check**: Console for "Created effect style" or error messages
+- **Fix**: Ensure createStyles=true AND shadow has required properties (offsetX, offsetY, blur, color)
+
+**Issue**: Shadow has no transparency (fully opaque)
+- **Cause**: Color value missing alpha channel
+- **Check**: Verify shadow color includes alpha (rgba format or alpha property)
+- **Fix**: Use rgba(r, g, b, 0.1) format or { r, g, b, a: 0.1, alpha: 0.1 } object
+
+**Issue**: Percentage values showing as 0
+- **Cause**: Percentage unit not recognized OR percentageBase not set
+- **Check**: Console for "Converted X% to Y px" messages
+- **Fix**: Ensure percentage values include "%" unit and percentageBase is configured
+
+**Issue**: Text/Effect styles duplicated on each sync
+- **Cause**: Style names don't match token paths
+- **Check**: Compare style names in Figma with token paths
+- **Fix**: Ensure token paths match existing style names, or rename styles to match
+
 ---
 
 ### Testing Checklist
 
 Before releasing sync feature:
 
+#### Variables
 - [ ] Import tokens with HSL colors → verify correct RGB values (not black)
 - [ ] Import tokens with rem units → verify pixel conversion (10px not 0.625)
+- [ ] Import tokens with percentage units → verify conversion (50% = 8px with base 16)
 - [ ] Import alias tokens → verify resolution (actual values not "{...}" strings)
 - [ ] Check primitive collection → verify all primitive tokens present
 - [ ] Check semantic collection → verify all semantic tokens present
 - [ ] Verify variable types → COLOR for colors, FLOAT for dimensions
 - [ ] Check code syntax → WEB, ANDROID, iOS formats present
 - [ ] Test cross-collection references → semantic resolves to primitive
+
+#### Text Styles
+- [ ] Import typography tokens → verify text styles created (not variables)
+- [ ] Check text style font family → correct font loaded
+- [ ] Check text style font weight → correct style (Bold, Medium, etc.)
+- [ ] Check text style font size → converted to pixels (40px not 2.5rem)
+- [ ] Check text style line height → PIXELS unit (not AUTO)
+- [ ] Check text style letter spacing → PIXELS unit
+- [ ] Update existing text style → verify update (not duplicate)
+
+#### Effect Styles
+- [ ] Import shadow tokens → verify effect styles created (not variables)
+- [ ] Check drop shadow type → DROP_SHADOW for inset=false
+- [ ] Check inner shadow type → INNER_SHADOW for inset=true
+- [ ] Check shadow color alpha → preserved (0.1 displays correctly)
+- [ ] Check shadow offsets → converted to pixels
+- [ ] Check shadow blur/spread → converted to pixels
+- [ ] Update existing effect style → verify update (not duplicate)
+
+#### Configuration
+- [ ] Sync with createStyles=false → typography/shadow tokens skipped
+- [ ] Sync with updateExisting=false → existing styles not updated
+- [ ] Sync with percentageBase=20 → percentage conversion uses custom base
+- [ ] Sync with default options → all features enabled
+
+#### Console & Debugging
 - [ ] Check console → no "Could not convert" warnings
-- [ ] Reload plugin → variables persist correctly
+- [ ] Check console → text/effect style creation logged
+- [ ] Check console → unit conversion logged (rem, em, %)
+- [ ] Reload plugin → variables and styles persist correctly
 
 ---
 
 **Last Updated**: 2025-11-15
-**Version**: 4.0
+**Version**: 5.0
 **Status**: Production Ready ✅
