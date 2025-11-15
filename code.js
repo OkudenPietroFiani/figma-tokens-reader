@@ -2038,19 +2038,17 @@
      */
     resolveNestedReferences(value, projectId) {
       if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
-        const referencePath = value.slice(1, -1);
-        const allTokens = this.repository.getByProject(projectId);
-        console.log(`[FigmaSyncService] Resolving reference: "${referencePath}" (project: "${projectId}", ${allTokens.length} tokens available)`);
-        const referencedToken = this.repository.getByQualifiedName(projectId, referencePath);
+        console.log(`[FigmaSyncService] Resolving reference: "${value}" (project: "${projectId}")`);
+        const referencedToken = this.resolver.resolveReference(value, projectId);
         if (referencedToken) {
           const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
           console.log(`[FigmaSyncService] \u2713 Resolved "${value}" \u2192 ${JSON.stringify(resolvedValue)}`);
-          return resolvedValue;
+          return this.resolveNestedReferences(resolvedValue, projectId);
         } else {
           console.error(`[FigmaSyncService] \u2717 Could not resolve reference: "${value}"`);
-          console.error(`[FigmaSyncService]   Looking for: "${referencePath}"`);
-          console.error(`[FigmaSyncService]   Project: "${projectId}"`);
-          console.error(`[FigmaSyncService]   Sample tokens: ${allTokens.slice(0, 3).map((t) => t.qualifiedName).join(", ")}`);
+          const allTokens = this.repository.getByProject(projectId);
+          console.error(`[FigmaSyncService]   Project has ${allTokens.length} tokens`);
+          console.error(`[FigmaSyncService]   Sample tokens: ${allTokens.slice(0, 5).map((t) => t.qualifiedName).join(", ")}`);
           return value;
         }
       }
