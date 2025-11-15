@@ -1943,11 +1943,19 @@
      * Shadow tokens become Effect Styles
      */
     isStyleToken(token) {
-      if (token.type === "typography" && typeof token.value === "object") {
-        return true;
+      if (token.type === "typography") {
+        const value = token.resolvedValue || token.value;
+        if (typeof value === "object" && value !== null) {
+          const hasTypographyProps = "fontFamily" in value || "fontSize" in value || "fontWeight" in value || "lineHeight" in value || "letterSpacing" in value;
+          return hasTypographyProps;
+        }
       }
       if (token.type === "shadow") {
-        return true;
+        const value = token.resolvedValue || token.value;
+        if (typeof value === "object" && value !== null) {
+          const hasShadowProps = "offsetX" in value || "offsetY" in value || "blur" in value || "color" in value;
+          return hasShadowProps;
+        }
       }
       return false;
     }
@@ -1964,6 +1972,33 @@
       return { added: 0, updated: 0, skipped: 1 };
     }
     /**
+     * Resolve nested references in a composite value
+     * Example: { fontFamily: "{primitive.typography.font-family.primary}" }
+     * Becomes: { fontFamily: "Inter" }
+     */
+    resolveNestedReferences(value, projectId) {
+      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
+        const referencePath = value.slice(1, -1);
+        const referencedToken = this.repository.getByQualifiedName(projectId, referencePath);
+        if (referencedToken) {
+          const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
+          console.log(`[FigmaSyncService] Resolved nested reference ${value} \u2192 ${JSON.stringify(resolvedValue)}`);
+          return resolvedValue;
+        } else {
+          console.warn(`[FigmaSyncService] Could not resolve nested reference: ${value}`);
+          return value;
+        }
+      }
+      if (typeof value === "object" && value !== null) {
+        const resolved = Array.isArray(value) ? [] : {};
+        for (const key in value) {
+          resolved[key] = this.resolveNestedReferences(value[key], projectId);
+        }
+        return resolved;
+      }
+      return value;
+    }
+    /**
      * Create or update Figma Text Style from typography token
      */
     async createTextStyle(token, options) {
@@ -1975,7 +2010,15 @@
           stats.skipped++;
           return stats;
         }
-        const typValue = value;
+        const resolvedValue = this.resolveNestedReferences(value, token.projectId);
+        const typValue = resolvedValue;
+        console.log(`[FigmaSyncService] Processing typography token ${token.qualifiedName}:`, {
+          fontFamily: typValue.fontFamily,
+          fontSize: typValue.fontSize,
+          fontWeight: typValue.fontWeight,
+          lineHeight: typValue.lineHeight,
+          letterSpacing: typValue.letterSpacing
+        });
         const styleName = token.path.join("/");
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
@@ -2000,22 +2043,32 @@
             const fontFamily = typeof typValue.fontFamily === "string" ? typValue.fontFamily : typValue.fontFamily[0];
             const fontWeight = typValue.fontWeight || 400;
             const fontStyle = this.mapFontWeightToStyle(fontWeight);
+            console.log(`[FigmaSyncService] Loading font: ${fontFamily} ${fontStyle}`);
             await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
             textStyle.fontName = { family: fontFamily, style: fontStyle };
           } catch (error) {
-            console.warn(`[FigmaSyncService] Could not load font ${typValue.fontFamily}:`, error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`[FigmaSyncService] Could not load font ${typValue.fontFamily}: ${message}`);
+            throw error;
           }
         }
         if (typValue.fontSize !== void 0) {
           const fontSize = this.convertNumericValue(typValue.fontSize, options.percentageBase);
+          console.log(`[FigmaSyncService] Font size converted: ${typValue.fontSize} \u2192 ${fontSize}px`);
+          if (fontSize < 1) {
+            console.error(`[FigmaSyncService] Invalid font size: ${fontSize}px (must be >= 1). Original value: ${typValue.fontSize}`);
+            throw new Error(`Font size must be >= 1 (got ${fontSize})`);
+          }
           textStyle.fontSize = fontSize;
         }
         if (typValue.lineHeight !== void 0) {
           const lineHeight = this.convertNumericValue(typValue.lineHeight, options.percentageBase);
+          console.log(`[FigmaSyncService] Line height converted: ${typValue.lineHeight} \u2192 ${lineHeight}px`);
           textStyle.lineHeight = { value: lineHeight, unit: "PIXELS" };
         }
         if (typValue.letterSpacing !== void 0) {
           const letterSpacing = this.convertNumericValue(typValue.letterSpacing, options.percentageBase);
+          console.log(`[FigmaSyncService] Letter spacing converted: ${typValue.letterSpacing} \u2192 ${letterSpacing}px`);
           textStyle.letterSpacing = { value: letterSpacing, unit: "PIXELS" };
         }
         return stats;
@@ -2038,7 +2091,8 @@
           stats.skipped++;
           return stats;
         }
-        const shadowValue = value;
+        const resolvedValue = this.resolveNestedReferences(value, token.projectId);
+        const shadowValue = resolvedValue;
         const styleName = token.path.join("/");
         const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
