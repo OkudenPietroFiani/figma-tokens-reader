@@ -221,18 +221,31 @@ Typography and shadow tokens can contain **nested references** within their comp
 }
 ```
 
-**Implementation**:
+**Implementation** (uses TokenResolver for robust resolution):
 ```typescript
 private resolveNestedReferences(value: any, projectId: string): any {
-  // Recursively resolve all references in composite values
+  // Use TokenResolver for sophisticated resolution
+  // Handles: brace removal, normalization, case-insensitive, fuzzy matching
   if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
-    const referencePath = value.slice(1, -1);
-    const referencedToken = repository.getByQualifiedName(projectId, referencePath);
-    return referencedToken?.resolvedValue || referencedToken?.value || value;
+    const referencedToken = this.resolver.resolveReference(value, projectId);
+    if (referencedToken) {
+      const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
+      // Recursively resolve in case the resolved value is also a reference
+      return this.resolveNestedReferences(resolvedValue, projectId);
+    }
+    return value; // Return as-is if can't resolve
   }
   // ... recursively process objects and arrays
 }
 ```
+
+**Why TokenResolver?**
+- Handles different reference formats (dots, slashes, case variations)
+- Three-tier caching (exact, normalized, fuzzy)
+- Supports chained references (reference to a reference)
+- Normalizes `color.primary` and `color/primary` to same token
+- Case-insensitive matching
+- Fuzzy suffix matching for partial references
 
 **Applied to**:
 - Typography tokens (fontFamily, fontSize, fontWeight, lineHeight, letterSpacing)
