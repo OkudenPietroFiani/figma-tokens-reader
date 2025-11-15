@@ -2039,13 +2039,18 @@
     resolveNestedReferences(value, projectId) {
       if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
         const referencePath = value.slice(1, -1);
+        const allTokens = this.repository.getByProject(projectId);
+        console.log(`[FigmaSyncService] Resolving reference: "${referencePath}" (project: "${projectId}", ${allTokens.length} tokens available)`);
         const referencedToken = this.repository.getByQualifiedName(projectId, referencePath);
         if (referencedToken) {
           const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
-          console.log(`[FigmaSyncService] Resolved nested reference ${value} \u2192 ${JSON.stringify(resolvedValue)}`);
+          console.log(`[FigmaSyncService] \u2713 Resolved "${value}" \u2192 ${JSON.stringify(resolvedValue)}`);
           return resolvedValue;
         } else {
-          console.warn(`[FigmaSyncService] Could not resolve nested reference: ${value}`);
+          console.error(`[FigmaSyncService] \u2717 Could not resolve reference: "${value}"`);
+          console.error(`[FigmaSyncService]   Looking for: "${referencePath}"`);
+          console.error(`[FigmaSyncService]   Project: "${projectId}"`);
+          console.error(`[FigmaSyncService]   Sample tokens: ${allTokens.slice(0, 3).map((t) => t.qualifiedName).join(", ")}`);
           return value;
         }
       }
@@ -2134,8 +2139,14 @@
         }
         return stats;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[FigmaSyncService] Failed to create text style ${token.qualifiedName}: ${message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : "";
+        console.error(`[FigmaSyncService] Failed to create text style ${token.qualifiedName}:`);
+        console.error(`  Error: ${message}`);
+        if (stack) {
+          console.error(`  Stack: ${stack}`);
+        }
+        console.error(`  Token value:`, JSON.stringify(token.value, null, 2));
         stats.skipped++;
         return stats;
       }
