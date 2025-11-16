@@ -7,6 +7,7 @@ import { Token, TokenType } from '../models/Token';
 import { Result, Success, Failure, ImportStats } from '../../shared/types';
 import { TokenRepository } from './TokenRepository';
 import { TokenResolver } from './TokenResolver';
+import { PreSyncValidator, ValidationReport } from './PreSyncValidator';
 
 /**
  * Sync result with detailed statistics
@@ -15,6 +16,7 @@ export interface SyncResult {
   stats: ImportStats;
   collections: string[]; // Collections created/updated
   variables: Map<string, Variable>; // variableId -> Variable
+  validation?: ValidationReport; // Validation report (if validation was run)
 }
 
 /**
@@ -25,6 +27,8 @@ export interface SyncOptions {
   preserveScopes?: boolean; // Preserve existing scopes (default: true)
   createStyles?: boolean; // Create text styles and effect styles from typography/shadow tokens (default: true)
   percentageBase?: number; // Base size for percentage calculations (default: 16px)
+  validateBeforeSync?: boolean; // Run pre-sync validation (default: true)
+  failOnValidationErrors?: boolean; // Abort sync if validation finds errors (default: false)
 }
 
 /**
@@ -51,12 +55,14 @@ export interface SyncOptions {
 export class FigmaSyncService {
   private repository: TokenRepository;
   private resolver: TokenResolver;
+  private validator: PreSyncValidator;
   private variableMap: Map<string, Variable> = new Map();
   private collectionMap: Map<string, VariableCollection> = new Map();
 
   constructor(repository: TokenRepository, resolver: TokenResolver) {
     this.repository = repository;
     this.resolver = resolver;
+    this.validator = new PreSyncValidator();
   }
 
   /**
@@ -74,8 +80,44 @@ export class FigmaSyncService {
         preserveScopes: true,
         createStyles: true,
         percentageBase: 16,
+        validateBeforeSync: true,
+        failOnValidationErrors: false,
         ...options,
       };
+
+      // Run pre-sync validation if enabled
+      let validationReport: ValidationReport | undefined;
+      if (opts.validateBeforeSync) {
+        // Determine project ID from tokens (assuming all tokens have same projectId)
+        const projectId = tokens.length > 0 ? tokens[0].projectId : 'unknown';
+
+        validationReport = this.validator.validate(tokens, projectId);
+
+        // Log validation results
+        if (!validationReport.valid) {
+          console.group(`[FigmaSyncService] Pre-sync validation found issues`);
+          console.log(this.validator.formatReport(validationReport));
+          console.groupEnd();
+
+          // Show user-friendly notification
+          if (validationReport.errorCount > 0) {
+            figma.notify(
+              `⚠️ Found ${validationReport.errorCount} validation error(s). Check console for details.`,
+              { timeout: 5000, error: true }
+            );
+          }
+
+          // Abort if errors and failOnValidationErrors is true
+          if (opts.failOnValidationErrors && validationReport.errorCount > 0) {
+            return Failure(
+              `Validation failed with ${validationReport.errorCount} error(s). ` +
+              `Fix errors or set failOnValidationErrors: false to proceed anyway.`
+            );
+          }
+        } else {
+          console.log(`[FigmaSyncService] ✓ Pre-sync validation passed`);
+        }
+      }
 
       const stats: ImportStats = { added: 0, updated: 0, skipped: 0 };
       const syncedCollections = new Set<string>();
@@ -119,6 +161,7 @@ export class FigmaSyncService {
         stats,
         collections: Array.from(syncedCollections),
         variables: this.variableMap,
+        validation: validationReport,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
