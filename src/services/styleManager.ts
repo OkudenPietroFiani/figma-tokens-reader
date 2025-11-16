@@ -49,7 +49,7 @@ export class StyleManager {
    * @deprecated Use createTextStylesFromTokens() for Token[] model
    */
   async createTextStyles(tokens: TokenData, pathPrefix: string[] = []): Promise<StyleStats> {
-    console.log('\n=== CREATING TEXT STYLES (LEGACY) ===');
+    debug.log('\n=== CREATING TEXT STYLES (LEGACY) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     await this.processTokenGroup(tokens, pathPrefix, 'text');
@@ -69,7 +69,7 @@ export class StyleManager {
    * @deprecated Use createEffectStylesFromTokens() for Token[] model
    */
   async createEffectStyles(tokens: TokenData, pathPrefix: string[] = []): Promise<StyleStats> {
-    console.log('\n=== CREATING EFFECT STYLES (LEGACY) ===');
+    debug.log('\n=== CREATING EFFECT STYLES (LEGACY) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     await this.processTokenGroup(tokens, pathPrefix, 'effect');
@@ -92,7 +92,7 @@ export class StyleManager {
    * @returns Statistics about created/updated styles
    */
   async createTextStylesFromTokens(tokens: Token[]): Promise<StyleStats> {
-    console.log('\n=== CREATING TEXT STYLES (TOKEN[]) ===');
+    debug.log('\n=== CREATING TEXT STYLES (TOKEN[]) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     // Filter to typography tokens only (skip aliases - they're already resolved)
@@ -102,7 +102,7 @@ export class StyleManager {
       !t.aliasTo // Skip aliases - we want the concrete tokens
     );
 
-    console.log(`[STYLE] Found ${typographyTokens.length} typography tokens`);
+    debug.log(`[STYLE] Found ${typographyTokens.length} typography tokens`);
 
     // Process each typography token
     for (const token of typographyTokens) {
@@ -130,7 +130,7 @@ export class StyleManager {
         // Apply typography properties
         await this.applyTypographyProperties(textStyle, value as TypographyToken);
 
-        console.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} text style: ${styleName}`);
+        debug.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} text style: ${styleName}`);
       } catch (error) {
         console.error(`[STYLE ERROR] Failed to create text style for ${styleName}:`, error);
         this.styleStats.skipped++;
@@ -144,7 +144,7 @@ export class StyleManager {
       );
     }
 
-    console.log(`[STYLE] Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
+    debug.log(`[STYLE] Text styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
 
     return this.styleStats;
   }
@@ -157,7 +157,7 @@ export class StyleManager {
    * @returns Statistics about created/updated styles
    */
   async createEffectStylesFromTokens(tokens: Token[]): Promise<StyleStats> {
-    console.log('\n=== CREATING EFFECT STYLES (TOKEN[]) ===');
+    debug.log('\n=== CREATING EFFECT STYLES (TOKEN[]) ===');
     this.styleStats = { created: 0, updated: 0, skipped: 0 };
 
     // Filter to shadow tokens only (skip aliases - they're already resolved)
@@ -166,7 +166,7 @@ export class StyleManager {
       !t.aliasTo // Skip aliases - we want the concrete tokens
     );
 
-    console.log(`[STYLE] Found ${shadowTokens.length} shadow tokens`);
+    debug.log(`[STYLE] Found ${shadowTokens.length} shadow tokens`);
 
     // Process each shadow token
     for (const token of shadowTokens) {
@@ -194,7 +194,7 @@ export class StyleManager {
         // Apply shadow effects
         await this.applyShadowEffects(effectStyle, value);
 
-        console.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} effect style: ${styleName}`);
+        debug.log(`[STYLE] ✓ ${this.styleStats.created > 0 ? 'Created' : 'Updated'} effect style: ${styleName}`);
       } catch (error) {
         console.error(`[STYLE ERROR] Failed to create effect style for ${styleName}:`, error);
         this.styleStats.skipped++;
@@ -208,7 +208,7 @@ export class StyleManager {
       );
     }
 
-    console.log(`[STYLE] Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
+    debug.log(`[STYLE] Effect styles: ${this.styleStats.created} created, ${this.styleStats.updated} updated, ${this.styleStats.skipped} skipped`);
 
     return this.styleStats;
   }
@@ -562,7 +562,7 @@ export class StyleManager {
       // Set the effects on the style first
       effectStyle.effects = effectsData.map(ed => ed.effect);
 
-      console.log(`[SHADOW] Created effect style with ${effectsData.length} effects`);
+      debug.log(`[SHADOW] Created effect style with ${effectsData.length} effects`);
 
       // Bind color variables for each effect that has one
       effectsData.forEach((effectData, index) => {
@@ -578,7 +578,7 @@ export class StyleManager {
           for (const fieldPath of fieldPaths) {
             try {
               effectStyle.setBoundVariable(fieldPath, effectData.colorVariable);
-              console.log(`[SHADOW] ✓ Successfully bound effect ${index} color to variable: ${effectData.colorVariable.name} (path: ${fieldPath})`);
+              debug.log(`[SHADOW] ✓ Successfully bound effect ${index} color to variable: ${effectData.colorVariable.name} (path: ${fieldPath})`);
               bound = true;
               break;
             } catch (error) {
@@ -631,7 +631,7 @@ export class StyleManager {
 
             if (typeof variableValue === 'object' && 'r' in variableValue) {
               color = variableValue as RGBA;
-              console.log(`[SHADOW] Found color variable: ${colorVariable.name}`);
+              debug.log(`[SHADOW] Found color variable: ${colorVariable.name}`);
             } else {
               console.error(`[SHADOW] Variable ${colorVariable.name} is not a color type`);
               color = this.parseColorValue(colorValue);

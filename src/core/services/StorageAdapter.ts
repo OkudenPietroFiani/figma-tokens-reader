@@ -6,6 +6,7 @@
 import { Token } from '../models/Token';
 import { TokenProcessor } from './TokenProcessor';
 import { Result, Success, Failure, TokenState, ProjectStorage, FileSourceConfig, ImportStats } from '../../shared/types';
+import { debug } from '../../shared/logger';
 
 /**
  * Storage migration statistics
@@ -61,13 +62,13 @@ export class StorageAdapter {
       const rawData = await figma.clientStorage.getAsync(storageKey);
 
       if (!rawData) {
-        console.log('[StorageAdapter] No data found, new project');
+        debug.log('[StorageAdapter] No data found, new project');
         return Success([]);
       }
 
       // Detect format version
       if (this.isOldFormat(rawData)) {
-        console.log('[StorageAdapter] Detected old TokenState format, initiating migration...');
+        debug.log('[StorageAdapter] Detected old TokenState format, initiating migration...');
 
         const startTime = Date.now();
 
@@ -104,11 +105,11 @@ export class StorageAdapter {
         const migrationTime = Date.now() - startTime;
 
         // Log migration success
-        console.log(`[StorageAdapter] ✓ Migration complete`);
-        console.log(`  - Tokens migrated: ${migratedTokens.length}`);
-        console.log(`  - Files processed: ${Object.keys((rawData as TokenState).tokenFiles).length}`);
-        console.log(`  - Migration time: ${migrationTime}ms`);
-        console.log(`  - Backup created: ${backupResult.data}`);
+        debug.log(`[StorageAdapter] ✓ Migration complete`);
+        debug.log(`  - Tokens migrated: ${migratedTokens.length}`);
+        debug.log(`  - Files processed: ${Object.keys((rawData as TokenState).tokenFiles).length}`);
+        debug.log(`  - Migration time: ${migrationTime}ms`);
+        debug.log(`  - Backup created: ${backupResult.data}`);
 
         figma.notify(
           `✓ Storage migrated to v2.0 (${migratedTokens.length} tokens)`,
@@ -119,7 +120,7 @@ export class StorageAdapter {
       }
 
       // Already new format
-      console.log('[StorageAdapter] Loading from ProjectStorage (v2.0)');
+      debug.log('[StorageAdapter] Loading from ProjectStorage (v2.0)');
       const storage = rawData as ProjectStorage;
 
       // Validate version
@@ -176,7 +177,7 @@ export class StorageAdapter {
       const storageKey = `project:${projectId}`;
       await figma.clientStorage.setAsync(storageKey, storage);
 
-      console.log(`[StorageAdapter] ✓ Saved ${tokens.length} tokens (${(serialized.length / 1000).toFixed(2)} KB)`);
+      debug.log(`[StorageAdapter] ✓ Saved ${tokens.length} tokens (${(serialized.length / 1000).toFixed(2)} KB)`);
 
       return Success(undefined);
     } catch (error) {
@@ -205,7 +206,7 @@ export class StorageAdapter {
       const storageKey = `project:${projectId}`;
       await figma.clientStorage.setAsync(storageKey, backupData);
 
-      console.log(`[StorageAdapter] ✓ Restored from backup: ${backupKey}`);
+      debug.log(`[StorageAdapter] ✓ Restored from backup: ${backupKey}`);
       figma.notify('✓ Restored from backup', { timeout: 3000 });
 
       return Success(undefined);
@@ -255,10 +256,10 @@ export class StorageAdapter {
     try {
       const tokens: Token[] = [];
 
-      console.log(`[StorageAdapter] Migrating ${Object.keys(oldData.tokenFiles).length} files...`);
+      debug.log(`[StorageAdapter] Migrating ${Object.keys(oldData.tokenFiles).length} files...`);
 
       for (const [fileName, file] of Object.entries(oldData.tokenFiles)) {
-        console.log(`[StorageAdapter]   Processing file: ${fileName}`);
+        debug.log(`[StorageAdapter]   Processing file: ${fileName}`);
 
         // Use existing TokenProcessor to parse
         const result = await this.processor.processTokenData(file.content, {
@@ -270,7 +271,7 @@ export class StorageAdapter {
 
         if (result.success && result.data) {
           tokens.push(...result.data);
-          console.log(`[StorageAdapter]     ✓ Migrated ${result.data.length} tokens`);
+          debug.log(`[StorageAdapter]     ✓ Migrated ${result.data.length} tokens`);
         } else {
           console.warn(`[StorageAdapter]     ✗ Failed to migrate ${fileName}:`, result.error);
         }
@@ -309,8 +310,8 @@ export class StorageAdapter {
 
       await figma.clientStorage.setAsync(backupKey, oldData);
 
-      console.log(`[StorageAdapter] ✓ Backup created: ${backupKey}`);
-      console.log(`[StorageAdapter]   Backup will be kept for 14 days`);
+      debug.log(`[StorageAdapter] ✓ Backup created: ${backupKey}`);
+      debug.log(`[StorageAdapter]   Backup will be kept for 14 days`);
 
       // Note: Figma doesn't have automatic TTL, so cleanup needs to be manual or via a background task
       // Document this in the migration notes
@@ -330,9 +331,9 @@ export class StorageAdapter {
       const oldFileCount = Object.keys(oldData.tokenFiles).length;
       const newTokenCount = newTokens.length;
 
-      console.log(`[StorageAdapter] Validation:`);
-      console.log(`  - Old files: ${oldFileCount}`);
-      console.log(`  - New tokens: ${newTokenCount}`);
+      debug.log(`[StorageAdapter] Validation:`);
+      debug.log(`  - Old files: ${oldFileCount}`);
+      debug.log(`  - New tokens: ${newTokenCount}`);
 
       // Basic validation: we should have at least some tokens if we had files
       if (oldFileCount > 0 && newTokenCount === 0) {
@@ -346,7 +347,7 @@ export class StorageAdapter {
         }
       }
 
-      console.log(`[StorageAdapter]   ✓ Validation passed`);
+      debug.log(`[StorageAdapter]   ✓ Validation passed`);
 
       return Success(undefined);
     } catch (error) {

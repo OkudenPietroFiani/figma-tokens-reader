@@ -435,7 +435,8 @@ export class TokenResolver {
   ): string[] {
     const sorted: string[] = [];
     const visited = new Set<string>();
-    const cycleNodes = new Set(cycles.flatMap(c => c.cycle));
+    // ES2017-compatible: Using reduce instead of flatMap (ES2019)
+    const cycleNodes = new Set(cycles.reduce((acc, c) => acc.concat(c.cycle), [] as string[]));
 
     const visit = (nodeId: string) => {
       if (visited.has(nodeId)) return;

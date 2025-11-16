@@ -6,6 +6,7 @@
 import { BaseComponent } from './BaseComponent';
 import { AppState } from '../state/AppState';
 import { PluginBridge } from '../services/PluginBridge';
+import { escapeHtml } from '../../utils/htmlSanitizer';
 
 /**
  * ScopeScreen component
@@ -113,18 +114,18 @@ export class ScopeScreen extends BaseComponent {
     try {
       this.scopeContent.innerHTML = '<div class="empty-state">Loading variables...</div>';
 
-      console.log('[ScopeScreen] Requesting Figma variables...');
+      debug.log('[ScopeScreen] Requesting Figma variables...');
       const response = await this.bridge.send('get-figma-variables', {});
-      console.log('[ScopeScreen] Raw response:', response);
+      debug.log('[ScopeScreen] Raw response:', response);
 
       // Backend returns an object { [name: string]: FigmaVariableData }, convert to array
       const variablesObj = response.variables || {};
-      console.log('[ScopeScreen] Variables object:', variablesObj);
-      console.log('[ScopeScreen] Variables object keys:', Object.keys(variablesObj));
+      debug.log('[ScopeScreen] Variables object:', variablesObj);
+      debug.log('[ScopeScreen] Variables object keys:', Object.keys(variablesObj));
 
       this.variables = Object.values(variablesObj);
-      console.log('[ScopeScreen] Loaded variables array:', this.variables);
-      console.log('[ScopeScreen] Variables count:', this.variables.length);
+      debug.log('[ScopeScreen] Loaded variables array:', this.variables);
+      debug.log('[ScopeScreen] Variables count:', this.variables.length);
 
       if (this.variables.length === 0) {
         console.warn('[ScopeScreen] No variables found in response');
@@ -134,7 +135,8 @@ export class ScopeScreen extends BaseComponent {
       this.renderCollections();
     } catch (error) {
       console.error('[ScopeScreen] Error loading variables:', error);
-      this.scopeContent.innerHTML = `<div class="empty-state">Failed to load variables: ${error instanceof Error ? error.message : 'Unknown error'}</div>`;
+      const errorMsg = escapeHtml(error instanceof Error ? error.message : 'Unknown error');
+      this.scopeContent.innerHTML = `<div class="empty-state">Failed to load variables: ${errorMsg}</div>`;
     }
   }
 
@@ -151,7 +153,7 @@ export class ScopeScreen extends BaseComponent {
     });
 
     const collectionNames = Array.from(collections);
-    console.log('[ScopeScreen] Found Figma collections:', collectionNames);
+    debug.log('[ScopeScreen] Found Figma collections:', collectionNames);
 
     if (collectionNames.length === 0) {
       this.collectionsList.innerHTML = '<div class="empty-collections">No collections found</div>';
@@ -174,7 +176,7 @@ export class ScopeScreen extends BaseComponent {
 
       this.addEventListener(button, 'click', () => {
         const name = button.getAttribute('data-collection')!;
-        console.log('[ScopeScreen] Switching to collection:', name);
+        debug.log('[ScopeScreen] Switching to collection:', name);
         this.selectedCollection = name;
         this.renderCollections(); // Re-render to update active state
         this.filterVariablesByCollection();
@@ -188,8 +190,8 @@ export class ScopeScreen extends BaseComponent {
    * Filter variables by selected collection
    */
   private filterVariablesByCollection(): void {
-    console.log('[ScopeScreen] Filtering by collection:', this.selectedCollection);
-    console.log('[ScopeScreen] Total variables before filter:', this.variables.length);
+    debug.log('[ScopeScreen] Filtering by collection:', this.selectedCollection);
+    debug.log('[ScopeScreen] Total variables before filter:', this.variables.length);
 
     if (!this.selectedCollection) {
       this.renderVariables();
@@ -200,13 +202,13 @@ export class ScopeScreen extends BaseComponent {
     const filteredVars = this.variables.filter(v => {
       const matches = v.collection === this.selectedCollection;
       if (!matches) {
-        console.log(`[ScopeScreen] Variable ${v.name} collection "${v.collection}" doesn't match "${this.selectedCollection}"`);
+        debug.log(`[ScopeScreen] Variable ${v.name} collection "${v.collection}" doesn't match "${this.selectedCollection}"`);
       }
       return matches;
     });
 
-    console.log('[ScopeScreen] Filtered variables count:', filteredVars.length);
-    console.log('[ScopeScreen] Filtered variables:', filteredVars.map(v => v.name));
+    debug.log('[ScopeScreen] Filtered variables count:', filteredVars.length);
+    debug.log('[ScopeScreen] Filtered variables:', filteredVars.map(v => v.name));
 
     // Build tree with filtered variables
     const tree = this.buildVariableTree(filteredVars);
@@ -664,7 +666,7 @@ export class ScopeScreen extends BaseComponent {
         }
       });
 
-      console.log('[ScopeScreen] Applying scopes:', scopeAssignments);
+      debug.log('[ScopeScreen] Applying scopes:', scopeAssignments);
 
       const response = await this.bridge.send('apply-variable-scopes', { variableScopes: scopeAssignments });
       this.showNotification(response.message || 'Scopes applied successfully', 'success');

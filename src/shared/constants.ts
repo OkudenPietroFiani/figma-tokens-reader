@@ -125,8 +125,9 @@ export const SCOPE_CATEGORIES = {
 } as const;
 
 // Flattened list of all scopes for easy iteration
+// ES2017-compatible: Using reduce instead of flatMap (ES2019)
 export const ALL_SCOPES: VariableScope[] = Object.values(SCOPE_CATEGORIES)
-  .flatMap(category => category.scopes);
+  .reduce((acc, category) => acc.concat(category.scopes), [] as VariableScope[]);
 
 // Human-readable scope labels
 export const SCOPE_LABELS: { [key: string]: string } = {
