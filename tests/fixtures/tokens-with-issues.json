@@ -1,0 +1,99 @@
+{
+  "$description": "Test tokens with known issues for validation testing",
+  "$type": "design-tokens",
+  "color": {
+    "validColor": {
+      "$value": "#1e40af",
+      "$type": "color",
+      "$description": "Valid color token"
+    },
+    "invalidHex": {
+      "$value": "not-a-color",
+      "$type": "color",
+      "$description": "Invalid hex color value"
+    },
+    "crossProjectRef": {
+      "$value": "{primitive.color.primary}",
+      "$type": "color",
+      "$description": "Reference to token in different project (will fail if projects differ)"
+    }
+  },
+  "typography": {
+    "missingFontSize": {
+      "$value": {
+        "fontFamily": "Inter",
+        "fontWeight": 600
+      },
+      "$type": "typography",
+      "$description": "Typography token missing fontSize - will use Figma default (12px)"
+    },
+    "unresolvedFontSize": {
+      "$value": {
+        "fontFamily": "Inter",
+        "fontSize": "{nonexistent.fontSize}",
+        "fontWeight": 600
+      },
+      "$type": "typography",
+      "$description": "Typography token with unresolved fontSize reference"
+    },
+    "unresolvedFontFamily": {
+      "$value": {
+        "fontFamily": "{nonexistent.fontFamily}",
+        "fontSize": "16px",
+        "fontWeight": 600
+      },
+      "$type": "typography",
+      "$description": "Typography token with unresolved fontFamily reference"
+    }
+  },
+  "shadow": {
+    "missingColor": {
+      "$value": {
+        "offsetX": "0px",
+        "offsetY": "4px",
+        "blur": "6px",
+        "spread": "0px"
+      },
+      "$type": "shadow",
+      "$description": "Shadow token missing color - will be invisible!"
+    },
+    "unresolvedColor": {
+      "$value": {
+        "offsetX": "0px",
+        "offsetY": "4px",
+        "blur": "6px",
+        "spread": "0px",
+        "color": "{nonexistent.color}"
+      },
+      "$type": "shadow",
+      "$description": "Shadow token with unresolved color reference - will be invisible!"
+    }
+  },
+  "circular": {
+    "a": {
+      "$value": "{circular.b}",
+      "$type": "color",
+      "$description": "Circular reference: a -> b -> c -> a"
+    },
+    "b": {
+      "$value": "{circular.c}",
+      "$type": "color"
+    },
+    "c": {
+      "$value": "{circular.a}",
+      "$type": "color"
+    }
+  },
+  "dimension": {
+    "invalidUnit": {
+      "$value": "16invalid",
+      "$type": "dimension",
+      "$description": "Invalid dimension unit"
+    },
+    "negativeValue": {
+      "$value": "-10px",
+      "$type": "dimension",
+      "$description": "Negative dimension value"
+    }
+  }
+}
