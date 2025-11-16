@@ -17,7 +17,7 @@ import { PluginMessageType, UIMessageType } from '../../shared/types';
  * Usage:
  * const bridge = new PluginBridge();
  * bridge.on('import-success', (data) => {
- *   console.log('Import success:', data);
+ *   debug.log('Import success:', data);
  * });
  * await bridge.send('import-tokens', { primitives, semantics });
  */
@@ -28,7 +28,7 @@ export class PluginBridge {
   constructor() {
     // Listen for messages from plugin backend
     window.addEventListener('message', this.handleBackendMessage.bind(this));
-    console.log('[PluginBridge] Initialized');
+    debug.log('[PluginBridge] Initialized');
   }
 
   /**
@@ -60,7 +60,7 @@ export class PluginBridge {
           '*'
         );
 
-        console.log(`[PluginBridge] Sent message: ${type}`, data);
+        debug.log(`[PluginBridge] Sent message: ${type}`, data);
 
         // Set timeout for request (30 seconds)
         setTimeout(() => {
@@ -95,7 +95,7 @@ export class PluginBridge {
         '*'
       );
 
-      console.log(`[PluginBridge] Sent async message: ${type}`, data);
+      debug.log(`[PluginBridge] Sent async message: ${type}`, data);
     } catch (error) {
       console.error(`[PluginBridge] Error sending async message:`, error);
     }
@@ -114,7 +114,7 @@ export class PluginBridge {
     }
 
     this.messageHandlers.get(type)!.add(handler);
-    console.log(`[PluginBridge] Subscribed to: ${type}`);
+    debug.log(`[PluginBridge] Subscribed to: ${type}`);
 
     // Return unsubscribe function
     return () => {
@@ -132,13 +132,13 @@ export class PluginBridge {
     if (!handler) {
       // Remove all handlers for this type
       this.messageHandlers.delete(type);
-      console.log(`[PluginBridge] Unsubscribed from all: ${type}`);
+      debug.log(`[PluginBridge] Unsubscribed from all: ${type}`);
     } else {
       // Remove specific handler
       const handlers = this.messageHandlers.get(type);
       if (handlers) {
         handlers.delete(handler);
-        console.log(`[PluginBridge] Unsubscribed from: ${type}`);
+        debug.log(`[PluginBridge] Unsubscribed from: ${type}`);
       }
     }
   }
@@ -153,7 +153,7 @@ export class PluginBridge {
 
     const { type, data, message: messageText, requestId } = message;
 
-    console.log(`[PluginBridge] Received message: ${type}`, data || messageText);
+    debug.log(`[PluginBridge] Received message: ${type}`, data || messageText);
 
     // If this is a response to a pending request, resolve it
     if (requestId && this.pendingRequests.has(requestId)) {
@@ -187,7 +187,7 @@ export class PluginBridge {
    */
   clearAllHandlers(): void {
     this.messageHandlers.clear();
-    console.log('[PluginBridge] All handlers cleared');
+    debug.log('[PluginBridge] All handlers cleared');
   }
 
   /**

@@ -47,8 +47,8 @@ export class ScopeController {
 
       // Get all local variable collections
       const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      console.log('[ScopeController] Found collections:', collections.length);
-      console.log('[ScopeController] Collection details:', collections.map(c => ({
+      debug.log('[ScopeController] Found collections:', collections.length);
+      debug.log('[ScopeController] Collection details:', collections.map(c => ({
         name: c.name,
         id: c.id,
         variableCount: c.variableIds.length
@@ -59,19 +59,19 @@ export class ScopeController {
       // Iterate through each collection
       for (const collection of collections) {
         ErrorHandler.info(`Processing collection: ${collection.name}`, 'ScopeController');
-        console.log(`[ScopeController] Collection "${collection.name}" has ${collection.variableIds.length} variables`);
+        debug.log(`[ScopeController] Collection "${collection.name}" has ${collection.variableIds.length} variables`);
 
         // Get all variables in this collection
         const variablePromises = collection.variableIds.map(id =>
           figma.variables.getVariableByIdAsync(id)
         );
         const collectionVariables = await Promise.all(variablePromises);
-        console.log(`[ScopeController] Loaded ${collectionVariables.length} variables for collection "${collection.name}"`);
+        debug.log(`[ScopeController] Loaded ${collectionVariables.length} variables for collection "${collection.name}"`);
 
         // Build variable data structure
         for (const variable of collectionVariables) {
           if (variable) {
-            console.log(`[ScopeController] Variable: ${variable.name}, type: ${variable.resolvedType}, scopes: ${variable.scopes.length}`);
+            debug.log(`[ScopeController] Variable: ${variable.name}, type: ${variable.resolvedType}, scopes: ${variable.scopes.length}`);
             variables[variable.name] = {
               id: variable.id,
               name: variable.name,
@@ -85,8 +85,8 @@ export class ScopeController {
       }
 
       const count = Object.keys(variables).length;
-      console.log('[ScopeController] Total variables collected:', count);
-      console.log('[ScopeController] Variable names:', Object.keys(variables));
+      debug.log('[ScopeController] Total variables collected:', count);
+      debug.log('[ScopeController] Variable names:', Object.keys(variables));
       ErrorHandler.info(`Found ${count} variables across ${collections.length} collections`, 'ScopeController');
 
       if (count === 0) {

@@ -12,6 +12,7 @@ import {
   GitHubConfig,
   FigmaVariableData
 } from '../../shared/types';
+import { debug } from '../../shared/logger';
 
 /**
  * Centralized application state with Observable pattern
@@ -25,7 +26,7 @@ import {
  * Usage:
  * const state = new AppState();
  * state.subscribe('screen-changed', (screen) => {
- *   console.log('Screen changed to:', screen);
+ *   debug.log('Screen changed to:', screen);
  * });
  * state.setCurrentScreen('import');
  */
@@ -152,7 +153,7 @@ export class AppState {
     this._lastUpdated = new Date().toISOString();
 
     this.emit('files-loaded', files);
-    console.log(`[AppState] Token files updated: ${files.length} files`);
+    debug.log(`[AppState] Token files updated: ${files.length} files`);
   }
 
   /**
@@ -161,7 +162,7 @@ export class AppState {
   addTokenFile(file: TokenFile): void {
     this._tokenFiles.set(file.name, file);
     this.emit('files-loaded', Array.from(this._tokenFiles.values()));
-    console.log(`[AppState] Token file added: ${file.name}`);
+    debug.log(`[AppState] Token file added: ${file.name}`);
   }
 
   /**
@@ -170,7 +171,7 @@ export class AppState {
   removeTokenFile(fileName: string): void {
     this._tokenFiles.delete(fileName);
     this.emit('files-loaded', Array.from(this._tokenFiles.values()));
-    console.log(`[AppState] Token file removed: ${fileName}`);
+    debug.log(`[AppState] Token file removed: ${fileName}`);
   }
 
   /**
@@ -179,7 +180,7 @@ export class AppState {
   clearTokenFiles(): void {
     this._tokenFiles.clear();
     this.emit('files-loaded', []);
-    console.log(`[AppState] All token files cleared`);
+    debug.log(`[AppState] All token files cleared`);
   }
 
   /**
@@ -188,7 +189,7 @@ export class AppState {
   setSelectedFile(fileName: string | null): void {
     this._selectedFile = fileName;
     this.emit('file-selected', fileName);
-    console.log(`[AppState] Selected file: ${fileName}`);
+    debug.log(`[AppState] Selected file: ${fileName}`);
   }
 
   /**
@@ -197,7 +198,7 @@ export class AppState {
   selectToken(tokenPath: string): void {
     this._selectedTokens.add(tokenPath);
     this.emit('tokens-selected', Array.from(this._selectedTokens));
-    console.log(`[AppState] Token selected: ${tokenPath}`);
+    debug.log(`[AppState] Token selected: ${tokenPath}`);
   }
 
   /**
@@ -206,7 +207,7 @@ export class AppState {
   deselectToken(tokenPath: string): void {
     this._selectedTokens.delete(tokenPath);
     this.emit('tokens-selected', Array.from(this._selectedTokens));
-    console.log(`[AppState] Token deselected: ${tokenPath}`);
+    debug.log(`[AppState] Token deselected: ${tokenPath}`);
   }
 
   /**
@@ -226,7 +227,7 @@ export class AppState {
   clearTokenSelection(): void {
     this._selectedTokens.clear();
     this.emit('tokens-selected', []);
-    console.log(`[AppState] Token selection cleared`);
+    debug.log(`[AppState] Token selection cleared`);
   }
 
   /**
@@ -235,7 +236,7 @@ export class AppState {
   setCurrentScreen(screen: ScreenType): void {
     this._currentScreen = screen;
     this.emit('screen-changed', screen);
-    console.log(`[AppState] Screen changed to: ${screen}`);
+    debug.log(`[AppState] Screen changed to: ${screen}`);
   }
 
   /**
@@ -244,7 +245,7 @@ export class AppState {
   setCurrentTab(tab: TabType): void {
     this._currentTab = tab;
     this.emit('tab-changed', tab);
-    console.log(`[AppState] Tab changed to: ${tab}`);
+    debug.log(`[AppState] Tab changed to: ${tab}`);
   }
 
   /**
@@ -253,7 +254,7 @@ export class AppState {
   setImportMode(mode: ImportMode): void {
     this._importMode = mode;
     this.emit('import-mode-changed', mode);
-    console.log(`[AppState] Import mode changed to: ${mode}`);
+    debug.log(`[AppState] Import mode changed to: ${mode}`);
   }
 
   /**
@@ -261,7 +262,7 @@ export class AppState {
    */
   setTokenSource(source: 'github' | 'local' | null): void {
     this._tokenSource = source;
-    console.log(`[AppState] Token source set to: ${source}`);
+    debug.log(`[AppState] Token source set to: ${source}`);
   }
 
   /**
@@ -269,7 +270,7 @@ export class AppState {
    */
   setGitHubConfig(config: GitHubConfig | null): void {
     this._githubConfig = config;
-    console.log(`[AppState] GitHub config updated`);
+    debug.log(`[AppState] GitHub config updated`);
   }
 
   /**
@@ -282,7 +283,7 @@ export class AppState {
     });
 
     this.emit('variables-loaded', variables);
-    console.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
+    debug.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
   }
 
   /**
@@ -291,7 +292,7 @@ export class AppState {
   setTokenScopes(tokenPath: string, scopes: string[]): void {
     this._tokenScopesMap.set(tokenPath, scopes);
     this.emit('scopes-updated', { tokenPath, scopes });
-    console.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(', ')}`);
+    debug.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(', ')}`);
   }
 
   /**
@@ -300,7 +301,7 @@ export class AppState {
   clearTokenScopes(tokenPath: string): void {
     this._tokenScopesMap.delete(tokenPath);
     this.emit('scopes-updated', { tokenPath, scopes: [] });
-    console.log(`[AppState] Scopes cleared for ${tokenPath}`);
+    debug.log(`[AppState] Scopes cleared for ${tokenPath}`);
   }
 
   /**
@@ -374,7 +375,7 @@ export class AppState {
       this._lastUpdated = snapshot.lastUpdated;
     }
 
-    console.log(`[AppState] State restored from snapshot`);
+    debug.log(`[AppState] State restored from snapshot`);
   }
 
   /**
@@ -393,6 +394,6 @@ export class AppState {
     this._tokenScopesMap.clear();
     this._lastUpdated = null;
 
-    console.log(`[AppState] State reset to initial values`);
+    debug.log(`[AppState] State reset to initial values`);
   }
 }

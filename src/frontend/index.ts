@@ -143,7 +143,7 @@ class FrontendApp {
     // Load saved tokens if any
     await this.loadSavedTokens();
 
-    console.log('[Frontend] Application started');
+    debug.log('[Frontend] Application started');
   }
 
   /**
@@ -151,14 +151,14 @@ class FrontendApp {
    */
   private async loadSavedTokens(): Promise<void> {
     try {
-      console.log('[Frontend] Loading saved tokens...');
+      debug.log('[Frontend] Loading saved tokens...');
       const response = await this.bridge.send('load-tokens');
-      console.log('[Frontend] Load tokens response:', response);
+      debug.log('[Frontend] Load tokens response:', response);
 
       if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
         // Restore state
         const files = Object.values(response.tokenFiles);
-        console.log('[Frontend] Found saved tokens:', files.length, 'files');
+        debug.log('[Frontend] Found saved tokens:', files.length, 'files');
 
         // Manually set token files without updating lastUpdated
         files.forEach((file: any) => {
@@ -168,7 +168,7 @@ class FrontendApp {
 
         // Restore GitHub config if present
         if (response.githubConfig) {
-          console.log('[Frontend] Restoring GitHub config:', response.githubConfig);
+          debug.log('[Frontend] Restoring GitHub config:', response.githubConfig);
           this.state.setGitHubConfig(response.githubConfig);
         }
 
@@ -181,12 +181,12 @@ class FrontendApp {
         }
 
         // Navigate to token screen
-        console.log('[Frontend] Navigating to token screen');
+        debug.log('[Frontend] Navigating to token screen');
         this.state.setCurrentScreen('token');
-        console.log('[Frontend] Restored saved tokens successfully');
+        debug.log('[Frontend] Restored saved tokens successfully');
       } else {
         // No saved tokens, show welcome screen
-        console.log('[Frontend] No saved tokens found, showing welcome screen');
+        debug.log('[Frontend] No saved tokens found, showing welcome screen');
         this.welcomeScreen.show();
       }
     } catch (error) {
@@ -222,14 +222,14 @@ class FrontendApp {
 
     // Save asynchronously without waiting
     this.bridge.sendAsync('save-tokens', tokenState);
-    console.log('[Frontend] Saved token state:', files.length, 'files');
+    debug.log('[Frontend] Saved token state:', files.length, 'files');
   }
 
   /**
    * Handle screen navigation
    */
   private handleScreenChange(screen: ScreenType): void {
-    console.log(`[Frontend] Navigating to: ${screen}`);
+    debug.log(`[Frontend] Navigating to: ${screen}`);
 
     // Hide all screens
     this.screens.forEach(s => s.hide());
@@ -249,7 +249,7 @@ class FrontendApp {
   private setupBackendHandlers(): void {
     // Import success
     this.bridge.on('import-success', (message: string) => {
-      console.log('[Frontend] Import success:', message);
+      debug.log('[Frontend] Import success:', message);
     });
 
     // Error
@@ -259,12 +259,12 @@ class FrontendApp {
 
     // GitHub files fetched
     this.bridge.on('github-files-fetched', (data: any) => {
-      console.log('[Frontend] GitHub files fetched:', data);
+      debug.log('[Frontend] GitHub files fetched:', data);
     });
 
     // Tokens loaded
     this.bridge.on('tokens-loaded', (data: any) => {
-      console.log('[Frontend] Tokens loaded:', data);
+      debug.log('[Frontend] Tokens loaded:', data);
     });
   }
 }

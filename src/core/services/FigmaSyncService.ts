@@ -7,6 +7,7 @@ import { Token, TokenType } from '../models/Token';
 import { Result, Success, Failure, ImportStats } from '../../shared/types';
 import { TokenRepository } from './TokenRepository';
 import { TokenResolver } from './TokenResolver';
+import { debug } from '../../shared/logger';
 
 /**
  * Sync result with detailed statistics
@@ -88,7 +89,7 @@ export class FigmaSyncService {
 
       // Process each collection
       for (const [collectionName, collectionTokens] of byCollection) {
-        console.log(`[FigmaSyncService] Processing collection: ${collectionName} (${collectionTokens.length} tokens)`);
+        debug.log(`[FigmaSyncService] Processing collection: ${collectionName} (${collectionTokens.length} tokens)`);
 
         // Get or create collection
         const collection = this.getOrCreateCollection(existingCollections, collectionName);
@@ -178,11 +179,11 @@ export class FigmaSyncService {
       const oldCollection = existingCollections.find(c => c.name === uppercaseName);
 
       if (oldCollection) {
-        console.log(`[FigmaSyncService] Renaming collection: ${uppercaseName} → ${name}`);
+        debug.log(`[FigmaSyncService] Renaming collection: ${uppercaseName} → ${name}`);
         oldCollection.name = name;
         collection = oldCollection;
       } else {
-        console.log(`[FigmaSyncService] Creating collection: ${name}`);
+        debug.log(`[FigmaSyncService] Creating collection: ${name}`);
         collection = figma.variables.createVariableCollection(name);
       }
     }
@@ -307,7 +308,7 @@ export class FigmaSyncService {
       } else {
         // Direct value - use resolvedValue if available (handles embedded references)
         const valueToConvert = token.resolvedValue || token.value;
-        console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+        debug.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
           tokenValue: token.value,
           resolvedValue: token.resolvedValue,
           tokenType: token.type,
@@ -315,7 +316,7 @@ export class FigmaSyncService {
           valueType: typeof valueToConvert,
         });
         const value = this.convertValue(valueToConvert, figmaType);
-        console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
+        debug.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
         variable.setValueForMode(modeId, value);
       }
 
@@ -446,7 +447,7 @@ export class FigmaSyncService {
       // Format 3: HSL colorSpace with hex fallback (common in W3C Design Tokens)
       // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
-        console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
+        debug.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
         return this.hexToRgb(value.hex);
       }
 
@@ -584,14 +585,14 @@ export class FigmaSyncService {
         // Convert rem/em to px (16px base)
         if (unit === 'rem' || unit === 'em') {
           const converted = numericValue * 16;
-          console.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
+          debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
           return converted;
         }
 
         // Convert percentage to px
         if (unit === '%') {
           const converted = (numericValue / 100) * percentageBase;
-          console.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
+          debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
           return converted;
         }
 
@@ -612,14 +613,14 @@ export class FigmaSyncService {
         // Convert rem/em to px (16px base)
         if (unit === 'rem' || unit === 'em') {
           const converted = numericValue * 16;
-          console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
+          debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
           return converted;
         }
 
         // Convert percentage to px
         if (unit === '%') {
           const converted = (numericValue / 100) * percentageBase;
-          console.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
+          debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
           return converted;
         }
 

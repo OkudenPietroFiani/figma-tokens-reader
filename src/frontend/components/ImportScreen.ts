@@ -312,13 +312,13 @@ export class ImportScreen extends BaseComponent {
    * Handle sync tokens from GitHub
    */
   private async handleSyncTokens(): Promise<void> {
-    console.log('[ImportScreen] Sync Tokens clicked');
+    debug.log('[ImportScreen] Sync Tokens clicked');
 
     const selectedFiles = Array.from(
       this.githubFilesContainer.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')
     ).map(cb => cb.value);
 
-    console.log('[ImportScreen] Selected files:', selectedFiles);
+    debug.log('[ImportScreen] Selected files:', selectedFiles);
 
     if (selectedFiles.length === 0) {
       this.showNotification('Please select at least one file', 'error');
@@ -335,7 +335,7 @@ export class ImportScreen extends BaseComponent {
     config.files = selectedFiles;
     this.state.setGitHubConfig(config);
 
-    console.log('[ImportScreen] Saving GitHub config...');
+    debug.log('[ImportScreen] Saving GitHub config...');
     // Save config (fire-and-forget - notification comes via 'info' message)
     this.bridge.sendAsync('save-github-config', config);
 
@@ -343,10 +343,10 @@ export class ImportScreen extends BaseComponent {
     this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
     this.setEnabled(this.syncTokensBtn, false);
 
-    console.log('[ImportScreen] Sending import request...');
+    debug.log('[ImportScreen] Sending import request...');
     // Send import request (async - response comes via 'github-files-imported' event)
     this.bridge.sendAsync('github-import-files', config);
-    console.log('[ImportScreen] Import request sent, waiting for backend response');
+    debug.log('[ImportScreen] Import request sent, waiting for backend response');
 
     // Note: Loading state will be cleared in handleFilesImported() when backend responds
   }
@@ -355,7 +355,7 @@ export class ImportScreen extends BaseComponent {
    * Handle files imported from GitHub
    */
   private handleFilesImported(data: { primitives: any; semantics: any }): void {
-    console.log('[ImportScreen] Files imported from GitHub:', data);
+    debug.log('[ImportScreen] Files imported from GitHub:', data);
     this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
 
     // Convert to TokenFile format
@@ -379,13 +379,13 @@ export class ImportScreen extends BaseComponent {
       });
     }
 
-    console.log('[ImportScreen] Created token files:', tokenFiles.length);
+    debug.log('[ImportScreen] Created token files:', tokenFiles.length);
 
     // Update state
     this.state.setTokenFiles(tokenFiles);
     this.state.setTokenSource('github');
 
-    console.log('[ImportScreen] Navigating to token screen...');
+    debug.log('[ImportScreen] Navigating to token screen...');
     // Navigate to token screen
     this.state.setCurrentScreen('token');
   }
@@ -492,9 +492,9 @@ export class ImportScreen extends BaseComponent {
       if (config.branch) {
         this.branchName.value = config.branch;
       }
-      console.log('[ImportScreen] Auto-filled GitHub credentials from saved config');
+      debug.log('[ImportScreen] Auto-filled GitHub credentials from saved config');
     }
 
-    console.log('[ImportScreen] Screen shown');
+    debug.log('[ImportScreen] Screen shown');
   }
 }

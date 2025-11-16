@@ -139,10 +139,16 @@ export class BatchProcessor {
       const batchStartIndex = i;
 
       // Process batch in parallel with error isolation
-      const batchResults = await Promise.allSettled(
-        batch.map((item, batchIndex) => {
+      // ES2017-compatible: Manual implementation of Promise.allSettled (ES2019)
+      const batchResults = await Promise.all(
+        batch.map(async (item, batchIndex) => {
           const globalIndex = batchStartIndex + batchIndex;
-          return processor(item, globalIndex);
+          try {
+            const value = await processor(item, globalIndex);
+            return { status: 'fulfilled' as const, value };
+          } catch (reason) {
+            return { status: 'rejected' as const, reason };
+          }
         })
       );
 

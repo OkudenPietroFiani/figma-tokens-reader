@@ -98,7 +98,7 @@ export class DocumentationGenerator {
         if (!this.adapter) {
           return Failure('TokenRepository required to process Token[] - please provide repository in constructor');
         }
-        console.log('[DocumentationGenerator] Converting Token[] to TokenMetadata[]...');
+        debug.log('[DocumentationGenerator] Converting Token[] to TokenMetadata[]...');
         metadata = this.adapter.tokensToMetadata(tokensOrMetadata as Token[]);
       } else {
         // It's TokenMetadata[] - use directly
@@ -107,7 +107,7 @@ export class DocumentationGenerator {
 
       // If no metadata provided, build from Figma variables
       if (!metadata || metadata.length === 0) {
-        console.log('[DocumentationGenerator] No metadata provided, building from Figma variables...');
+        debug.log('[DocumentationGenerator] No metadata provided, building from Figma variables...');
         const buildResult = await this.buildMetadataFromFigmaVariables();
         if (!buildResult.success) {
           return Failure(buildResult.error || 'Failed to build metadata from Figma variables');
@@ -175,7 +175,7 @@ export class DocumentationGenerator {
           await figma.loadFontAsync({ family: fallback, style: 'Regular' });
           await figma.loadFontAsync({ family: fallback, style: 'Bold' });
           this.fontFamily = fallback;
-          console.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
+          debug.log(`[DocumentationGenerator] Using fallback font: ${fallback}`);
 
           // Still try to load Inter for visualizers
           if (fallback !== 'Inter') {
@@ -204,7 +204,7 @@ export class DocumentationGenerator {
     let currentVar = variable;
     let iterations = 0;
 
-    console.log(`[DocumentationGenerator.resolveVariableValue] Starting resolution for ${variable.name}`);
+    debug.log(`[DocumentationGenerator.resolveVariableValue] Starting resolution for ${variable.name}`);
 
     while (iterations < maxIterations) {
       iterations++;
@@ -225,14 +225,14 @@ export class DocumentationGenerator {
         return undefined;
       }
 
-      console.log(`[DocumentationGenerator.resolveVariableValue] Iteration ${iterations}: ${currentVar.name} in collection ${varCollection.name}, mode ${varModeId}`);
+      debug.log(`[DocumentationGenerator.resolveVariableValue] Iteration ${iterations}: ${currentVar.name} in collection ${varCollection.name}, mode ${varModeId}`);
 
       const value = currentVar.valuesByMode[varModeId];
-      console.log(`[DocumentationGenerator.resolveVariableValue] Value type: ${typeof value}`);
+      debug.log(`[DocumentationGenerator.resolveVariableValue] Value type: ${typeof value}`);
 
       // If it's not an alias, we're done
       if (typeof value !== 'object' || value === null || !('type' in value) || value.type !== 'VARIABLE_ALIAS') {
-        console.log(`[DocumentationGenerator.resolveVariableValue] Found final value for ${variable.name}`);
+        debug.log(`[DocumentationGenerator.resolveVariableValue] Found final value for ${variable.name}`);
         return value;
       }
 
@@ -243,7 +243,7 @@ export class DocumentationGenerator {
         return undefined;
       }
 
-      console.log(`[DocumentationGenerator.resolveVariableValue] Following alias to ${nextVar.name}`);
+      debug.log(`[DocumentationGenerator.resolveVariableValue] Following alias to ${nextVar.name}`);
       currentVar = nextVar;
     }
 
@@ -304,7 +304,7 @@ export class DocumentationGenerator {
         }
       }
 
-      console.log(`[DocumentationGenerator] Built metadata for ${metadata.length} variables`);
+      debug.log(`[DocumentationGenerator] Built metadata for ${metadata.length} variables`);
       return Success(metadata);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

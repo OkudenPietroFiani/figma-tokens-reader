@@ -1,5 +1,80 @@
 "use strict";
 (() => {
+  // src/core/config/FeatureFlags.ts
+  var FeatureFlags = {
+    /**
+     * Development/testing flags
+     */
+    /**
+     * Enable verbose debug logging
+     * Controls debug.log() output from shared/logger.ts
+     * Outputs detailed information about token processing
+     *
+     * Default: false
+     */
+    DEBUG_MODE: false,
+    /**
+     * Dry run mode - validate without syncing to Figma
+     * Useful for testing validation without modifying Figma
+     *
+     * Default: false
+     */
+    DRY_RUN: false,
+    /**
+     * Experimental features (not yet implemented - reserved for future use)
+     */
+    /**
+     * Unified project ID system
+     * All files import with single project ID
+     *
+     * Default: false
+     */
+    UNIFIED_PROJECT_ID: false,
+    /**
+     * Cross-project reference support
+     * Allow references across project boundaries
+     *
+     * Default: false
+     */
+    CROSS_PROJECT_REFS: false,
+    /**
+     * Sync state tracking
+     * Track synced/modified/pending/error status
+     *
+     * Default: false
+     */
+    SYNC_STATE_TRACKING: false,
+    /**
+     * Transactional sync
+     * Atomic sync operations with rollback
+     *
+     * Default: false
+     */
+    TRANSACTION_SYNC: false
+  };
+  function isFeatureEnabled(flag) {
+    return FeatureFlags[flag] === true;
+  }
+
+  // src/shared/logger.ts
+  var debug2 = {
+    log: (...args) => {
+      if (isFeatureEnabled("DEBUG_MODE")) {
+        console.log(...args);
+      }
+    },
+    group: (label) => {
+      if (isFeatureEnabled("DEBUG_MODE")) {
+        console.group(label);
+      }
+    },
+    groupEnd: () => {
+      if (isFeatureEnabled("DEBUG_MODE")) {
+        console.groupEnd();
+      }
+    }
+  };
+
   // src/frontend/state/AppState.ts
   var AppState = class {
     constructor() {
@@ -101,7 +176,7 @@
       });
       this._lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
       this.emit("files-loaded", files);
-      console.log(`[AppState] Token files updated: ${files.length} files`);
+      debug2.log(`[AppState] Token files updated: ${files.length} files`);
     }
     /**
      * Add a single token file
@@ -109,7 +184,7 @@
     addTokenFile(file) {
       this._tokenFiles.set(file.name, file);
       this.emit("files-loaded", Array.from(this._tokenFiles.values()));
-      console.log(`[AppState] Token file added: ${file.name}`);
+      debug2.log(`[AppState] Token file added: ${file.name}`);
     }
     /**
      * Remove a token file
@@ -117,7 +192,7 @@
     removeTokenFile(fileName) {
       this._tokenFiles.delete(fileName);
       this.emit("files-loaded", Array.from(this._tokenFiles.values()));
-      console.log(`[AppState] Token file removed: ${fileName}`);
+      debug2.log(`[AppState] Token file removed: ${fileName}`);
     }
     /**
      * Clear all token files
@@ -125,7 +200,7 @@
     clearTokenFiles() {
       this._tokenFiles.clear();
       this.emit("files-loaded", []);
-      console.log(`[AppState] All token files cleared`);
+      debug2.log(`[AppState] All token files cleared`);
     }
     /**
      * Set selected file and emit event
@@ -133,7 +208,7 @@
     setSelectedFile(fileName) {
       this._selectedFile = fileName;
       this.emit("file-selected", fileName);
-      console.log(`[AppState] Selected file: ${fileName}`);
+      debug2.log(`[AppState] Selected file: ${fileName}`);
     }
     /**
      * Select a token (for scope assignment)
@@ -141,7 +216,7 @@
     selectToken(tokenPath) {
       this._selectedTokens.add(tokenPath);
       this.emit("tokens-selected", Array.from(this._selectedTokens));
-      console.log(`[AppState] Token selected: ${tokenPath}`);
+      debug2.log(`[AppState] Token selected: ${tokenPath}`);
     }
     /**
      * Deselect a token
@@ -149,7 +224,7 @@
     deselectToken(tokenPath) {
       this._selectedTokens.delete(tokenPath);
       this.emit("tokens-selected", Array.from(this._selectedTokens));
-      console.log(`[AppState] Token deselected: ${tokenPath}`);
+      debug2.log(`[AppState] Token deselected: ${tokenPath}`);
     }
     /**
      * Toggle token selection
@@ -167,7 +242,7 @@
     clearTokenSelection() {
       this._selectedTokens.clear();
       this.emit("tokens-selected", []);
-      console.log(`[AppState] Token selection cleared`);
+      debug2.log(`[AppState] Token selection cleared`);
     }
     /**
      * Set current screen and emit event
@@ -175,7 +250,7 @@
     setCurrentScreen(screen) {
       this._currentScreen = screen;
       this.emit("screen-changed", screen);
-      console.log(`[AppState] Screen changed to: ${screen}`);
+      debug2.log(`[AppState] Screen changed to: ${screen}`);
     }
     /**
      * Set current tab and emit event
@@ -183,7 +258,7 @@
     setCurrentTab(tab) {
       this._currentTab = tab;
       this.emit("tab-changed", tab);
-      console.log(`[AppState] Tab changed to: ${tab}`);
+      debug2.log(`[AppState] Tab changed to: ${tab}`);
     }
     /**
      * Set import mode and emit event
@@ -191,21 +266,21 @@
     setImportMode(mode) {
       this._importMode = mode;
       this.emit("import-mode-changed", mode);
-      console.log(`[AppState] Import mode changed to: ${mode}`);
+      debug2.log(`[AppState] Import mode changed to: ${mode}`);
     }
     /**
      * Set token source
      */
     setTokenSource(source) {
       this._tokenSource = source;
-      console.log(`[AppState] Token source set to: ${source}`);
+      debug2.log(`[AppState] Token source set to: ${source}`);
     }
     /**
      * Set GitHub configuration
      */
     setGitHubConfig(config) {
       this._githubConfig = config;
-      console.log(`[AppState] GitHub config updated`);
+      debug2.log(`[AppState] GitHub config updated`);
     }
     /**
      * Set Figma variables and emit event
@@ -216,7 +291,7 @@
         this._figmaVariables.set(name, data);
       });
       this.emit("variables-loaded", variables);
-      console.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
+      debug2.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
     }
     /**
      * Set scope for a token
@@ -224,7 +299,7 @@
     setTokenScopes(tokenPath, scopes) {
       this._tokenScopesMap.set(tokenPath, scopes);
       this.emit("scopes-updated", { tokenPath, scopes });
-      console.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(", ")}`);
+      debug2.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(", ")}`);
     }
     /**
      * Clear scope for a token
@@ -232,7 +307,7 @@
     clearTokenScopes(tokenPath) {
       this._tokenScopesMap.delete(tokenPath);
       this.emit("scopes-updated", { tokenPath, scopes: [] });
-      console.log(`[AppState] Scopes cleared for ${tokenPath}`);
+      debug2.log(`[AppState] Scopes cleared for ${tokenPath}`);
     }
     /**
      * Get scopes for a token
@@ -301,7 +376,7 @@
       if (snapshot.lastUpdated !== void 0) {
         this._lastUpdated = snapshot.lastUpdated;
       }
-      console.log(`[AppState] State restored from snapshot`);
+      debug2.log(`[AppState] State restored from snapshot`);
     }
     /**
      * Reset state to initial values
@@ -318,7 +393,7 @@
       this._figmaVariables.clear();
       this._tokenScopesMap.clear();
       this._lastUpdated = null;
-      console.log(`[AppState] State reset to initial values`);
+      debug2.log(`[AppState] State reset to initial values`);
     }
   };
 
@@ -328,7 +403,7 @@
       this.messageHandlers = /* @__PURE__ */ new Map();
       this.pendingRequests = /* @__PURE__ */ new Map();
       window.addEventListener("message", this.handleBackendMessage.bind(this));
-      console.log("[PluginBridge] Initialized");
+      debug.log("[PluginBridge] Initialized");
     }
     /**
      * Send message to plugin backend
@@ -353,7 +428,7 @@
             },
             "*"
           );
-          console.log(`[PluginBridge] Sent message: ${type}`, data);
+          debug.log(`[PluginBridge] Sent message: ${type}`, data);
           setTimeout(() => {
             if (this.pendingRequests.has(requestId)) {
               this.pendingRequests.delete(requestId);
@@ -383,7 +458,7 @@
           },
           "*"
         );
-        console.log(`[PluginBridge] Sent async message: ${type}`, data);
+        debug.log(`[PluginBridge] Sent async message: ${type}`, data);
       } catch (error) {
         console.error(`[PluginBridge] Error sending async message:`, error);
       }
@@ -400,7 +475,7 @@
         this.messageHandlers.set(type, /* @__PURE__ */ new Set());
       }
       this.messageHandlers.get(type).add(handler);
-      console.log(`[PluginBridge] Subscribed to: ${type}`);
+      debug.log(`[PluginBridge] Subscribed to: ${type}`);
       return () => {
         this.off(type, handler);
       };
@@ -414,12 +489,12 @@
     off(type, handler) {
       if (!handler) {
         this.messageHandlers.delete(type);
-        console.log(`[PluginBridge] Unsubscribed from all: ${type}`);
+        debug.log(`[PluginBridge] Unsubscribed from all: ${type}`);
       } else {
         const handlers = this.messageHandlers.get(type);
         if (handlers) {
           handlers.delete(handler);
-          console.log(`[PluginBridge] Unsubscribed from: ${type}`);
+          debug.log(`[PluginBridge] Unsubscribed from: ${type}`);
         }
       }
     }
@@ -431,7 +506,7 @@
       const message = event.data.pluginMessage;
       if (!message) return;
       const { type, data, message: messageText, requestId } = message;
-      console.log(`[PluginBridge] Received message: ${type}`, data || messageText);
+      debug.log(`[PluginBridge] Received message: ${type}`, data || messageText);
       if (requestId && this.pendingRequests.has(requestId)) {
         const { resolve, reject } = this.pendingRequests.get(requestId);
         this.pendingRequests.delete(requestId);
@@ -459,7 +534,7 @@
      */
     clearAllHandlers() {
       this.messageHandlers.clear();
-      console.log("[PluginBridge] All handlers cleared");
+      debug.log("[PluginBridge] All handlers cleared");
     }
     /**
      * Get list of active subscriptions
@@ -517,7 +592,7 @@
       ]
     }
   };
-  var ALL_SCOPES = Object.values(SCOPE_CATEGORIES).flatMap((category) => category.scopes);
+  var ALL_SCOPES = Object.values(SCOPE_CATEGORIES).reduce((acc, category) => acc.concat(category.scopes), []);
   var CSS_CLASSES = {
     ACTIVE: "active",
     HIDDEN: "hidden",
@@ -756,6 +831,12 @@
   };
 
   // src/utils/htmlSanitizer.ts
+  function escapeHtml(unsafe) {
+    if (typeof unsafe !== "string") {
+      return String(unsafe);
+    }
+    return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
   function sanitizeId(unsafe) {
     if (typeof unsafe !== "string") {
       return String(unsafe);
@@ -975,11 +1056,11 @@
      * Handle sync tokens from GitHub
      */
     async handleSyncTokens() {
-      console.log("[ImportScreen] Sync Tokens clicked");
+      debug.log("[ImportScreen] Sync Tokens clicked");
       const selectedFiles = Array.from(
         this.githubFilesContainer.querySelectorAll('input[type="checkbox"]:checked')
       ).map((cb) => cb.value);
-      console.log("[ImportScreen] Selected files:", selectedFiles);
+      debug.log("[ImportScreen] Selected files:", selectedFiles);
       if (selectedFiles.length === 0) {
         this.showNotification("Please select at least one file", "error");
         return;
@@ -991,19 +1072,19 @@
       }
       config.files = selectedFiles;
       this.state.setGitHubConfig(config);
-      console.log("[ImportScreen] Saving GitHub config...");
+      debug.log("[ImportScreen] Saving GitHub config...");
       this.bridge.sendAsync("save-github-config", config);
       this.githubLoading.classList.remove(CSS_CLASSES.HIDDEN);
       this.setEnabled(this.syncTokensBtn, false);
-      console.log("[ImportScreen] Sending import request...");
+      debug.log("[ImportScreen] Sending import request...");
       this.bridge.sendAsync("github-import-files", config);
-      console.log("[ImportScreen] Import request sent, waiting for backend response");
+      debug.log("[ImportScreen] Import request sent, waiting for backend response");
     }
     /**
      * Handle files imported from GitHub
      */
     handleFilesImported(data) {
-      console.log("[ImportScreen] Files imported from GitHub:", data);
+      debug.log("[ImportScreen] Files imported from GitHub:", data);
       this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
       const tokenFiles = [];
       if (data.primitives) {
@@ -1022,10 +1103,10 @@
           source: "github"
         });
       }
-      console.log("[ImportScreen] Created token files:", tokenFiles.length);
+      debug.log("[ImportScreen] Created token files:", tokenFiles.length);
       this.state.setTokenFiles(tokenFiles);
       this.state.setTokenSource("github");
-      console.log("[ImportScreen] Navigating to token screen...");
+      debug.log("[ImportScreen] Navigating to token screen...");
       this.state.setCurrentScreen("token");
     }
     /**
@@ -1114,9 +1195,9 @@
         if (config.branch) {
           this.branchName.value = config.branch;
         }
-        console.log("[ImportScreen] Auto-filled GitHub credentials from saved config");
+        debug.log("[ImportScreen] Auto-filled GitHub credentials from saved config");
       }
-      console.log("[ImportScreen] Screen shown");
+      debug.log("[ImportScreen] Screen shown");
     }
   };
 
@@ -1621,15 +1702,15 @@
     async loadVariables() {
       try {
         this.scopeContent.innerHTML = '<div class="empty-state">Loading variables...</div>';
-        console.log("[ScopeScreen] Requesting Figma variables...");
+        debug.log("[ScopeScreen] Requesting Figma variables...");
         const response = await this.bridge.send("get-figma-variables", {});
-        console.log("[ScopeScreen] Raw response:", response);
+        debug.log("[ScopeScreen] Raw response:", response);
         const variablesObj = response.variables || {};
-        console.log("[ScopeScreen] Variables object:", variablesObj);
-        console.log("[ScopeScreen] Variables object keys:", Object.keys(variablesObj));
+        debug.log("[ScopeScreen] Variables object:", variablesObj);
+        debug.log("[ScopeScreen] Variables object keys:", Object.keys(variablesObj));
         this.variables = Object.values(variablesObj);
-        console.log("[ScopeScreen] Loaded variables array:", this.variables);
-        console.log("[ScopeScreen] Variables count:", this.variables.length);
+        debug.log("[ScopeScreen] Loaded variables array:", this.variables);
+        debug.log("[ScopeScreen] Variables count:", this.variables.length);
         if (this.variables.length === 0) {
           console.warn("[ScopeScreen] No variables found in response");
         }
@@ -1637,7 +1718,8 @@
         this.renderCollections();
       } catch (error) {
         console.error("[ScopeScreen] Error loading variables:", error);
-        this.scopeContent.innerHTML = `<div class="empty-state">Failed to load variables: ${error instanceof Error ? error.message : "Unknown error"}</div>`;
+        const errorMsg = escapeHtml(error instanceof Error ? error.message : "Unknown error");
+        this.scopeContent.innerHTML = `<div class="empty-state">Failed to load variables: ${errorMsg}</div>`;
       }
     }
     /**
@@ -1651,7 +1733,7 @@
         }
       });
       const collectionNames = Array.from(collections);
-      console.log("[ScopeScreen] Found Figma collections:", collectionNames);
+      debug.log("[ScopeScreen] Found Figma collections:", collectionNames);
       if (collectionNames.length === 0) {
         this.collectionsList.innerHTML = '<div class="empty-collections">No collections found</div>';
         return;
@@ -1667,7 +1749,7 @@
         button.textContent = collectionName;
         this.addEventListener(button, "click", () => {
           const name = button.getAttribute("data-collection");
-          console.log("[ScopeScreen] Switching to collection:", name);
+          debug.log("[ScopeScreen] Switching to collection:", name);
           this.selectedCollection = name;
           this.renderCollections();
           this.filterVariablesByCollection();
@@ -1679,8 +1761,8 @@
      * Filter variables by selected collection
      */
     filterVariablesByCollection() {
-      console.log("[ScopeScreen] Filtering by collection:", this.selectedCollection);
-      console.log("[ScopeScreen] Total variables before filter:", this.variables.length);
+      debug.log("[ScopeScreen] Filtering by collection:", this.selectedCollection);
+      debug.log("[ScopeScreen] Total variables before filter:", this.variables.length);
       if (!this.selectedCollection) {
         this.renderVariables();
         return;
@@ -1688,12 +1770,12 @@
       const filteredVars = this.variables.filter((v) => {
         const matches = v.collection === this.selectedCollection;
         if (!matches) {
-          console.log(`[ScopeScreen] Variable ${v.name} collection "${v.collection}" doesn't match "${this.selectedCollection}"`);
+          debug.log(`[ScopeScreen] Variable ${v.name} collection "${v.collection}" doesn't match "${this.selectedCollection}"`);
         }
         return matches;
       });
-      console.log("[ScopeScreen] Filtered variables count:", filteredVars.length);
-      console.log("[ScopeScreen] Filtered variables:", filteredVars.map((v) => v.name));
+      debug.log("[ScopeScreen] Filtered variables count:", filteredVars.length);
+      debug.log("[ScopeScreen] Filtered variables:", filteredVars.map((v) => v.name));
       const tree = this.buildVariableTree(filteredVars);
       const html = this.renderVariableTree(tree, 0);
       if (filteredVars.length === 0) {
@@ -2061,7 +2143,7 @@
             scopeAssignments[variable.name] = selectedScopes;
           }
         });
-        console.log("[ScopeScreen] Applying scopes:", scopeAssignments);
+        debug.log("[ScopeScreen] Applying scopes:", scopeAssignments);
         const response = await this.bridge.send("apply-variable-scopes", { variableScopes: scopeAssignments });
         this.showNotification(response.message || "Scopes applied successfully", "success");
         this.selectedVariables.clear();
@@ -2628,25 +2710,25 @@
       });
       this.setupBackendHandlers();
       await this.loadSavedTokens();
-      console.log("[Frontend] Application started");
+      debug.log("[Frontend] Application started");
     }
     /**
      * Load saved tokens from storage
      */
     async loadSavedTokens() {
       try {
-        console.log("[Frontend] Loading saved tokens...");
+        debug.log("[Frontend] Loading saved tokens...");
         const response = await this.bridge.send("load-tokens");
-        console.log("[Frontend] Load tokens response:", response);
+        debug.log("[Frontend] Load tokens response:", response);
         if (response && response.tokenFiles && Object.keys(response.tokenFiles).length > 0) {
           const files = Object.values(response.tokenFiles);
-          console.log("[Frontend] Found saved tokens:", files.length, "files");
+          debug.log("[Frontend] Found saved tokens:", files.length, "files");
           files.forEach((file) => {
             this.state.addTokenFile(file);
           });
           this.state.setTokenSource(response.tokenSource || "local");
           if (response.githubConfig) {
-            console.log("[Frontend] Restoring GitHub config:", response.githubConfig);
+            debug.log("[Frontend] Restoring GitHub config:", response.githubConfig);
             this.state.setGitHubConfig(response.githubConfig);
           }
           if (response.lastUpdated) {
@@ -2654,11 +2736,11 @@
             snapshot.lastUpdated = response.lastUpdated;
             this.state.restoreSnapshot(snapshot);
           }
-          console.log("[Frontend] Navigating to token screen");
+          debug.log("[Frontend] Navigating to token screen");
           this.state.setCurrentScreen("token");
-          console.log("[Frontend] Restored saved tokens successfully");
+          debug.log("[Frontend] Restored saved tokens successfully");
         } else {
-          console.log("[Frontend] No saved tokens found, showing welcome screen");
+          debug.log("[Frontend] No saved tokens found, showing welcome screen");
           this.welcomeScreen.show();
         }
       } catch (error) {
@@ -2685,13 +2767,13 @@
         lastUpdated: this.state.lastUpdated
       };
       this.bridge.sendAsync("save-tokens", tokenState);
-      console.log("[Frontend] Saved token state:", files.length, "files");
+      debug.log("[Frontend] Saved token state:", files.length, "files");
     }
     /**
      * Handle screen navigation
      */
     handleScreenChange(screen) {
-      console.log(`[Frontend] Navigating to: ${screen}`);
+      debug.log(`[Frontend] Navigating to: ${screen}`);
       this.screens.forEach((s) => s.hide());
       const targetScreen = this.screens.get(screen);
       if (targetScreen) {
@@ -2705,16 +2787,16 @@
      */
     setupBackendHandlers() {
       this.bridge.on("import-success", (message) => {
-        console.log("[Frontend] Import success:", message);
+        debug.log("[Frontend] Import success:", message);
       });
       this.bridge.on("error", (message) => {
         console.error("[Frontend] Backend error:", message);
       });
       this.bridge.on("github-files-fetched", (data) => {
-        console.log("[Frontend] GitHub files fetched:", data);
+        debug.log("[Frontend] GitHub files fetched:", data);
       });
       this.bridge.on("tokens-loaded", (data) => {
-        console.log("[Frontend] Tokens loaded:", data);
+        debug.log("[Frontend] Tokens loaded:", data);
       });
     }
   };
