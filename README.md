@@ -184,31 +184,121 @@ After syncing tokens, verify:
 
 ### Troubleshooting Sync Issues
 
-**Issue: All colors are black**
-- **Cause**: HSL colors without hex fallback OR unresolved references
-- **Solution**: Ensure your HSL color tokens include a `hex` property
-- **Check Console**: Look for `[FigmaSyncService] Converting HSL color using hex fallback: #...`
+#### **Issue: Typography tokens showing 12px font and AUTO line height**
 
-**Issue: Font sizes show 0.625 instead of 10px**
-- **Cause**: REM/EM units not being converted
-- **Solution**: Verify tokens have `unit: "rem"` property
-- **Check Console**: Look for `[FigmaSyncService] Converted 0.625rem to 10px`
+**Symptoms**: Typography text styles sync but use Figma defaults (12px, AUTO) instead of your token values
 
-**Issue: Variables show "{primitive.color...}" instead of color**
-- **Cause**: References not resolved before sync
-- **Solution**: Reload plugin (fix implemented in latest version)
-- **Check Console**: Look for `[TokenController] Resolved X token values`
+**Root Cause**: Unresolved token references in composite typography values
 
-**Issue: Code syntax missing**
-- **Cause**: Outdated Figma desktop app
-- **Solution**: Update Figma to latest version
-- **Check Console**: Look for `setVariableCodeSyntax method not available`
+**How to Diagnose**:
+1. Open Figma Console: **Plugins → Development → Open Console**
+2. Run sync and look for collapsible error groups:
+   ```
+   ❌ UNRESOLVED: {primitive.typography.font-size.20}
+     🔍 Searching in project: "default"
 
-**Issue: Typography/shadow tokens not showing in Variables panel**
-- **Solution**: ✅ **Fixed** - Typography tokens now create Figma Text Styles
-- **Solution**: ✅ **Fixed** - Shadow tokens now create Figma Effect Styles
-- **Check**: Look in Figma's Text Styles and Effect Styles panels (not Variables panel)
-- **Console**: Look for `Created text style: ...` or `Created effect style: ...`
+     ⚠️  PROJECT MISMATCH - Token found in different project:
+       📍 "primitive.typography.font-size.20"
+          Project: "primitive" (expected: "default")
+          Value: "1.25rem"
+
+       💡 FIX: Ensure all tokens are in the same project ID
+
+   ⚠️  TYPOGRAPHY: semantic.typography.heading.md
+     ❌ 5 unresolved reference(s) - will use Figma defaults
+   ```
+
+**Common Causes**:
+- **Project ID Mismatch**: Referenced tokens exist but in different project ID
+  - Typography token in project "default" references primitive token in project "primitive"
+  - Token resolution can only find tokens in the SAME project
+- **Missing Tokens**: Referenced token doesn't exist in any project
+- **Naming Issues**: Reference uses wrong token path (typos, wrong prefix)
+
+**Solutions**:
+1. **For Project Mismatch**: Ensure all tokens imported together use same project ID
+2. **For Missing Tokens**: Add the missing token to your token files
+3. **For Naming Issues**: Fix reference path to match actual token qualified name
+
+#### **Issue: Shadow effects missing colors (invisible shadows)**
+
+**Symptoms**: Shadow effect styles sync but shadows are invisible or black
+
+**Root Cause**: Unresolved color reference in shadow token
+
+**How to Diagnose**:
+1. Open Figma Console and look for:
+   ```
+   ❌ UNRESOLVED: {primitive.color.neutral.900}
+     (details about where token exists)
+
+   ⚠️  SHADOW: semantic.shadow.elevation.high
+     ❌ 1 unresolved reference(s)
+        color: {primitive.color.neutral.900} ⚠️  MISSING COLOR
+   ```
+
+**Solution**: Same as typography - ensure color tokens are in same project ID
+
+#### **Issue: Font loading failures (SemiBold, Semi Bold, etc.)**
+
+**Symptoms**: Error "The font 'Inter SemiBold' could not be loaded"
+
+**Causes**:
+- Font not installed in Figma
+- Font style name mismatch (Figma uses "Semi Bold" not "SemiBold")
+- Unresolved font weight reference
+
+**How to Diagnose**:
+```
+⚠️  "Inter" "SemiBold" not available - using Regular
+
+❌ FONT ERROR: typography.heading
+  Family: "Inter,system-ui,sans-serif"
+  Weight: "{primitive.typography.font-weight.semibold}"
+```
+
+**Solutions**:
+- Plugin automatically falls back to "Regular" style
+- Install missing font weights in Figma
+- Ensure font weight references resolve correctly
+
+#### **Issue: All colors are black**
+
+**Cause**: HSL colors without hex fallback OR unresolved references
+
+**Solution**: Ensure your HSL color tokens include a `hex` property
+
+#### **Issue: Font sizes show 0.625 instead of 10px**
+
+**Cause**: REM/EM units not being converted
+
+**Solution**: Verify tokens have `unit: "rem"` property (conversion happens automatically)
+
+### Debugging with Console Diagnostics
+
+The plugin provides comprehensive diagnostic logging to help identify issues:
+
+**Collapsible Error Groups**:
+- Each unresolved reference gets detailed diagnostics
+- Shows where token exists (or if it doesn't exist)
+- Suggests fixes based on the issue type
+
+**Reference Resolution Errors**:
+- `⚠️  PROJECT MISMATCH`: Token exists but in different project ID
+- `⚠️  NAMING ISSUE`: Similar tokens found (typos detected)
+- `❌ TOKEN NOT FOUND`: Token doesn't exist anywhere
+
+**Token Validation Summaries**:
+- `⚠️  TYPOGRAPHY`: Shows which properties have unresolved references
+- `⚠️  SHADOW`: Highlights missing color references specifically
+- `❌ FONT ERROR`: Shows font loading failures with details
+
+**How to Use**:
+1. Open console: **Plugins → Development → Open Console**
+2. Run sync
+3. Click to expand error groups (▶️ arrows)
+4. Follow the `💡 FIX:` suggestions
+5. Check if tokens exist in different project IDs
 
 ### Known Limitations
 
