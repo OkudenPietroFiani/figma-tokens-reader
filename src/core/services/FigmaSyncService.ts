@@ -436,14 +436,28 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 2: HSL colorSpace with hex fallback (common in W3C Design Tokens)
+      // Format 2: Simple ColorValue with hex property { hex: "#1e40af" }
+      // This is the format returned by resolved color token references
+      if ('hex' in value && typeof value.hex === 'string') {
+        console.log('[FigmaSyncService] Converting ColorValue with hex:', value.hex);
+        return this.hexToRgb(value.hex);
+      }
+
+      // Format 3: ColorValue with HSL properties { h, s, l }
+      // Convert HSL to RGB
+      if ('h' in value && 's' in value && 'l' in value) {
+        console.log('[FigmaSyncService] Converting ColorValue with HSL:', { h: value.h, s: value.s, l: value.l });
+        return this.hslToRgb(value.h, value.s, value.l);
+      }
+
+      // Format 4: HSL colorSpace with hex fallback (common in W3C Design Tokens)
       // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
         console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
         return this.hexToRgb(value.hex);
       }
 
-      // Format 3: RGB colorSpace with components array
+      // Format 5: RGB colorSpace with components array
       // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
       if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
@@ -454,7 +468,7 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 4: W3C color object with components array (no colorSpace)
+      // Format 6: W3C color object with components array (no colorSpace)
       // Example: { components: [255, 128, 0], alpha: 1 }
       // Note: Alpha is ignored - Figma COLOR type only accepts RGB
       if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
@@ -554,6 +568,45 @@ export class FigmaSyncService {
 
     console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
     return { r: 0, g: 0, b: 0 };
+  }
+
+  /**
+   * Convert HSL to RGB
+   * @param h - Hue (0-360)
+   * @param s - Saturation (0-100)
+   * @param l - Lightness (0-100)
+   * @returns RGB object normalized to 0-1
+   */
+  private hslToRgb(h: number, s: number, l: number): RGB {
+    // Normalize values
+    h = h / 360;
+    s = s / 100;
+    l = l / 100;
+
+    let r: number, g: number, b: number;
+
+    if (s === 0) {
+      // Achromatic (gray)
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p: number, q: number, t: number): number => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return { r, g, b };
   }
 
   /**
