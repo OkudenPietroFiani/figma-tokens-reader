@@ -405,105 +405,105 @@ export type Token = TokenBase & (
  * Type guard for color tokens
  * Narrows Token to ColorToken
  */
-export function isColorToken(token: Token | LegacyToken): token is TokenBase & { type: 'color'; value: ColorValue } {
+export function isColorToken(token: Token | LegacyToken): token is Extract<Token, { type: 'color' }> {
   return token.type === 'color';
 }
 
 /**
  * Type guard for dimension tokens
  */
-export function isDimensionToken(token: Token | LegacyToken): token is TokenBase & { type: 'dimension'; value: DimensionValue } {
+export function isDimensionToken(token: Token | LegacyToken): token is Extract<Token, { type: 'dimension' }> {
   return token.type === 'dimension';
 }
 
 /**
  * Type guard for typography tokens
  */
-export function isTypographyToken(token: Token | LegacyToken): token is TokenBase & { type: 'typography'; value: TypographyValue } {
+export function isTypographyToken(token: Token | LegacyToken): token is Extract<Token, { type: 'typography' }> {
   return token.type === 'typography';
 }
 
 /**
  * Type guard for shadow tokens
  */
-export function isShadowToken(token: Token | LegacyToken): token is TokenBase & { type: 'shadow'; value: ShadowValue } {
+export function isShadowToken(token: Token | LegacyToken): token is Extract<Token, { type: 'shadow' }> {
   return token.type === 'shadow';
 }
 
 /**
  * Type guard for fontSize tokens
  */
-export function isFontSizeToken(token: Token | LegacyToken): token is TokenBase & { type: 'fontSize'; value: DimensionValue | number } {
+export function isFontSizeToken(token: Token | LegacyToken): token is Extract<Token, { type: 'fontSize' }> {
   return token.type === 'fontSize';
 }
 
 /**
  * Type guard for fontWeight tokens
  */
-export function isFontWeightToken(token: Token | LegacyToken): token is TokenBase & { type: 'fontWeight'; value: number | string } {
+export function isFontWeightToken(token: Token | LegacyToken): token is Extract<Token, { type: 'fontWeight' }> {
   return token.type === 'fontWeight';
 }
 
 /**
  * Type guard for fontFamily tokens
  */
-export function isFontFamilyToken(token: Token | LegacyToken): token is TokenBase & { type: 'fontFamily'; value: string } {
+export function isFontFamilyToken(token: Token | LegacyToken): token is Extract<Token, { type: 'fontFamily' }> {
   return token.type === 'fontFamily';
 }
 
 /**
  * Type guard for lineHeight tokens
  */
-export function isLineHeightToken(token: Token | LegacyToken): token is TokenBase & { type: 'lineHeight'; value: DimensionValue | number | string } {
+export function isLineHeightToken(token: Token | LegacyToken): token is Extract<Token, { type: 'lineHeight' }> {
   return token.type === 'lineHeight';
 }
 
 /**
  * Type guard for letterSpacing tokens
  */
-export function isLetterSpacingToken(token: Token | LegacyToken): token is TokenBase & { type: 'letterSpacing'; value: DimensionValue | number | string } {
+export function isLetterSpacingToken(token: Token | LegacyToken): token is Extract<Token, { type: 'letterSpacing' }> {
   return token.type === 'letterSpacing';
 }
 
 /**
  * Type guard for spacing tokens
  */
-export function isSpacingToken(token: Token | LegacyToken): token is TokenBase & { type: 'spacing'; value: DimensionValue } {
+export function isSpacingToken(token: Token | LegacyToken): token is Extract<Token, { type: 'spacing' }> {
   return token.type === 'spacing';
 }
 
 /**
  * Type guard for number tokens
  */
-export function isNumberToken(token: Token | LegacyToken): token is TokenBase & { type: 'number'; value: number } {
+export function isNumberToken(token: Token | LegacyToken): token is Extract<Token, { type: 'number' }> {
   return token.type === 'number';
 }
 
 /**
  * Type guard for string tokens
  */
-export function isStringToken(token: Token | LegacyToken): token is TokenBase & { type: 'string'; value: string } {
+export function isStringToken(token: Token | LegacyToken): token is Extract<Token, { type: 'string' }> {
   return token.type === 'string';
 }
 
 /**
  * Type guard for boolean tokens
  */
-export function isBooleanToken(token: Token | LegacyToken): token is TokenBase & { type: 'boolean'; value: boolean } {
+export function isBooleanToken(token: Token | LegacyToken): token is Extract<Token, { type: 'boolean' }> {
   return token.type === 'boolean';
 }
 
 /**
  * Type guard for cubicBezier tokens
  */
-export function isCubicBezierToken(token: Token | LegacyToken): token is TokenBase & { type: 'cubicBezier'; value: CubicBezierValue } {
+export function isCubicBezierToken(token: Token | LegacyToken): token is Extract<Token, { type: 'cubicBezier' }> {
   return token.type === 'cubicBezier';
 }
 
 /**
  * Type guard for duration tokens
  */
-export function isDurationToken(token: Token | LegacyToken): token is TokenBase & { type: 'duration'; value: number | string } {
+export function isDurationToken(token: Token | LegacyToken): token is Extract<Token, { type: 'duration' }> {
   return token.type === 'duration';
 }
 
