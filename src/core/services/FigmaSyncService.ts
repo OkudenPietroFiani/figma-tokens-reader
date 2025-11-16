@@ -457,18 +457,10 @@ export class FigmaSyncService {
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[FigmaSyncService] convertColorValue() ENTRY');
-    console.log('[FigmaSyncService] Value type:', typeof value);
-    console.log('[FigmaSyncService] Value:', JSON.stringify(value, null, 2));
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
     // Handle string colors (hex format)
     if (typeof value === 'string') {
-      console.log('[FigmaSyncService] ✓ String value detected');
       // Check for unresolved reference FIRST
       if (value.startsWith('{') && value.endsWith('}')) {
-        console.error(`[FigmaSyncService] ❌ FORMAT: UNRESOLVED REFERENCE`);
         console.error(`[FigmaSyncService] UNRESOLVED COLOR REFERENCE: ${value}`);
         console.error(`[FigmaSyncService] This reference was not resolved - shadow/style will use BLACK as fallback`);
         console.error(`[FigmaSyncService] Check that the referenced token exists and is in the same project`);
@@ -476,34 +468,24 @@ export class FigmaSyncService {
       }
 
       if (value.startsWith('#')) {
-        console.log('[FigmaSyncService] ✓ FORMAT: HEX STRING');
-        const result = this.hexToRgb(value);
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
+        return this.hexToRgb(value);
       }
       // Handle rgb(), rgba() string formats
       if (value.startsWith('rgb')) {
-        console.log('[FigmaSyncService] ✓ FORMAT: RGB/RGBA STRING');
-        const result = this.parseRgbString(value);
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
+        return this.parseRgbString(value);
       }
     }
 
     // Handle object formats
     if (typeof value === 'object' && value !== null) {
-      console.log('[FigmaSyncService] ✓ Object value detected');
       // Format 1: Direct Figma RGB format { r: 0-1, g: 0-1, b: 0-1 }
       if ('r' in value && 'g' in value && 'b' in value) {
-        console.log('[FigmaSyncService] ✓ FORMAT 1: Direct RGB object');
         // Check if values are already normalized (0-1)
         const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
         if (isNormalized) {
-          console.log('[FigmaSyncService] → Already normalized (0-1)');
           // Return only RGB (no alpha)
           return { r: value.r, g: value.g, b: value.b };
         }
-        console.log('[FigmaSyncService] → Converting from 0-255 to 0-1');
         // Convert from 0-255 to 0-1
         return {
           r: value.r / 255,
@@ -515,25 +497,21 @@ export class FigmaSyncService {
       // Format 2: Simple ColorValue with hex property { hex: "#1e40af" }
       // This is the format returned by resolved color token references
       if ('hex' in value && typeof value.hex === 'string') {
-        console.log('[FigmaSyncService] ✓ FORMAT 2: ColorValue with hex:', value.hex);
-        const result = this.hexToRgb(value.hex);
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
+        console.log('[FigmaSyncService] Converting ColorValue with hex:', value.hex);
+        return this.hexToRgb(value.hex);
       }
 
       // Format 3: ColorValue with HSL properties { h, s, l }
       // Convert HSL to RGB
       if ('h' in value && 's' in value && 'l' in value) {
-        console.log('[FigmaSyncService] ✓ FORMAT 3: ColorValue with HSL:', { h: value.h, s: value.s, l: value.l });
-        const result = this.hslToRgb(value.h, value.s, value.l);
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
+        console.log('[FigmaSyncService] Converting ColorValue with HSL:', { h: value.h, s: value.s, l: value.l });
+        return this.hslToRgb(value.h, value.s, value.l);
       }
 
       // Format 4: Nested components object (components is an object, not an array)
       // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
       if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
-        console.log('[FigmaSyncService] ✓ FORMAT 4: Nested components object - recursing');
+        console.log('[FigmaSyncService] Converting nested components object - extracting inner color value');
         // Recursively convert the nested components object
         return this.convertColorValue(value.components);
       }
@@ -542,35 +520,27 @@ export class FigmaSyncService {
       // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
         const [h, s, l] = value.components;
-        console.log('[FigmaSyncService] ✓ FORMAT 5: HSL colorSpace with components:', { h, s, l });
+        console.log('[FigmaSyncService] Converting HSL colorSpace with components:', { h, s, l });
 
         // Use hex fallback if available (more accurate)
         if ('hex' in value && value.hex && typeof value.hex === 'string') {
-          console.log('[FigmaSyncService] → Using hex fallback:', value.hex);
-          const result = this.hexToRgb(value.hex);
-          console.log('[FigmaSyncService] → RGB:', result);
-          return result;
+          console.log('[FigmaSyncService] Using hex fallback for HSL:', value.hex);
+          return this.hexToRgb(value.hex);
         }
 
         // Otherwise convert HSL to RGB
-        console.log('[FigmaSyncService] → Converting HSL to RGB');
-        const result = this.hslToRgb(h, s, l);
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
+        return this.hslToRgb(h, s, l);
       }
 
       // Format 6: RGB colorSpace with components array
       // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
       if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
-        console.log('[FigmaSyncService] ✓ FORMAT 6: RGB colorSpace with components:', { r, g, b });
-        const result = {
+        return {
           r: r / 255,
           g: g / 255,
           b: b / 255,
         };
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
       }
 
       // Format 7: W3C color object with components array (no colorSpace)
@@ -578,14 +548,11 @@ export class FigmaSyncService {
       // Note: Alpha is ignored - Figma COLOR type only accepts RGB
       if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
         const [r, g, b] = value.components;
-        console.log('[FigmaSyncService] ✓ FORMAT 7: W3C components array (no colorSpace):', { r, g, b });
-        const result = {
+        return {
           r: r / 255,
           g: g / 255,
           b: b / 255,
         };
-        console.log('[FigmaSyncService] → RGB:', result);
-        return result;
       }
     }
 
@@ -599,8 +566,6 @@ export class FigmaSyncService {
    * Similar to convertColorValue but includes alpha channel
    */
   private convertColorToRGBA(value: any): RGBA {
-    console.log('🎨🎨🎨 [FigmaSyncService] convertColorToRGBA() called with:', JSON.stringify(value, null, 2));
-
     // Get RGB components
     const rgb = this.convertColorValue(value);
 
@@ -636,9 +601,7 @@ export class FigmaSyncService {
       }
     }
 
-    const result = { ...rgb, a: alpha };
-    console.log('🎨🎨🎨 [FigmaSyncService] convertColorToRGBA() RETURN:', result);
-    return result;
+    return { ...rgb, a: alpha };
   }
 
   /**
