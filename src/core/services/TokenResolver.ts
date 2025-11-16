@@ -152,8 +152,8 @@ export class TokenResolver {
       const tokens = this.repository.getByProject(projectId);
       const resolved = new Map<string, TokenValue>();
 
-      // Build dependency graph
-      const graph = this.buildDependencyGraph(tokens);
+      // Build dependency graph (validates project boundaries)
+      const graph = this.buildDependencyGraph(tokens, projectId);
 
       // Detect circular references
       const cycles = this.detectCycles(graph);
@@ -174,12 +174,28 @@ export class TokenResolver {
         if (token.aliasTo) {
           // Resolve alias
           const target = this.repository.get(token.aliasTo);
-          if (target) {
+
+          // Validate target exists and is in the same project
+          if (target && target.projectId === projectId) {
             // Get resolved value of target (already resolved due to topo sort)
             const targetValue = resolved.get(target.id) || target.value;
             resolved.set(token.id, targetValue);
+
+            // Update token's resolvedValue
+            token.resolvedValue = targetValue;
+          } else if (target && target.projectId !== projectId) {
+            // Cross-project reference - log warning but don't resolve
+            console.warn(
+              `[TokenResolver] Cross-project reference detected: ${token.qualifiedName} (project: ${projectId}) ` +
+              `references ${target.qualifiedName} (project: ${target.projectId})`
+            );
+            resolved.set(token.id, token.value);
+            this.stats.unresolvedReferences++;
           } else {
             // Unresolved reference
+            console.warn(
+              `[TokenResolver] Unresolved reference: ${token.qualifiedName} references ${token.aliasTo}`
+            );
             resolved.set(token.id, token.value);
             this.stats.unresolvedReferences++;
           }
@@ -205,8 +221,31 @@ export class TokenResolver {
    */
   detectCircularReferences(projectId: string): CircularReference[] {
     const tokens = this.repository.getByProject(projectId);
-    const graph = this.buildDependencyGraph(tokens);
+    const graph = this.buildDependencyGraph(tokens, projectId);
     return this.detectCycles(graph);
+  }
+
+  /**
+   * Detect cross-project references
+   * Returns tokens that reference tokens in other projects
+   *
+   * @param projectId - Project identifier
+   * @returns Array of tokens with cross-project references
+   */
+  detectCrossProjectReferences(projectId: string): Token[] {
+    const tokens = this.repository.getByProject(projectId);
+    const crossProjectRefs: Token[] = [];
+
+    for (const token of tokens) {
+      if (token.aliasTo) {
+        const target = this.repository.get(token.aliasTo);
+        if (target && target.projectId !== projectId) {
+          crossProjectRefs.push(token);
+        }
+      }
+    }
+
+    return crossProjectRefs;
   }
 
   /**
@@ -306,8 +345,12 @@ export class TokenResolver {
   /**
    * Build dependency graph for alias resolution
    * Returns Map<tokenId, dependsOn[]>
+   * Validates that all dependencies are within the same project
+   *
+   * @param tokens - Tokens to build graph from
+   * @param projectId - Project identifier for validation
    */
-  private buildDependencyGraph(tokens: Token[]): Map<string, string[]> {
+  private buildDependencyGraph(tokens: Token[], projectId: string): Map<string, string[]> {
     const graph = new Map<string, string[]>();
 
     for (const token of tokens) {
@@ -316,7 +359,24 @@ export class TokenResolver {
       }
 
       if (token.aliasTo) {
-        graph.get(token.id)!.push(token.aliasTo);
+        // Validate that the target is in the same project
+        const target = this.repository.get(token.aliasTo);
+        if (target && target.projectId === projectId) {
+          // Only add dependency if it's within the same project
+          graph.get(token.id)!.push(token.aliasTo);
+        } else if (target && target.projectId !== projectId) {
+          // Log cross-project reference but don't add to graph
+          console.warn(
+            `[TokenResolver] buildDependencyGraph: Cross-project reference from ${token.qualifiedName} ` +
+            `to ${target.qualifiedName} (different project: ${target.projectId})`
+          );
+        } else {
+          // Target doesn't exist
+          console.warn(
+            `[TokenResolver] buildDependencyGraph: Target not found for ${token.qualifiedName} ` +
+            `(aliasTo: ${token.aliasTo})`
+          );
+        }
       }
     }
 
