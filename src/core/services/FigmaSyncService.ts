@@ -436,14 +436,21 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 2: HSL colorSpace with hex fallback (common in W3C Design Tokens)
+      // Format 2: Nested components object (components is an object, not an array)
+      // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
+      if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
+        // Recursively convert the nested components object
+        return this.convertColorValue(value.components);
+      }
+
+      // Format 3: HSL colorSpace with hex fallback (common in W3C Design Tokens)
       // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
         console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
         return this.hexToRgb(value.hex);
       }
 
-      // Format 3: RGB colorSpace with components array
+      // Format 4: RGB colorSpace with components array
       // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
       if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
@@ -454,7 +461,7 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 4: W3C color object with components array (no colorSpace)
+      // Format 5: W3C color object with components array (no colorSpace)
       // Example: { components: [255, 128, 0], alpha: 1 }
       // Note: Alpha is ignored - Figma COLOR type only accepts RGB
       if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
@@ -467,8 +474,7 @@ export class FigmaSyncService {
       }
     }
 
-    console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-    console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+    console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 

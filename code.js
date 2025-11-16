@@ -14827,6 +14827,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             b: value.b / 255
           };
         }
+        if ("components" in value && typeof value.components === "object" && value.components !== null && !Array.isArray(value.components)) {
+          return this.convertColorValue(value.components);
+        }
         if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
           console.log("[FigmaSyncService] Converting HSL color using hex fallback:", value.hex);
           return this.hexToRgb(value.hex);
@@ -14848,8 +14851,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           };
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-      console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+      console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
