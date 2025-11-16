@@ -2042,13 +2042,40 @@
         const referencedToken = this.resolver.resolveReference(value, projectId);
         if (referencedToken) {
           const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
-          console.log(`[FigmaSyncService] \u2713 Resolved "${value}" \u2192 ${JSON.stringify(resolvedValue)}`);
+          console.log(`[FigmaSyncService] \u2713 Resolved "${value}" \u2192 ${JSON.stringify(resolvedValue)} (from project: "${referencedToken.projectId}")`);
           return this.resolveNestedReferences(resolvedValue, projectId);
         } else {
           console.error(`[FigmaSyncService] \u2717 Could not resolve reference: "${value}"`);
-          const allTokens = this.repository.getByProject(projectId);
-          console.error(`[FigmaSyncService]   Project has ${allTokens.length} tokens`);
-          console.error(`[FigmaSyncService]   Sample tokens: ${allTokens.slice(0, 5).map((t) => t.qualifiedName).join(", ")}`);
+          console.error(`[FigmaSyncService]   \u{1F50D} Searching in project: "${projectId}"`);
+          const projectTokens = this.repository.getByProject(projectId);
+          console.error(`[FigmaSyncService]   \u{1F4E6} Project "${projectId}" has ${projectTokens.length} tokens`);
+          const cleanRef = value.slice(1, -1);
+          console.error(`[FigmaSyncService]   \u{1F3AF} Looking for: "${cleanRef}"`);
+          const allTokens = this.repository.getAll();
+          const exactMatches = allTokens.filter((t) => t.qualifiedName === cleanRef);
+          const partialMatches = allTokens.filter(
+            (t) => t.qualifiedName.includes(cleanRef) || cleanRef.includes(t.qualifiedName) || t.qualifiedName.toLowerCase() === cleanRef.toLowerCase()
+          );
+          if (exactMatches.length > 0) {
+            console.error(`[FigmaSyncService]   \u2705 FOUND exact match(es) in OTHER project(s):`);
+            exactMatches.forEach((t) => {
+              console.error(`[FigmaSyncService]      - "${t.qualifiedName}" in project "${t.projectId}" (collection: ${t.collection}, type: ${t.type})`);
+              console.error(`[FigmaSyncService]        Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
+            });
+            console.error(`[FigmaSyncService]   \u26A0\uFE0F  ISSUE: Token exists but in DIFFERENT project! Expected "${projectId}" but found in "${exactMatches[0].projectId}"`);
+          } else if (partialMatches.length > 0) {
+            console.error(`[FigmaSyncService]   \u26A0\uFE0F  Found ${partialMatches.length} partial match(es):`);
+            partialMatches.slice(0, 5).forEach((t) => {
+              console.error(`[FigmaSyncService]      - "${t.qualifiedName}" in project "${t.projectId}"`);
+            });
+            console.error(`[FigmaSyncService]   \u{1F4A1} Check if reference name is correct`);
+          } else {
+            console.error(`[FigmaSyncService]   \u274C Token NOT FOUND in any project!`);
+            console.error(`[FigmaSyncService]   \u{1F4CB} Available tokens in project "${projectId}":`);
+            projectTokens.slice(0, 10).forEach((t) => {
+              console.error(`[FigmaSyncService]      - ${t.qualifiedName}`);
+            });
+          }
           return value;
         }
       }
@@ -2155,15 +2182,62 @@
         }
         if (typValue.fontFamily) {
           try {
-            const fontFamily = typeof typValue.fontFamily === "string" ? typValue.fontFamily : typValue.fontFamily[0];
+            let fontFamily;
+            if (typeof typValue.fontFamily === "string") {
+              if (typValue.fontFamily.includes(",")) {
+                const fontStack = typValue.fontFamily.split(",").map((f) => f.trim());
+                fontFamily = fontStack[0];
+                console.log(`[FigmaSyncService] Font stack detected: ${typValue.fontFamily}`);
+                console.log(`[FigmaSyncService] Using first font: "${fontFamily}"`);
+              } else {
+                fontFamily = typValue.fontFamily;
+              }
+            } else if (Array.isArray(typValue.fontFamily)) {
+              fontFamily = typValue.fontFamily[0];
+              console.log(`[FigmaSyncService] Font array detected, using first: "${fontFamily}"`);
+            } else {
+              console.error(`[FigmaSyncService] Invalid fontFamily type: ${typeof typValue.fontFamily}`);
+              throw new Error(`Invalid fontFamily type: ${typeof typValue.fontFamily}`);
+            }
             const fontWeight = typValue.fontWeight || 400;
-            const fontStyle = this.mapFontWeightToStyle(fontWeight);
-            console.log(`[FigmaSyncService] Loading font: ${fontFamily} ${fontStyle}`);
-            await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
-            textStyle.fontName = { family: fontFamily, style: fontStyle };
+            console.log(`[FigmaSyncService] Font weight: ${fontWeight} (type: ${typeof fontWeight})`);
+            if (typeof fontWeight === "string" && fontWeight.startsWith("{")) {
+              console.error(`[FigmaSyncService] \u26A0\uFE0F  Font weight is still an unresolved reference: ${fontWeight}`);
+              console.error(`[FigmaSyncService] Using default weight: 400 (Regular)`);
+              const fontStyle = "Regular";
+              console.log(`[FigmaSyncService] Attempting to load font: "${fontFamily}" "${fontStyle}"`);
+              await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+              textStyle.fontName = { family: fontFamily, style: fontStyle };
+            } else {
+              const numericWeight = typeof fontWeight === "string" ? parseInt(fontWeight, 10) : fontWeight;
+              const fontStyle = this.mapFontWeightToStyle(numericWeight);
+              console.log(`[FigmaSyncService] Mapped font weight ${numericWeight} \u2192 style "${fontStyle}"`);
+              console.log(`[FigmaSyncService] Attempting to load font: "${fontFamily}" "${fontStyle}"`);
+              try {
+                await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+                textStyle.fontName = { family: fontFamily, style: fontStyle };
+                console.log(`[FigmaSyncService] \u2705 Successfully loaded font: "${fontFamily}" "${fontStyle}"`);
+              } catch (fontLoadError) {
+                console.error(`[FigmaSyncService] \u274C Failed to load "${fontFamily}" "${fontStyle}"`);
+                console.error(`[FigmaSyncService] Trying fallback to "${fontFamily}" "Regular"...`);
+                try {
+                  await figma.loadFontAsync({ family: fontFamily, style: "Regular" });
+                  textStyle.fontName = { family: fontFamily, style: "Regular" };
+                  console.log(`[FigmaSyncService] \u2705 Loaded with fallback style "Regular"`);
+                } catch (fallbackError) {
+                  console.error(`[FigmaSyncService] \u274C Fallback to "Regular" also failed`);
+                  console.error(`[FigmaSyncService] \u{1F4A1} Font "${fontFamily}" may not be installed in Figma`);
+                  console.error(`[FigmaSyncService] \u{1F4A1} Available styles might be: Regular, Medium, Bold, etc. (not SemiBold)`);
+                  throw fontLoadError;
+                }
+              }
+            }
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.error(`[FigmaSyncService] Could not load font ${typValue.fontFamily}: ${message}`);
+            console.error(`[FigmaSyncService] \u274C Font loading failed for ${token.qualifiedName}`);
+            console.error(`[FigmaSyncService]   Raw fontFamily value: ${JSON.stringify(typValue.fontFamily)}`);
+            console.error(`[FigmaSyncService]   Raw fontWeight value: ${JSON.stringify(typValue.fontWeight)}`);
+            console.error(`[FigmaSyncService]   Error: ${message}`);
             throw error;
           }
         }
