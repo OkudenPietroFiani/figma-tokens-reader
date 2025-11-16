@@ -446,7 +446,14 @@ export class FigmaSyncService {
 
   /**
    * Convert color value to Figma RGB format
-   * Handles: hex strings, RGB objects, HSL objects (uses hex), color objects with components
+   * Handles multiple color formats:
+   * - Format 1: Direct RGB { r, g, b } (0-1 or 0-255)
+   * - Format 2: ColorValue with hex { hex: "#..." }
+   * - Format 3: ColorValue with HSL { h, s, l }
+   * - Format 4: Nested components object (recursive)
+   * - Format 5: HSL colorSpace with components array
+   * - Format 6: RGB colorSpace with components array
+   * - Format 7: W3C components array (no colorSpace)
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
@@ -501,7 +508,15 @@ export class FigmaSyncService {
         return this.hslToRgb(value.h, value.s, value.l);
       }
 
-      // Format 4: HSL colorSpace with components array
+      // Format 4: Nested components object (components is an object, not an array)
+      // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
+      if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
+        console.log('[FigmaSyncService] Converting nested components object - extracting inner color value');
+        // Recursively convert the nested components object
+        return this.convertColorValue(value.components);
+      }
+
+      // Format 5: HSL colorSpace with components array
       // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
         const [h, s, l] = value.components;
@@ -517,7 +532,7 @@ export class FigmaSyncService {
         return this.hslToRgb(h, s, l);
       }
 
-      // Format 5: RGB colorSpace with components array
+      // Format 6: RGB colorSpace with components array
       // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
       if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
@@ -528,7 +543,7 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 6: W3C color object with components array (no colorSpace)
+      // Format 7: W3C color object with components array (no colorSpace)
       // Example: { components: [255, 128, 0], alpha: 1 }
       // Note: Alpha is ignored - Figma COLOR type only accepts RGB
       if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
