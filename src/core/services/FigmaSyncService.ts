@@ -962,18 +962,14 @@ export class FigmaSyncService {
   private resolveNestedReferences(value: any, projectId: string): any {
     if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
       // It's a reference - use TokenResolver for sophisticated resolution
-      console.log(`[FigmaSyncService] 🔍 Resolving reference: ${value} in project "${projectId}"`);
-      const referencedToken = this.resolver.resolveReference(value, projectId, true); // Enable debug mode
+      const referencedToken = this.resolver.resolveReference(value, projectId);
 
       if (referencedToken) {
-        console.log(`[FigmaSyncService] ✓ Resolved ${value} -> ${referencedToken.qualifiedName} (${referencedToken.type})`);
         const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
-        console.log(`[FigmaSyncService]   Value:`, JSON.stringify(resolvedValue).slice(0, 100));
         // If the resolved value is also a reference, resolve it recursively
         return this.resolveNestedReferences(resolvedValue, projectId);
       } else {
         // Reference failed - log detailed diagnostics
-        console.error(`[FigmaSyncService] ✗ Failed to resolve: ${value}`);
         this.logUnresolvedReference(value, projectId);
         return value; // Return as-is if can't resolve
       }
