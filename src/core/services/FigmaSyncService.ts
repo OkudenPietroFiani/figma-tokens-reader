@@ -557,7 +557,7 @@ export class FigmaSyncService {
     }
 
     console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-    console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+    console.warn(`[FigmaSyncService] Value type: ${typeof value}`);
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 
@@ -1040,7 +1040,7 @@ export class FigmaSyncService {
         console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
         console.log(`   Collection: ${t.collection}`);
         console.log(`   Type: ${t.type}`);
-        console.log(`   Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
+        console.log(`   Value:`, t.resolvedValue || t.value);
       });
       console.log(`\n💡 FIX: Ensure all tokens are in the same project ID`);
       console.groupEnd();
@@ -1184,8 +1184,8 @@ export class FigmaSyncService {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.group(`❌ FONT ERROR: ${token.qualifiedName}`);
-          console.log(`Family: ${JSON.stringify(typValue.fontFamily)}`);
-          console.log(`Weight: ${JSON.stringify(typValue.fontWeight)}`);
+          console.log(`Family:`, typValue.fontFamily);
+          console.log(`Weight:`, typValue.fontWeight);
           console.log(`Error: ${message}`);
           console.groupEnd();
           throw error; // Re-throw to skip this style
@@ -1224,7 +1224,7 @@ export class FigmaSyncService {
       if (stack) {
         console.error(`  Stack: ${stack}`);
       }
-      console.error(`  Token value:`, JSON.stringify(token.value, null, 2));
+      console.error(`  Token value:`, token.value);
       stats.skipped++;
       return stats;
     }
