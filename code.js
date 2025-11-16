@@ -14545,296 +14545,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
   };
 
-  // src/core/models/Token.ts
-  function isColorToken(token) {
-    return token.type === "color";
-  }
-  function isTypographyToken(token) {
-    return token.type === "typography";
-  }
-  function isShadowToken(token) {
-    return token.type === "shadow";
-  }
-
-  // src/core/services/PreSyncValidator.ts
-  var PreSyncValidator = class {
-    /**
-     * Validate tokens before Figma sync
-     *
-     * @param tokens - Tokens to validate
-     * @param projectId - Project context for validation
-     * @returns Validation report
-     */
-    validate(tokens, projectId) {
-      const issues = [];
-      for (const token of tokens) {
-        if (token.projectId !== projectId) {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "warning",
-            code: "PROJECT_MISMATCH",
-            message: `Token ${token.qualifiedName} belongs to project "${token.projectId}" but is being synced to "${projectId}"`,
-            fix: "Ensure all tokens have matching projectId"
-          });
-        }
-        const unresolvedRefs = this.findUnresolvedReferences(token.value);
-        if (unresolvedRefs.length > 0) {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "error",
-            code: "UNRESOLVED_REFERENCE",
-            message: `Token ${token.qualifiedName} has ${unresolvedRefs.length} unresolved reference(s): ${unresolvedRefs.join(", ")}`,
-            fix: "Ensure all referenced tokens exist in the same project and are defined before use"
-          });
-        }
-        if (isTypographyToken(token)) {
-          const typoIssues = this.validateTypographyToken(token);
-          issues.push(...typoIssues);
-        } else if (isShadowToken(token)) {
-          const shadowIssues = this.validateShadowToken(token);
-          issues.push(...shadowIssues);
-        } else if (isColorToken(token)) {
-          const colorIssues = this.validateColorToken(token);
-          issues.push(...colorIssues);
-        }
-        if (token.aliasTo && !token.resolvedValue) {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "warning",
-            code: "ALIAS_NOT_RESOLVED",
-            message: `Token ${token.qualifiedName} is an alias to "${token.aliasTo}" but has no resolvedValue`,
-            fix: "Run TokenResolver.resolveAllTokens() before syncing"
-          });
-        }
-      }
-      const errorCount = issues.filter((i) => i.severity === "error").length;
-      const warningCount = issues.filter((i) => i.severity === "warning").length;
-      const infoCount = issues.filter((i) => i.severity === "info").length;
-      return {
-        valid: errorCount === 0,
-        issues,
-        errorCount,
-        warningCount,
-        infoCount
-      };
-    }
-    /**
-     * Validate typography token
-     */
-    validateTypographyToken(token) {
-      const issues = [];
-      const value = token.resolvedValue || token.value;
-      if (typeof value !== "object" || value === null) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "error",
-          code: "INVALID_TYPOGRAPHY_VALUE",
-          message: `Typography token ${token.qualifiedName} has invalid value type: ${typeof value}`,
-          fix: "Typography tokens must be objects with fontFamily, fontSize, etc."
-        });
-        return issues;
-      }
-      const hasTypographyProps = "fontFamily" in value || "fontSize" in value || "fontWeight" in value || "lineHeight" in value;
-      if (!hasTypographyProps) {
-        return issues;
-      }
-      if (!("fontFamily" in value)) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "warning",
-          code: "MISSING_FONT_FAMILY",
-          message: `Typography token ${token.qualifiedName} is missing fontFamily`,
-          fix: "Add fontFamily property"
-        });
-      }
-      if (!("fontSize" in value)) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "warning",
-          code: "MISSING_FONT_SIZE",
-          message: `Typography token ${token.qualifiedName} is missing fontSize`,
-          fix: "Add fontSize property (Figma will use 12px default)"
-        });
-      }
-      const nestedRefs = this.findUnresolvedReferences(value);
-      if (nestedRefs.length > 0) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "error",
-          code: "UNRESOLVED_NESTED_REFERENCE",
-          message: `Typography token ${token.qualifiedName} has unresolved nested references: ${nestedRefs.join(", ")}`,
-          fix: "Ensure all referenced tokens are defined and resolved"
-        });
-      }
-      if ("fontSize" in value) {
-        const fontSize = value.fontSize;
-        if (typeof fontSize !== "number" && typeof fontSize !== "string") {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "error",
-            code: "INVALID_FONT_SIZE",
-            message: `Typography token ${token.qualifiedName} has invalid fontSize type: ${typeof fontSize}`,
-            fix: 'fontSize must be a number or string with unit (e.g., "16px", "1rem")'
-          });
-        }
-      }
-      return issues;
-    }
-    /**
-     * Validate shadow token
-     */
-    validateShadowToken(token) {
-      const issues = [];
-      const value = token.resolvedValue || token.value;
-      if (typeof value !== "object" || value === null) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "error",
-          code: "INVALID_SHADOW_VALUE",
-          message: `Shadow token ${token.qualifiedName} has invalid value type: ${typeof value}`,
-          fix: "Shadow tokens must be objects with offsetX, offsetY, blur, color"
-        });
-        return issues;
-      }
-      const hasShadowProps = "offsetX" in value || "offsetY" in value || "blur" in value || "color" in value;
-      if (!hasShadowProps) {
-        return issues;
-      }
-      const requiredProps = ["offsetX", "offsetY", "blur", "color"];
-      for (const prop of requiredProps) {
-        if (!(prop in value)) {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "error",
-            code: "MISSING_SHADOW_PROPERTY",
-            message: `Shadow token ${token.qualifiedName} is missing required property: ${prop}`,
-            fix: `Add ${prop} property`
-          });
-        }
-      }
-      const nestedRefs = this.findUnresolvedReferences(value);
-      if (nestedRefs.length > 0) {
-        const colorUnresolved = nestedRefs.some((ref) => ref.toLowerCase().includes("color"));
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: colorUnresolved ? "error" : "warning",
-          code: "UNRESOLVED_NESTED_REFERENCE",
-          message: `Shadow token ${token.qualifiedName} has unresolved nested references: ${nestedRefs.join(", ")}${colorUnresolved ? " (COLOR IS MISSING - shadow will be invisible!)" : ""}`,
-          fix: "Ensure all referenced tokens are defined and resolved"
-        });
-      }
-      return issues;
-    }
-    /**
-     * Validate color token
-     */
-    validateColorToken(token) {
-      const issues = [];
-      const value = token.resolvedValue || token.value;
-      if (typeof value !== "object" || value === null) {
-        if (typeof value !== "string") {
-          issues.push({
-            tokenId: token.id,
-            tokenPath: token.path,
-            severity: "error",
-            code: "INVALID_COLOR_VALUE",
-            message: `Color token ${token.qualifiedName} has invalid value type: ${typeof value}`,
-            fix: "Color must be a string (hex, rgb) or object with hex/r,g,b/h,s,l properties"
-          });
-        }
-        return issues;
-      }
-      const hasHex = "hex" in value && typeof value.hex === "string";
-      const hasRgb = "r" in value && "g" in value && "b" in value;
-      const hasHsl = "h" in value && "s" in value && "l" in value;
-      if (!hasHex && !hasRgb && !hasHsl) {
-        issues.push({
-          tokenId: token.id,
-          tokenPath: token.path,
-          severity: "error",
-          code: "INVALID_COLOR_FORMAT",
-          message: `Color token ${token.qualifiedName} must have hex, rgb, or hsl values`,
-          fix: "Add hex, {r,g,b}, or {h,s,l} properties"
-        });
-      }
-      return issues;
-    }
-    /**
-     * Find unresolved references in a value (recursive)
-     * Returns array of reference strings like "{color.primary}"
-     */
-    findUnresolvedReferences(value, path = "") {
-      const refs = [];
-      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
-        refs.push(value);
-      } else if (typeof value === "object" && value !== null) {
-        for (const [key, val] of Object.entries(value)) {
-          const subPath = path ? `${path}.${key}` : key;
-          const subRefs = this.findUnresolvedReferences(val, subPath);
-          refs.push(...subRefs);
-        }
-      } else if (Array.isArray(value)) {
-        value.forEach((item, index) => {
-          const subRefs = this.findUnresolvedReferences(item, `${path}[${index}]`);
-          refs.push(...subRefs);
-        });
-      }
-      return refs;
-    }
-    /**
-     * Format validation report as human-readable string
-     */
-    formatReport(report) {
-      if (report.valid) {
-        return "\u2713 All tokens are valid for Figma sync";
-      }
-      const lines = [];
-      lines.push(`\u274C Found ${report.errorCount} error(s), ${report.warningCount} warning(s), ${report.infoCount} info`);
-      lines.push("");
-      const errors = report.issues.filter((i) => i.severity === "error");
-      const warnings = report.issues.filter((i) => i.severity === "warning");
-      const infos = report.issues.filter((i) => i.severity === "info");
-      if (errors.length > 0) {
-        lines.push("ERRORS:");
-        errors.forEach((issue2) => {
-          lines.push(`  \u274C ${issue2.tokenPath.join("/")} - ${issue2.message}`);
-          if (issue2.fix) {
-            lines.push(`     \u{1F4A1} Fix: ${issue2.fix}`);
-          }
-        });
-        lines.push("");
-      }
-      if (warnings.length > 0) {
-        lines.push("WARNINGS:");
-        warnings.forEach((issue2) => {
-          lines.push(`  \u26A0\uFE0F  ${issue2.tokenPath.join("/")} - ${issue2.message}`);
-          if (issue2.fix) {
-            lines.push(`     \u{1F4A1} Fix: ${issue2.fix}`);
-          }
-        });
-        lines.push("");
-      }
-      if (infos.length > 0) {
-        lines.push("INFO:");
-        infos.forEach((issue2) => {
-          lines.push(`  \u2139\uFE0F  ${issue2.tokenPath.join("/")} - ${issue2.message}`);
-        });
-      }
-      return lines.join("\n");
-    }
-  };
-
   // src/core/services/FigmaSyncService.ts
   var FigmaSyncService = class {
     constructor(repository, resolver) {
@@ -14842,7 +14552,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       this.collectionMap = /* @__PURE__ */ new Map();
       this.repository = repository;
       this.resolver = resolver;
-      this.validator = new PreSyncValidator();
     }
     /**
      * Sync tokens to Figma variables
@@ -14858,33 +14567,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           updateExisting: true,
           preserveScopes: true,
           createStyles: true,
-          percentageBase: 16,
-          validateBeforeSync: true,
-          failOnValidationErrors: false
+          percentageBase: 16
         }, options);
-        let validationReport;
-        if (opts.validateBeforeSync) {
-          const projectId = tokens.length > 0 ? tokens[0].projectId : "unknown";
-          validationReport = this.validator.validate(tokens, projectId);
-          if (!validationReport.valid) {
-            console.group(`[FigmaSyncService] Pre-sync validation found issues`);
-            console.log(this.validator.formatReport(validationReport));
-            console.groupEnd();
-            if (validationReport.errorCount > 0) {
-              figma.notify(
-                `\u26A0\uFE0F Found ${validationReport.errorCount} validation error(s). Check console for details.`,
-                { timeout: 5e3, error: true }
-              );
-            }
-            if (opts.failOnValidationErrors && validationReport.errorCount > 0) {
-              return Failure(
-                `Validation failed with ${validationReport.errorCount} error(s). Fix errors or set failOnValidationErrors: false to proceed anyway.`
-              );
-            }
-          } else {
-            console.log(`[FigmaSyncService] \u2713 Pre-sync validation passed`);
-          }
-        }
         const stats = { added: 0, updated: 0, skipped: 0 };
         const syncedCollections = /* @__PURE__ */ new Set();
         const byCollection = this.groupByCollection(tokens);
@@ -14911,8 +14595,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         return Success({
           stats,
           collections: Array.from(syncedCollections),
-          variables: this.variableMap,
-          validation: validationReport
+          variables: this.variableMap
         });
       } catch (error46) {
         const message = error46 instanceof Error ? error46.message : "Unknown error";
@@ -15046,7 +14729,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         } else {
           const valueToConvert = token.resolvedValue || token.value;
+          console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+            tokenValue: token.value,
+            resolvedValue: token.resolvedValue,
+            tokenType: token.type,
+            figmaType,
+            valueType: typeof valueToConvert
+          });
           const value = this.convertValue(valueToConvert, figmaType);
+          console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -15112,7 +14803,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     /**
      * Convert color value to Figma RGB format
-     * Handles: hex strings, RGB objects, HSL objects, nested components, color objects with components
+     * Handles: hex strings, RGB objects, HSL objects (uses hex), color objects with components
      * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
      */
     convertColorValue(value) {
@@ -15136,22 +14827,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             b: value.b / 255
           };
         }
-        if ("hex" in value && typeof value.hex === "string") {
-          console.log("[FigmaSyncService] Converting ColorValue with hex:", value.hex);
-          return this.hexToRgb(value.hex);
-        }
-        if ("h" in value && "s" in value && "l" in value) {
-          return this.hslToRgb(value.h, value.s, value.l);
-        }
         if ("components" in value && typeof value.components === "object" && value.components !== null && !Array.isArray(value.components)) {
           return this.convertColorValue(value.components);
         }
-        if ("colorSpace" in value && value.colorSpace === "hsl" && Array.isArray(value.components)) {
-          const [h, s, l] = value.components;
-          if ("hex" in value && value.hex && typeof value.hex === "string") {
-            return this.hexToRgb(value.hex);
-          }
-          return this.hslToRgb(h, s, l);
+        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
+          console.log("[FigmaSyncService] Converting HSL color using hex fallback:", value.hex);
+          return this.hexToRgb(value.hex);
         }
         if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
           const [r, g, b] = value.components;
@@ -15170,8 +14851,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           };
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-      console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
+      console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -15186,16 +14866,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           alpha = value.a;
         } else if ("alpha" in value && typeof value.alpha === "number") {
           alpha = value.alpha;
-        } else if ("alpha" in value && typeof value.alpha === "string" && value.alpha.startsWith("{")) {
-          console.warn(
-            `[FigmaSyncService] Unresolved alpha reference: ${value.alpha} - using default alpha=1`
-          );
-          alpha = 1;
-        } else if ("a" in value && typeof value.a === "string" && value.a.startsWith("{")) {
-          console.warn(
-            `[FigmaSyncService] Unresolved alpha reference: ${value.a} - using default alpha=1`
-          );
-          alpha = 1;
         }
       }
       if (typeof value === "string" && value.startsWith("rgba")) {
@@ -15248,37 +14918,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
       console.warn(`[FigmaSyncService] Invalid hex format: ${hex3}`);
       return { r: 0, g: 0, b: 0 };
-    }
-    /**
-     * Convert HSL to RGB
-     * @param h - Hue (0-360)
-     * @param s - Saturation (0-100)
-     * @param l - Lightness (0-100)
-     * @returns RGB object normalized to 0-1
-     */
-    hslToRgb(h, s, l) {
-      h = h / 360;
-      s = s / 100;
-      l = l / 100;
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p2, q2, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
-          if (t < 1 / 2) return q2;
-          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
-          return p2;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return { r, g, b };
     }
     /**
      * Convert numeric value (handle units like px, rem, em, %)
@@ -15613,31 +15252,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             } else {
               const numericWeight = typeof fontWeight === "string" ? parseInt(fontWeight, 10) : fontWeight;
               const fontStyle = this.mapFontWeightToStyle(numericWeight);
-              let fontLoaded = false;
-              const stylesToTry = [
-                fontStyle,
-                // Try exact match first (e.g., "SemiBold")
-                fontStyle.replace(/([A-Z])/g, " $1").trim(),
-                // Try with spaces (e.g., "Semi Bold")
-                "Regular"
-                // Fallback to Regular
-              ];
-              for (const styleVariant of stylesToTry) {
+              try {
+                await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+                textStyle.fontName = { family: fontFamily, style: fontStyle };
+              } catch (fontLoadError) {
+                console.warn(`\u26A0\uFE0F  "${fontFamily}" "${fontStyle}" not available - using Regular`);
                 try {
-                  await figma.loadFontAsync({ family: fontFamily, style: styleVariant });
-                  textStyle.fontName = { family: fontFamily, style: styleVariant };
-                  if (styleVariant !== fontStyle) {
-                    console.log(`\u2713 Loaded "${fontFamily}" with style variant "${styleVariant}" (requested: "${fontStyle}")`);
-                  }
-                  fontLoaded = true;
-                  break;
-                } catch (error46) {
-                  continue;
+                  await figma.loadFontAsync({ family: fontFamily, style: "Regular" });
+                  textStyle.fontName = { family: fontFamily, style: "Regular" };
+                } catch (fallbackError) {
+                  console.error(`\u274C Font "${fontFamily}" not installed in Figma`);
+                  throw fontLoadError;
                 }
-              }
-              if (!fontLoaded) {
-                console.error(`\u274C Font "${fontFamily}" not available in any style variant`);
-                throw new Error(`Font "${fontFamily}" not installed in Figma`);
               }
             }
           } catch (error46) {
