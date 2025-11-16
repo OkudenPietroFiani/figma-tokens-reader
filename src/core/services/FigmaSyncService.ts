@@ -7,7 +7,6 @@ import { Token, TokenType } from '../models/Token';
 import { Result, Success, Failure, ImportStats } from '../../shared/types';
 import { TokenRepository } from './TokenRepository';
 import { TokenResolver } from './TokenResolver';
-import { PreSyncValidator, ValidationReport } from './PreSyncValidator';
 
 /**
  * Sync result with detailed statistics
@@ -16,7 +15,6 @@ export interface SyncResult {
   stats: ImportStats;
   collections: string[]; // Collections created/updated
   variables: Map<string, Variable>; // variableId -> Variable
-  validation?: ValidationReport; // Validation report (if validation was run)
 }
 
 /**
@@ -27,8 +25,6 @@ export interface SyncOptions {
   preserveScopes?: boolean; // Preserve existing scopes (default: true)
   createStyles?: boolean; // Create text styles and effect styles from typography/shadow tokens (default: true)
   percentageBase?: number; // Base size for percentage calculations (default: 16px)
-  validateBeforeSync?: boolean; // Run pre-sync validation (default: true)
-  failOnValidationErrors?: boolean; // Abort sync if validation finds errors (default: false)
 }
 
 /**
@@ -55,14 +51,12 @@ export interface SyncOptions {
 export class FigmaSyncService {
   private repository: TokenRepository;
   private resolver: TokenResolver;
-  private validator: PreSyncValidator;
   private variableMap: Map<string, Variable> = new Map();
   private collectionMap: Map<string, VariableCollection> = new Map();
 
   constructor(repository: TokenRepository, resolver: TokenResolver) {
     this.repository = repository;
     this.resolver = resolver;
-    this.validator = new PreSyncValidator();
   }
 
   /**
@@ -80,44 +74,8 @@ export class FigmaSyncService {
         preserveScopes: true,
         createStyles: true,
         percentageBase: 16,
-        validateBeforeSync: true,
-        failOnValidationErrors: false,
         ...options,
       };
-
-      // Run pre-sync validation if enabled
-      let validationReport: ValidationReport | undefined;
-      if (opts.validateBeforeSync) {
-        // Determine project ID from tokens (assuming all tokens have same projectId)
-        const projectId = tokens.length > 0 ? tokens[0].projectId : 'unknown';
-
-        validationReport = this.validator.validate(tokens, projectId);
-
-        // Log validation results
-        if (!validationReport.valid) {
-          console.group(`[FigmaSyncService] Pre-sync validation found issues`);
-          console.log(this.validator.formatReport(validationReport));
-          console.groupEnd();
-
-          // Show user-friendly notification
-          if (validationReport.errorCount > 0) {
-            figma.notify(
-              `⚠️ Found ${validationReport.errorCount} validation error(s). Check console for details.`,
-              { timeout: 5000, error: true }
-            );
-          }
-
-          // Abort if errors and failOnValidationErrors is true
-          if (opts.failOnValidationErrors && validationReport.errorCount > 0) {
-            return Failure(
-              `Validation failed with ${validationReport.errorCount} error(s). ` +
-              `Fix errors or set failOnValidationErrors: false to proceed anyway.`
-            );
-          }
-        } else {
-          console.log(`[FigmaSyncService] ✓ Pre-sync validation passed`);
-        }
-      }
 
       const stats: ImportStats = { added: 0, updated: 0, skipped: 0 };
       const syncedCollections = new Set<string>();
@@ -161,7 +119,6 @@ export class FigmaSyncService {
         stats,
         collections: Array.from(syncedCollections),
         variables: this.variableMap,
-        validation: validationReport,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -350,7 +307,15 @@ export class FigmaSyncService {
       } else {
         // Direct value - use resolvedValue if available (handles embedded references)
         const valueToConvert = token.resolvedValue || token.value;
+        console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+          tokenValue: token.value,
+          resolvedValue: token.resolvedValue,
+          tokenType: token.type,
+          figmaType,
+          valueType: typeof valueToConvert,
+        });
         const value = this.convertValue(valueToConvert, figmaType);
+        console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
         variable.setValueForMode(modeId, value);
       }
 
@@ -438,7 +403,7 @@ export class FigmaSyncService {
 
   /**
    * Convert color value to Figma RGB format
-   * Handles: hex strings, RGB objects, HSL objects, nested components, color objects with components
+   * Handles: hex strings, RGB objects, HSL objects (uses hex), color objects with components
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
@@ -471,41 +436,14 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 2: Simple ColorValue with hex property { hex: "#1e40af" }
-      // This is the format returned by resolved color token references
-      if ('hex' in value && typeof value.hex === 'string') {
-        console.log('[FigmaSyncService] Converting ColorValue with hex:', value.hex);
+      // Format 2: HSL colorSpace with hex fallback (common in W3C Design Tokens)
+      // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
+        console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
         return this.hexToRgb(value.hex);
       }
 
-      // Format 3: ColorValue with HSL properties { h, s, l }
-      // Convert HSL to RGB
-      if ('h' in value && 's' in value && 'l' in value) {
-        return this.hslToRgb(value.h, value.s, value.l);
-      }
-
-      // Format 4: Nested components object (components is an object, not an array)
-      // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
-      if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
-        // Recursively convert the nested components object
-        return this.convertColorValue(value.components);
-      }
-
-      // Format 5: HSL colorSpace with components array
-      // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
-      if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
-        const [h, s, l] = value.components;
-
-        // Use hex fallback if available (more accurate)
-        if ('hex' in value && value.hex && typeof value.hex === 'string') {
-          return this.hexToRgb(value.hex);
-        }
-
-        // Otherwise convert HSL to RGB
-        return this.hslToRgb(h, s, l);
-      }
-
-      // Format 6: RGB colorSpace with components array
+      // Format 3: RGB colorSpace with components array
       // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
       if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
         const [r, g, b] = value.components;
@@ -516,7 +454,7 @@ export class FigmaSyncService {
         };
       }
 
-      // Format 7: W3C color object with components array (no colorSpace)
+      // Format 4: W3C color object with components array (no colorSpace)
       // Example: { components: [255, 128, 0], alpha: 1 }
       // Note: Alpha is ignored - Figma COLOR type only accepts RGB
       if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
@@ -546,23 +484,10 @@ export class FigmaSyncService {
     let alpha = 1;
 
     if (typeof value === 'object' && value !== null) {
-      // Check for numeric alpha values
       if ('a' in value && typeof value.a === 'number') {
         alpha = value.a;
       } else if ('alpha' in value && typeof value.alpha === 'number') {
         alpha = value.alpha;
-      }
-      // Warn about unresolved alpha references
-      else if ('alpha' in value && typeof value.alpha === 'string' && value.alpha.startsWith('{')) {
-        console.warn(
-          `[FigmaSyncService] Unresolved alpha reference: ${value.alpha} - using default alpha=1`
-        );
-        alpha = 1; // Default to fully opaque
-      } else if ('a' in value && typeof value.a === 'string' && value.a.startsWith('{')) {
-        console.warn(
-          `[FigmaSyncService] Unresolved alpha reference: ${value.a} - using default alpha=1`
-        );
-        alpha = 1; // Default to fully opaque
       }
     }
 
@@ -629,45 +554,6 @@ export class FigmaSyncService {
 
     console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
     return { r: 0, g: 0, b: 0 };
-  }
-
-  /**
-   * Convert HSL to RGB
-   * @param h - Hue (0-360)
-   * @param s - Saturation (0-100)
-   * @param l - Lightness (0-100)
-   * @returns RGB object normalized to 0-1
-   */
-  private hslToRgb(h: number, s: number, l: number): RGB {
-    // Normalize values
-    h = h / 360;
-    s = s / 100;
-    l = l / 100;
-
-    let r: number, g: number, b: number;
-
-    if (s === 0) {
-      // Achromatic (gray)
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p: number, q: number, t: number): number => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-
-      r = hue2rgb(p, q, h + 1 / 3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    return { r, g, b };
   }
 
   /**
@@ -1126,32 +1012,19 @@ export class FigmaSyncService {
             const numericWeight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
             const fontStyle = this.mapFontWeightToStyle(numericWeight);
 
-            // Try loading the font with fallbacks for common variations
-            let fontLoaded = false;
-            const stylesToTry = [
-              fontStyle, // Try exact match first (e.g., "SemiBold")
-              fontStyle.replace(/([A-Z])/g, ' $1').trim(), // Try with spaces (e.g., "Semi Bold")
-              'Regular', // Fallback to Regular
-            ];
-
-            for (const styleVariant of stylesToTry) {
+            try {
+              await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+              textStyle.fontName = { family: fontFamily, style: fontStyle };
+            } catch (fontLoadError) {
+              // Try fallback to Regular if specific weight fails
+              console.warn(`⚠️  "${fontFamily}" "${fontStyle}" not available - using Regular`);
               try {
-                await figma.loadFontAsync({ family: fontFamily, style: styleVariant });
-                textStyle.fontName = { family: fontFamily, style: styleVariant };
-                if (styleVariant !== fontStyle) {
-                  console.log(`✓ Loaded "${fontFamily}" with style variant "${styleVariant}" (requested: "${fontStyle}")`);
-                }
-                fontLoaded = true;
-                break;
-              } catch (error) {
-                // Try next variant
-                continue;
+                await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+                textStyle.fontName = { family: fontFamily, style: 'Regular' };
+              } catch (fallbackError) {
+                console.error(`❌ Font "${fontFamily}" not installed in Figma`);
+                throw fontLoadError; // Re-throw original error
               }
-            }
-
-            if (!fontLoaded) {
-              console.error(`❌ Font "${fontFamily}" not available in any style variant`);
-              throw new Error(`Font "${fontFamily}" not installed in Figma`);
             }
           }
         } catch (error) {
