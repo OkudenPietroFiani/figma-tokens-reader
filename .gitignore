@@ -4,9 +4,6 @@ package-lock.json
 
 # Build outputs
 *.js.map
-code.js
-ui.js
-ui.html
 
 # IDE
 .vscode/
