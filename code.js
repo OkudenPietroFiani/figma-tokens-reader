@@ -2082,6 +2082,58 @@
           lineHeight: typValue.lineHeight,
           letterSpacing: typValue.letterSpacing
         });
+        const unresolvedRefs = [];
+        const validateResolution = (obj, path = "") => {
+          if (typeof obj === "string" && obj.startsWith("{") && obj.endsWith("}")) {
+            unresolvedRefs.push(`${path}: ${obj}`);
+          } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+            for (const [key, val] of Object.entries(obj)) {
+              validateResolution(val, path ? `${path}.${key}` : key);
+            }
+          } else if (Array.isArray(obj)) {
+            obj.forEach((item, index) => {
+              validateResolution(item, `${path}[${index}]`);
+            });
+          }
+        };
+        validateResolution(resolvedValue);
+        if (unresolvedRefs.length > 0) {
+          console.error(`[FigmaSyncService] \u274C Typography token "${token.qualifiedName}" has ${unresolvedRefs.length} unresolved reference(s):`);
+          unresolvedRefs.forEach((ref) => console.error(`  - ${ref}`));
+          console.error(`[FigmaSyncService] \u{1F50D} This will cause Figma to use DEFAULT VALUES (12px font, AUTO line height)`);
+          console.error(`[FigmaSyncService] \u{1F4CB} Token details:`);
+          console.error(`  - Project ID: "${token.projectId}"`);
+          console.error(`  - Collection: "${token.collection}"`);
+          console.error(`  - Source: ${token.source.type} (${token.source.location})`);
+          const allTokens = this.repository.getByProject(token.projectId);
+          console.error(`[FigmaSyncService] \u{1F4DA} Available tokens in project "${token.projectId}" (${allTokens.length} total):`);
+          const sampleTokens = allTokens.slice(0, 15);
+          sampleTokens.forEach((t) => {
+            console.error(`    - ${t.qualifiedName} (type: ${t.type}, collection: ${t.collection})`);
+          });
+          if (allTokens.length > 15) {
+            console.error(`    ... and ${allTokens.length - 15} more tokens`);
+          }
+          console.error(`[FigmaSyncService] \u{1F4A1} Searching for similar tokens across ALL projects...`);
+          const allProjects = this.repository.getAll();
+          const hints = [];
+          for (const ref of unresolvedRefs) {
+            const refValue = ref.split(": ")[1];
+            const cleanRef = refValue.slice(1, -1);
+            const matches = allProjects.filter(
+              (t) => t.qualifiedName.includes(cleanRef) || cleanRef.includes(t.qualifiedName) || t.qualifiedName.toLowerCase().includes(cleanRef.toLowerCase())
+            );
+            if (matches.length > 0) {
+              hints.push(`  "${refValue}" might be: ${matches.slice(0, 3).map((m) => `"${m.qualifiedName}" (project: ${m.projectId})`).join(", ")}`);
+            } else {
+              hints.push(`  "${refValue}" - NO MATCHES FOUND (token may not exist)`);
+            }
+          }
+          hints.forEach((hint) => console.error(hint));
+          console.error(`[FigmaSyncService] \u26A0\uFE0F  Fix: Ensure referenced tokens exist and use correct names`);
+        } else {
+          console.log(`[FigmaSyncService] \u2705 All references resolved successfully for ${token.qualifiedName}`);
+        }
         const styleName = token.path.join("/");
         const existingStyles = await figma.getLocalTextStylesAsync();
         let textStyle = existingStyles.find((s) => s.name === styleName);
@@ -2163,6 +2215,47 @@
         }
         const resolvedValue = this.resolveNestedReferences(value, token.projectId);
         const shadowValue = resolvedValue;
+        const unresolvedRefs = [];
+        const validateResolution = (obj, path = "") => {
+          if (typeof obj === "string" && obj.startsWith("{") && obj.endsWith("}")) {
+            unresolvedRefs.push(`${path}: ${obj}`);
+          } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+            for (const [key, val] of Object.entries(obj)) {
+              validateResolution(val, path ? `${path}.${key}` : key);
+            }
+          } else if (Array.isArray(obj)) {
+            obj.forEach((item, index) => {
+              validateResolution(item, `${path}[${index}]`);
+            });
+          }
+        };
+        validateResolution(resolvedValue);
+        if (unresolvedRefs.length > 0) {
+          console.error(`[FigmaSyncService] \u274C Shadow token "${token.qualifiedName}" has ${unresolvedRefs.length} unresolved reference(s):`);
+          unresolvedRefs.forEach((ref) => console.error(`  - ${ref}`));
+          console.error(`[FigmaSyncService] \u{1F50D} This may cause rendering issues or default shadow values`);
+          console.error(`[FigmaSyncService] \u{1F4CB} Token details:`);
+          console.error(`  - Project ID: "${token.projectId}"`);
+          console.error(`  - Collection: "${token.collection}"`);
+          const allProjects = this.repository.getAll();
+          const hints = [];
+          for (const ref of unresolvedRefs) {
+            const refValue = ref.split(": ")[1];
+            const cleanRef = refValue.slice(1, -1);
+            const matches = allProjects.filter(
+              (t) => t.qualifiedName.includes(cleanRef) || cleanRef.includes(t.qualifiedName) || t.qualifiedName.toLowerCase().includes(cleanRef.toLowerCase())
+            );
+            if (matches.length > 0) {
+              hints.push(`  "${refValue}" might be: ${matches.slice(0, 3).map((m) => `"${m.qualifiedName}" (project: ${m.projectId})`).join(", ")}`);
+            } else {
+              hints.push(`  "${refValue}" - NO MATCHES FOUND`);
+            }
+          }
+          console.error(`[FigmaSyncService] \u{1F4A1} Suggestions:`);
+          hints.forEach((hint) => console.error(hint));
+        } else {
+          console.log(`[FigmaSyncService] \u2705 All shadow references resolved successfully for ${token.qualifiedName}`);
+        }
         const styleName = token.path.join("/");
         const existingStyles = await figma.getLocalEffectStylesAsync();
         let effectStyle = existingStyles.find((s) => s.name === styleName);
