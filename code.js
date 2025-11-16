@@ -15046,15 +15046,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         } else {
           const valueToConvert = token.resolvedValue || token.value;
-          console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
-            tokenValue: token.value,
-            resolvedValue: token.resolvedValue,
-            tokenType: token.type,
-            figmaType,
-            valueType: typeof valueToConvert
-          });
           const value = this.convertValue(valueToConvert, figmaType);
-          console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -15149,7 +15141,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return this.hexToRgb(value.hex);
         }
         if ("h" in value && "s" in value && "l" in value) {
-          console.log("[FigmaSyncService] Converting ColorValue with HSL:", { h: value.h, s: value.s, l: value.l });
           return this.hslToRgb(value.h, value.s, value.l);
         }
         if ("components" in value && typeof value.components === "object" && value.components !== null && !Array.isArray(value.components)) {
@@ -15157,9 +15148,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
         if ("colorSpace" in value && value.colorSpace === "hsl" && Array.isArray(value.components)) {
           const [h, s, l] = value.components;
-          console.log("[FigmaSyncService] Converting HSL colorSpace with components:", { h, s, l });
           if ("hex" in value && value.hex && typeof value.hex === "string") {
-            console.log("[FigmaSyncService] Using hex fallback for HSL:", value.hex);
             return this.hexToRgb(value.hex);
           }
           return this.hslToRgb(h, s, l);
