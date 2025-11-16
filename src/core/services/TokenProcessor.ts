@@ -9,6 +9,8 @@ import { ITokenFormatStrategy } from '../interfaces/ITokenFormatStrategy';
 import { TokenFormatRegistry } from '../registries/TokenFormatRegistry';
 import { Result, Success, Failure } from '../../shared/types';
 import { deepClone } from '../../shared/utils';
+import { isFeatureEnabled } from '../config/FeatureFlags';
+import { validateToken } from '../validation/schemas';
 
 /**
  * Token processing options
@@ -195,6 +197,27 @@ export class TokenProcessor {
         created: now,
         lastModified: now,
       };
+
+      // Validate token if Zod validation is enabled
+      if (isFeatureEnabled('ZOD_VALIDATION')) {
+        const validationResult = validateToken(token);
+        if (!validationResult.success && validationResult.error) {
+          console.warn(
+            `[TokenProcessor] Token validation failed for ${qualifiedName}:`,
+            validationResult.error.issues
+          );
+          // Add validation errors to token extensions for debugging
+          token.extensions = {
+            ...token.extensions,
+            validationErrors: validationResult.error.issues.map((e: any) => ({
+              path: e.path.join('.'),
+              message: e.message,
+              code: e.code,
+            })),
+          };
+          token.status = 'draft'; // Mark as draft if validation fails
+        }
+      }
 
       tokens.push(token);
     }

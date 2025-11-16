@@ -20,7 +20,7 @@
  * }
  * ```
  */
-export const FeatureFlags = {
+export const FeatureFlags: Record<string, boolean> = {
   /**
    * Phase 1.1: Use discriminated union types for Token
    * - Compile-time type safety (type determines value type)
@@ -129,7 +129,7 @@ export const FeatureFlags = {
    * Default: false
    */
   DRY_RUN: false,
-} as const;
+};
 
 /**
  * Type for feature flag keys

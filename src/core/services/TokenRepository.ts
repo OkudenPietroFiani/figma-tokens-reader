@@ -5,6 +5,8 @@
 
 import { Token, TokenType, TokenUpdate } from '../models/Token';
 import { Result, Success, Failure } from '../../shared/types';
+import { isFeatureEnabled } from '../config/FeatureFlags';
+import { validateToken } from '../validation/schemas';
 
 /**
  * Query interface for filtering tokens
@@ -98,11 +100,43 @@ export class TokenRepository {
    */
   add(tokens: Token[]): Result<number> {
     try {
+      let addedCount = 0;
+      const validationErrors: Array<{ tokenId: string; errors: any[] }> = [];
+
       for (const token of tokens) {
         // Validate token has required fields
         if (!token.id || !token.projectId || !token.path || token.path.length === 0) {
           console.error('[TokenRepository] Invalid token missing required fields:', token);
           continue;
+        }
+
+        // Validate token with Zod if feature is enabled
+        if (isFeatureEnabled('ZOD_VALIDATION')) {
+          const validationResult = validateToken(token);
+          if (!validationResult.success && validationResult.error) {
+            console.warn(
+              `[TokenRepository] Token validation failed for ${token.qualifiedName}:`,
+              validationResult.error.issues
+            );
+            validationErrors.push({
+              tokenId: token.id,
+              errors: validationResult.error.issues.map((e: any) => ({
+                path: e.path.join('.'),
+                message: e.message,
+                code: e.code,
+              })),
+            });
+            // Still add the token but mark it as draft
+            token.status = 'draft';
+            token.extensions = {
+              ...token.extensions,
+              validationErrors: validationResult.error.issues.map((e: any) => ({
+                path: e.path.join('.'),
+                message: e.message,
+                code: e.code,
+              })),
+            };
+          }
         }
 
         // Remove old indexes if updating existing token
@@ -115,9 +149,17 @@ export class TokenRepository {
 
         // Update indexes
         this.addToIndexes(token);
+
+        addedCount++;
       }
 
-      return Success(tokens.length);
+      if (validationErrors.length > 0) {
+        console.warn(
+          `[TokenRepository] ${validationErrors.length} token(s) failed validation but were added as drafts`
+        );
+      }
+
+      return Success(addedCount);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[TokenRepository] Failed to add tokens:', message);
