@@ -49,6 +49,19 @@ export class ColorConverter implements IColorConverter {
         return this.colorSpaceToRGB(input);
       }
 
+      // Handle components array without colorSpace (W3C format)
+      // Example: { components: [255, 128, 0], alpha: 1 }
+      if ('components' in input && Array.isArray(input.components) && !('colorSpace' in input)) {
+        const [r, g, b] = input.components;
+        const a = typeof input.alpha === 'number' ? input.alpha : 1;
+        return Success({
+          r: r / 255,
+          g: g / 255,
+          b: b / 255,
+          a,
+        });
+      }
+
       // Handle object with value property
       if (typeof input === 'object' && input !== null && 'value' in input) {
         return this.toRGB(input.value);
@@ -286,10 +299,18 @@ export class ColorConverter implements IColorConverter {
   /**
    * Convert colorSpace object to RGB
    * Format: { colorSpace: "hsl", components: [h, s, l], alpha: 0.75 }
+   * Also handles nested components: { components: { components: [...] } }
    */
   private colorSpaceToRGB(obj: any): Result<RGB> {
     const { colorSpace, components, alpha } = obj;
     const a = typeof alpha === 'number' ? alpha : 1;
+
+    // Handle nested components object (components is an object, not an array)
+    // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
+    if (typeof components === 'object' && components !== null && !Array.isArray(components)) {
+      // Recursively convert the nested components object
+      return this.toRGB(components);
+    }
 
     if (colorSpace === 'hsl' && Array.isArray(components) && components.length === 3) {
       const h = components[0] / 360;

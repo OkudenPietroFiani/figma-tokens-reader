@@ -1616,6 +1616,798 @@
     }
   };
 
+  // src/core/converters/ColorConverter.ts
+  var ColorConverter = class {
+    /**
+     * Convert any color format to normalized RGB (0-1)
+     * Used by Figma API
+     */
+    toRGB(input) {
+      try {
+        if (this.isColorValue(input)) {
+          return this.colorValueToRGB(input);
+        }
+        if (typeof input === "string" && input.startsWith("#")) {
+          return this.hexToRGB(input);
+        }
+        if (typeof input === "string" && input.startsWith("rgb")) {
+          return this.rgbStringToRGB(input);
+        }
+        if (typeof input === "string" && input.startsWith("hsl")) {
+          return this.hslStringToRGB(input);
+        }
+        if (this.isColorSpaceObject(input)) {
+          return this.colorSpaceToRGB(input);
+        }
+        if ("components" in input && Array.isArray(input.components) && !("colorSpace" in input)) {
+          const [r, g, b] = input.components;
+          const a = typeof input.alpha === "number" ? input.alpha : 1;
+          return Success({
+            r: r / 255,
+            g: g / 255,
+            b: b / 255,
+            a
+          });
+        }
+        if (typeof input === "object" && input !== null && "value" in input) {
+          return this.toRGB(input.value);
+        }
+        return Failure(`Unsupported color format: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Color conversion failed: ${message}`);
+      }
+    }
+    /**
+     * Convert any color format to RGBA (0-255)
+     * Used for web standards
+     */
+    toRGBA(input) {
+      const rgbResult = this.toRGB(input);
+      if (!rgbResult.success) {
+        return Failure(rgbResult.error || "Failed to convert to RGB");
+      }
+      const rgb = rgbResult.data;
+      return Success({
+        r: Math.round(rgb.r * 255),
+        g: Math.round(rgb.g * 255),
+        b: Math.round(rgb.b * 255),
+        a: rgb.a
+      });
+    }
+    /**
+     * Convert any color format to hex string
+     */
+    toHex(input) {
+      const rgbResult = this.toRGB(input);
+      if (!rgbResult.success) {
+        return Failure(rgbResult.error || "Failed to convert to RGB");
+      }
+      const rgb = rgbResult.data;
+      const r = Math.round(rgb.r * 255);
+      const g = Math.round(rgb.g * 255);
+      const b = Math.round(rgb.b * 255);
+      const a = Math.round(rgb.a * 255);
+      if (rgb.a < 1) {
+        return Success(
+          `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}${a.toString(16).padStart(2, "0")}`
+        );
+      }
+      return Success(
+        `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+      );
+    }
+    /**
+     * Convert any color format to HSL
+     */
+    toHSL(input) {
+      const rgbResult = this.toRGB(input);
+      if (!rgbResult.success) {
+        return Failure(rgbResult.error || "Failed to convert to RGB");
+      }
+      const rgb = rgbResult.data;
+      return Success(this.rgbToHsl(rgb));
+    }
+    /**
+     * Validate color input
+     */
+    validate(input) {
+      const result = this.toRGB(input);
+      return result.success ? Success(true) : Success(false);
+    }
+    // ==================== PRIVATE CONVERSION METHODS ====================
+    /**
+     * Convert ColorValue to RGB
+     */
+    colorValueToRGB(colorValue) {
+      if (colorValue.hex) {
+        return this.hexToRGB(colorValue.hex);
+      }
+      if (colorValue.r !== void 0 && colorValue.g !== void 0 && colorValue.b !== void 0) {
+        return Success({
+          r: colorValue.r / 255,
+          g: colorValue.g / 255,
+          b: colorValue.b / 255,
+          a: colorValue.a !== void 0 ? colorValue.a : 1
+        });
+      }
+      if (colorValue.h !== void 0 && colorValue.s !== void 0 && colorValue.l !== void 0) {
+        const h = colorValue.h / 360;
+        const s = colorValue.s / 100;
+        const l = colorValue.l / 100;
+        const a = colorValue.a !== void 0 ? colorValue.a : 1;
+        const rgb = this.hslToRgb(h, s, l);
+        return Success(__spreadProps(__spreadValues({}, rgb), { a }));
+      }
+      return Failure("ColorValue must have hex, rgb, or hsl values");
+    }
+    /**
+     * Convert hex string to RGB
+     * Supports: #RGB, #RRGGBB, #RGBA, #RRGGBBAA
+     */
+    hexToRGB(hex) {
+      const cleaned = hex.replace("#", "");
+      if (!/^[0-9A-Fa-f]{3,8}$/.test(cleaned)) {
+        return Failure(`Invalid hex color format: ${hex}`);
+      }
+      try {
+        if (cleaned.length === 8) {
+          const bigint = parseInt(cleaned.substring(0, 6), 16);
+          const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
+          return Success({
+            r: (bigint >> 16 & 255) / 255,
+            g: (bigint >> 8 & 255) / 255,
+            b: (bigint & 255) / 255,
+            a: alpha
+          });
+        }
+        if (cleaned.length === 4) {
+          const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
+          const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
+          const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
+          const a = parseInt(cleaned[3] + cleaned[3], 16) / 255;
+          return Success({ r, g, b, a });
+        }
+        if (cleaned.length === 6) {
+          const bigint = parseInt(cleaned, 16);
+          return Success({
+            r: (bigint >> 16 & 255) / 255,
+            g: (bigint >> 8 & 255) / 255,
+            b: (bigint & 255) / 255,
+            a: 1
+          });
+        }
+        if (cleaned.length === 3) {
+          const r = parseInt(cleaned[0] + cleaned[0], 16) / 255;
+          const g = parseInt(cleaned[1] + cleaned[1], 16) / 255;
+          const b = parseInt(cleaned[2] + cleaned[2], 16) / 255;
+          return Success({ r, g, b, a: 1 });
+        }
+        return Failure(`Unsupported hex length: ${cleaned.length}`);
+      } catch (error) {
+        return Failure(`Failed to parse hex color: ${hex}`);
+      }
+    }
+    /**
+     * Convert rgb/rgba string to RGB
+     * Supports: rgb(255, 255, 255), rgba(255, 255, 255, 0.5)
+     */
+    rgbStringToRGB(rgbString) {
+      const match = rgbString.match(
+        /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/
+      );
+      if (!match) {
+        return Failure(`Invalid rgb/rgba format: ${rgbString}`);
+      }
+      const r = parseInt(match[1]) / 255;
+      const g = parseInt(match[2]) / 255;
+      const b = parseInt(match[3]) / 255;
+      const a = match[4] !== void 0 ? parseFloat(match[4]) : 1;
+      if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1 || a < 0 || a > 1) {
+        return Failure(`RGB values out of range: ${rgbString}`);
+      }
+      return Success({ r, g, b, a });
+    }
+    /**
+     * Convert hsl/hsla string to RGB
+     * Supports: hsl(120, 50%, 50%), hsla(120, 50%, 50%, 0.5)
+     */
+    hslStringToRGB(hslString) {
+      const match = hslString.match(
+        /hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([\d.]+)\s*)?\)/
+      );
+      if (!match) {
+        return Failure(`Invalid hsl/hsla format: ${hslString}`);
+      }
+      const h = parseInt(match[1]) / 360;
+      const s = parseInt(match[2]) / 100;
+      const l = parseInt(match[3]) / 100;
+      const a = match[4] !== void 0 ? parseFloat(match[4]) : 1;
+      const rgb = this.hslToRgb(h, s, l);
+      return Success(__spreadProps(__spreadValues({}, rgb), { a }));
+    }
+    /**
+     * Convert colorSpace object to RGB
+     * Format: { colorSpace: "hsl", components: [h, s, l], alpha: 0.75 }
+     * Also handles nested components: { components: { components: [...] } }
+     */
+    colorSpaceToRGB(obj) {
+      const { colorSpace, components, alpha } = obj;
+      const a = typeof alpha === "number" ? alpha : 1;
+      if (typeof components === "object" && components !== null && !Array.isArray(components)) {
+        return this.toRGB(components);
+      }
+      if (colorSpace === "hsl" && Array.isArray(components) && components.length === 3) {
+        const h = components[0] / 360;
+        const s = components[1] / 100;
+        const l = components[2] / 100;
+        const rgb = this.hslToRgb(h, s, l);
+        return Success(__spreadProps(__spreadValues({}, rgb), { a }));
+      }
+      if (colorSpace === "rgb" && Array.isArray(components) && components.length === 3) {
+        return Success({
+          r: components[0] / 255,
+          g: components[1] / 255,
+          b: components[2] / 255,
+          a
+        });
+      }
+      if (obj.hex) {
+        const hexResult = this.hexToRGB(obj.hex);
+        if (hexResult.success) {
+          return Success(__spreadProps(__spreadValues({}, hexResult.data), { a }));
+        }
+      }
+      return Failure(`Unsupported colorSpace format: ${colorSpace}`);
+    }
+    /**
+     * Convert HSL to RGB (normalized 0-1)
+     */
+    hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p2, q2, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
+          if (t < 1 / 2) return q2;
+          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
+          return p2;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return { r, g, b };
+    }
+    /**
+     * Convert RGB to HSL
+     */
+    rgbToHsl(rgb) {
+      const { r, g, b, a } = rgb;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r:
+            h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+            break;
+          case g:
+            h = ((b - r) / d + 2) / 6;
+            break;
+          case b:
+            h = ((r - g) / d + 4) / 6;
+            break;
+        }
+      }
+      return {
+        h: Math.round(h * 360),
+        s: Math.round(s * 100),
+        l: Math.round(l * 100),
+        a
+      };
+    }
+    // ==================== TYPE GUARDS ====================
+    /**
+     * Check if value is ColorValue
+     */
+    isColorValue(value) {
+      return typeof value === "object" && value !== null && (value.hex !== void 0 || value.r !== void 0 && value.g !== void 0 && value.b !== void 0 || value.h !== void 0 && value.s !== void 0 && value.l !== void 0);
+    }
+    /**
+     * Check if value is colorSpace object
+     */
+    isColorSpaceObject(value) {
+      return typeof value === "object" && value !== null && "colorSpace" in value && "components" in value;
+    }
+  };
+  var colorConverter = new ColorConverter();
+
+  // src/core/converters/DimensionConverter.ts
+  var DimensionConverter = class {
+    constructor() {
+      this.DEFAULT_BASE_FONT_SIZE = 16;
+    }
+    // px
+    /**
+     * Convert any dimension format to pixels
+     */
+    toPixels(input, baseFontSize = this.DEFAULT_BASE_FONT_SIZE) {
+      try {
+        if (this.isDimensionValue(input)) {
+          return this.dimensionValueToPixels(input, baseFontSize);
+        }
+        if (typeof input === "number") {
+          return Success(input);
+        }
+        if (typeof input === "string") {
+          const parseResult = this.parse(input);
+          if (!parseResult.success) {
+            return Failure(parseResult.error || "Failed to parse dimension");
+          }
+          const { value, unit } = parseResult.data;
+          return this.convertToPixels(value, unit, baseFontSize);
+        }
+        if (typeof input === "object" && input !== null && "value" in input) {
+          if ("unit" in input) {
+            return this.convertToPixels(input.value, input.unit, baseFontSize);
+          }
+          return this.toPixels(input.value, baseFontSize);
+        }
+        return Failure(`Unsupported dimension format: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Dimension conversion failed: ${message}`);
+      }
+    }
+    /**
+     * Convert dimension to rem
+     */
+    toRem(input, baseFontSize = this.DEFAULT_BASE_FONT_SIZE) {
+      const pixelsResult = this.toPixels(input, baseFontSize);
+      if (!pixelsResult.success) {
+        return Failure(pixelsResult.error || "Failed to convert to pixels");
+      }
+      const pixels = pixelsResult.data;
+      return Success(pixels / baseFontSize);
+    }
+    /**
+     * Parse dimension string to value and unit
+     */
+    parse(input) {
+      const trimmed = input.trim();
+      const match = trimmed.match(/^(-?[\d.]+)\s*([a-z%]*)$/i);
+      if (!match) {
+        return Failure(`Invalid dimension format: ${input}`);
+      }
+      const value = parseFloat(match[1]);
+      const unit = match[2] || "px";
+      if (isNaN(value)) {
+        return Failure(`Invalid dimension value: ${match[1]}`);
+      }
+      const validUnits = ["px", "rem", "em", "%", "pt", ""];
+      if (!validUnits.includes(unit)) {
+        return Failure(`Unsupported unit: ${unit}`);
+      }
+      return Success({ value, unit: unit || "px" });
+    }
+    /**
+     * Validate dimension input
+     */
+    validate(input) {
+      const result = this.toPixels(input);
+      return result.success ? Success(true) : Success(false);
+    }
+    // ==================== PRIVATE CONVERSION METHODS ====================
+    /**
+     * Convert DimensionValue to pixels
+     */
+    dimensionValueToPixels(dimValue, baseFontSize) {
+      return this.convertToPixels(dimValue.value, dimValue.unit, baseFontSize);
+    }
+    /**
+     * Convert value from specific unit to pixels
+     */
+    convertToPixels(value, unit, baseFontSize) {
+      switch (unit.toLowerCase()) {
+        case "px":
+          return Success(value);
+        case "rem":
+          return Success(value * baseFontSize);
+        case "em":
+          return Success(value * baseFontSize);
+        case "pt":
+          return Success(value * 1.333333);
+        case "%":
+          return Success(value / 100 * baseFontSize);
+        case "":
+          return Success(value);
+        default:
+          return Failure(`Unsupported unit: ${unit}`);
+      }
+    }
+    // ==================== TYPE GUARDS ====================
+    /**
+     * Check if value is DimensionValue
+     */
+    isDimensionValue(value) {
+      return typeof value === "object" && value !== null && "value" in value && "unit" in value && typeof value.value === "number" && typeof value.unit === "string";
+    }
+  };
+  var dimensionConverter = new DimensionConverter();
+
+  // src/core/converters/TypographyConverter.ts
+  var TypographyConverter = class {
+    constructor() {
+      this.DEFAULT_BASE_FONT_SIZE = 16;
+      this.DEFAULT_FONT_FAMILY = "Inter";
+      this.DEFAULT_FONT_SIZE = 16;
+      this.DEFAULT_FONT_WEIGHT = 400;
+    }
+    /**
+     * Convert typography value to Figma format
+     */
+    toFigma(input, baseFontSize = this.DEFAULT_BASE_FONT_SIZE) {
+      try {
+        if (this.isTypographyValue(input)) {
+          return this.typographyValueToFigma(input, baseFontSize);
+        }
+        if (typeof input === "object" && input !== null) {
+          return this.objectToFigma(input, baseFontSize);
+        }
+        return Failure(`Unsupported typography format: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Typography conversion failed: ${message}`);
+      }
+    }
+    /**
+     * Extract font family from typography value
+     */
+    getFontFamily(input) {
+      try {
+        if (typeof input === "string") {
+          return Success(this.parseFontFamily(input));
+        }
+        if (Array.isArray(input)) {
+          return Success(input[0] ? String(input[0]) : this.DEFAULT_FONT_FAMILY);
+        }
+        if (typeof input === "object" && input !== null && input.fontFamily) {
+          return this.getFontFamily(input.fontFamily);
+        }
+        if (typeof input === "object" && input !== null && "value" in input) {
+          return this.getFontFamily(input.value);
+        }
+        return Failure(`Cannot extract font family from: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Font family extraction failed: ${message}`);
+      }
+    }
+    /**
+     * Extract font size from typography value
+     */
+    getFontSize(input, baseFontSize = this.DEFAULT_BASE_FONT_SIZE) {
+      try {
+        if (typeof input === "number") {
+          return Success(input);
+        }
+        if (typeof input === "string") {
+          return dimensionConverter.toPixels(input, baseFontSize);
+        }
+        if (typeof input === "object" && input !== null && "value" in input && "unit" in input) {
+          return dimensionConverter.toPixels(input, baseFontSize);
+        }
+        if (typeof input === "object" && input !== null && input.fontSize) {
+          return this.getFontSize(input.fontSize, baseFontSize);
+        }
+        return Failure(`Cannot extract font size from: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Font size extraction failed: ${message}`);
+      }
+    }
+    /**
+     * Extract font weight from typography value
+     */
+    getFontWeight(input) {
+      try {
+        if (typeof input === "number") {
+          return this.normalizeFontWeight(input);
+        }
+        if (typeof input === "string") {
+          return this.parseFontWeight(input);
+        }
+        if (typeof input === "object" && input !== null && input.fontWeight) {
+          return this.getFontWeight(input.fontWeight);
+        }
+        if (typeof input === "object" && input !== null && "value" in input) {
+          return this.getFontWeight(input.value);
+        }
+        return Failure(`Cannot extract font weight from: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Font weight extraction failed: ${message}`);
+      }
+    }
+    /**
+     * Validate typography input
+     */
+    validate(input) {
+      const result = this.toFigma(input);
+      return result.success ? Success(true) : Success(false);
+    }
+    // ==================== PRIVATE CONVERSION METHODS ====================
+    /**
+     * Convert TypographyValue to Figma format
+     */
+    typographyValueToFigma(typoValue, baseFontSize) {
+      const figmaTypo = {
+        fontFamily: this.DEFAULT_FONT_FAMILY,
+        fontSize: this.DEFAULT_FONT_SIZE,
+        fontWeight: this.DEFAULT_FONT_WEIGHT
+      };
+      if (typoValue.fontFamily) {
+        const familyResult = this.getFontFamily(typoValue.fontFamily);
+        if (familyResult.success) {
+          figmaTypo.fontFamily = familyResult.data;
+        }
+      }
+      if (typoValue.fontSize) {
+        const sizeResult = this.getFontSize(typoValue.fontSize, baseFontSize);
+        if (sizeResult.success) {
+          figmaTypo.fontSize = sizeResult.data;
+        }
+      }
+      if (typoValue.fontWeight) {
+        const weightResult = this.getFontWeight(typoValue.fontWeight);
+        if (weightResult.success) {
+          figmaTypo.fontWeight = weightResult.data;
+        }
+      }
+      if (typoValue.lineHeight) {
+        const lineHeightResult = this.convertLineHeight(typoValue.lineHeight, baseFontSize);
+        if (lineHeightResult.success) {
+          figmaTypo.lineHeight = lineHeightResult.data;
+        }
+      }
+      if (typoValue.letterSpacing) {
+        const letterSpacingResult = this.convertLetterSpacing(typoValue.letterSpacing, baseFontSize);
+        if (letterSpacingResult.success) {
+          figmaTypo.letterSpacing = letterSpacingResult.data;
+        }
+      }
+      return Success(figmaTypo);
+    }
+    /**
+     * Convert generic object to Figma typography
+     */
+    objectToFigma(obj, baseFontSize) {
+      return this.typographyValueToFigma(obj, baseFontSize);
+    }
+    /**
+     * Parse font family string
+     * Handles comma-separated font stacks
+     */
+    parseFontFamily(value) {
+      if (value.includes(",")) {
+        return value.split(",")[0].trim().replace(/['"]/g, "");
+      }
+      return value.trim().replace(/['"]/g, "");
+    }
+    /**
+     * Parse font weight string to number
+     */
+    parseFontWeight(value) {
+      const parsed = parseInt(value);
+      if (!isNaN(parsed)) {
+        return this.normalizeFontWeight(parsed);
+      }
+      const weightMap = {
+        thin: 100,
+        hairline: 100,
+        extralight: 200,
+        ultralight: 200,
+        light: 300,
+        normal: 400,
+        regular: 400,
+        medium: 500,
+        semibold: 600,
+        demibold: 600,
+        bold: 700,
+        extrabold: 800,
+        ultrabold: 800,
+        black: 900,
+        heavy: 900
+      };
+      const normalized = value.toLowerCase().trim();
+      if (normalized in weightMap) {
+        return Success(weightMap[normalized]);
+      }
+      return Failure(`Unknown font weight: ${value}`);
+    }
+    /**
+     * Normalize font weight to valid range (100-900)
+     */
+    normalizeFontWeight(weight) {
+      const rounded = Math.round(weight / 100) * 100;
+      const clamped = Math.max(100, Math.min(900, rounded));
+      return Success(clamped);
+    }
+    /**
+     * Convert line height to Figma format
+     */
+    convertLineHeight(value, baseFontSize) {
+      if (typeof value === "string" && (value.toLowerCase() === "normal" || value.toLowerCase() === "auto")) {
+        return Success({ value: 0, unit: "AUTO" });
+      }
+      if (typeof value === "number") {
+        return Success({ value: value * 100, unit: "PERCENT" });
+      }
+      if (typeof value === "string") {
+        const pixelsResult = dimensionConverter.toPixels(value, baseFontSize);
+        if (pixelsResult.success) {
+          return Success({ value: pixelsResult.data, unit: "PIXELS" });
+        }
+      }
+      if (typeof value === "object" && value !== null && "value" in value && "unit" in value) {
+        const pixelsResult = dimensionConverter.toPixels(value, baseFontSize);
+        if (pixelsResult.success) {
+          return Success({ value: pixelsResult.data, unit: "PIXELS" });
+        }
+      }
+      return Failure(`Cannot convert line height: ${JSON.stringify(value)}`);
+    }
+    /**
+     * Convert letter spacing to Figma format
+     */
+    convertLetterSpacing(value, baseFontSize) {
+      if (typeof value === "number") {
+        return Success({ value, unit: "PIXELS" });
+      }
+      if (typeof value === "string") {
+        const pixelsResult = dimensionConverter.toPixels(value, baseFontSize);
+        if (pixelsResult.success) {
+          return Success({ value: pixelsResult.data, unit: "PIXELS" });
+        }
+      }
+      if (typeof value === "object" && value !== null && "value" in value && "unit" in value) {
+        const pixelsResult = dimensionConverter.toPixels(value, baseFontSize);
+        if (pixelsResult.success) {
+          return Success({ value: pixelsResult.data, unit: "PIXELS" });
+        }
+      }
+      return Failure(`Cannot convert letter spacing: ${JSON.stringify(value)}`);
+    }
+    // ==================== TYPE GUARDS ====================
+    /**
+     * Check if value is TypographyValue
+     */
+    isTypographyValue(value) {
+      return typeof value === "object" && value !== null && (value.fontFamily !== void 0 || value.fontSize !== void 0 || value.fontWeight !== void 0 || value.lineHeight !== void 0 || value.letterSpacing !== void 0);
+    }
+  };
+  var typographyConverter = new TypographyConverter();
+
+  // src/core/converters/ShadowConverter.ts
+  var ShadowConverter = class {
+    /**
+     * Convert shadow value to Figma format
+     */
+    toFigma(input) {
+      try {
+        if (this.isShadowValue(input)) {
+          return this.shadowValueToFigma(input);
+        }
+        if (typeof input === "object" && input !== null) {
+          return this.objectToFigma(input);
+        }
+        return Failure(`Unsupported shadow format: ${JSON.stringify(input)}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Shadow conversion failed: ${message}`);
+      }
+    }
+    /**
+     * Validate shadow input
+     */
+    validate(input) {
+      const result = this.toFigma(input);
+      return result.success ? Success(true) : Success(false);
+    }
+    // ==================== PRIVATE CONVERSION METHODS ====================
+    /**
+     * Convert ShadowValue to Figma format
+     */
+    shadowValueToFigma(shadowValue) {
+      const offsetXResult = this.convertDimension(shadowValue.offsetX);
+      if (!offsetXResult.success) {
+        return Failure(`Failed to convert offsetX: ${offsetXResult.error}`);
+      }
+      const offsetYResult = this.convertDimension(shadowValue.offsetY);
+      if (!offsetYResult.success) {
+        return Failure(`Failed to convert offsetY: ${offsetYResult.error}`);
+      }
+      const blurResult = this.convertDimension(shadowValue.blur);
+      if (!blurResult.success) {
+        return Failure(`Failed to convert blur: ${blurResult.error}`);
+      }
+      let spread = 0;
+      if (shadowValue.spread !== void 0) {
+        const spreadResult = this.convertDimension(shadowValue.spread);
+        if (spreadResult.success) {
+          spread = spreadResult.data;
+        }
+      }
+      const colorResult = colorConverter.toRGB(shadowValue.color);
+      if (!colorResult.success) {
+        return Failure(`Failed to convert shadow color: ${colorResult.error}`);
+      }
+      const inset = shadowValue.inset !== void 0 ? shadowValue.inset : false;
+      return Success({
+        offsetX: offsetXResult.data,
+        offsetY: offsetYResult.data,
+        blur: blurResult.data,
+        spread,
+        color: colorResult.data,
+        inset
+      });
+    }
+    /**
+     * Convert generic object to Figma shadow
+     */
+    objectToFigma(obj) {
+      if (!this.hasRequiredProperties(obj)) {
+        return Failure(
+          "Shadow object missing required properties (offsetX, offsetY, blur, color)"
+        );
+      }
+      return this.shadowValueToFigma(obj);
+    }
+    /**
+     * Convert dimension value (number or string) to pixels
+     */
+    convertDimension(value) {
+      if (typeof value === "number") {
+        return Success(value);
+      }
+      if (typeof value === "string") {
+        return dimensionConverter.toPixels(value);
+      }
+      return Failure(`Invalid dimension value: ${JSON.stringify(value)}`);
+    }
+    /**
+     * Check if object has required shadow properties
+     */
+    hasRequiredProperties(obj) {
+      return typeof obj === "object" && obj !== null && "offsetX" in obj && "offsetY" in obj && "blur" in obj && "color" in obj;
+    }
+    // ==================== TYPE GUARDS ====================
+    /**
+     * Check if value is ShadowValue
+     */
+    isShadowValue(value) {
+      return this.hasRequiredProperties(value);
+    }
+  };
+  var shadowConverter = new ShadowConverter();
+
+  // src/core/converters/index.ts
+  var converters = {
+    color: colorConverter,
+    dimension: dimensionConverter,
+    typography: typographyConverter,
+    shadow: shadowConverter
+  };
+
   // src/core/services/FigmaSyncService.ts
   var FigmaSyncService = class {
     constructor(repository, resolver) {
@@ -1878,51 +2670,12 @@
      * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
      */
     convertColorValue(value) {
-      if (typeof value === "string") {
-        if (value.startsWith("#")) {
-          return this.hexToRgb(value);
-        }
-        if (value.startsWith("rgb")) {
-          return this.parseRgbString(value);
-        }
+      const result = converters.color.toRGB(value);
+      if (result.success) {
+        const { r, g, b } = result.data;
+        return { r, g, b };
       }
-      if (typeof value === "object" && value !== null) {
-        if ("r" in value && "g" in value && "b" in value) {
-          const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
-          if (isNormalized) {
-            return { r: value.r, g: value.g, b: value.b };
-          }
-          return {
-            r: value.r / 255,
-            g: value.g / 255,
-            b: value.b / 255
-          };
-        }
-        if ("components" in value && typeof value.components === "object" && value.components !== null && !Array.isArray(value.components)) {
-          return this.convertColorValue(value.components);
-        }
-        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
-          debug2.log("[FigmaSyncService] Converting HSL color using hex fallback:", value.hex);
-          return this.hexToRgb(value.hex);
-        }
-        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
-        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
-      }
-      console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
+      console.warn(`[FigmaSyncService] Could not convert color value: ${result.error}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -1930,65 +2683,13 @@
      * Similar to convertColorValue but includes alpha channel
      */
     convertColorToRGBA(value) {
-      const rgb = this.convertColorValue(value);
-      let alpha = 1;
-      if (typeof value === "object" && value !== null) {
-        if ("a" in value && typeof value.a === "number") {
-          alpha = value.a;
-        } else if ("alpha" in value && typeof value.alpha === "number") {
-          alpha = value.alpha;
-        }
+      const result = converters.color.toRGB(value);
+      if (result.success) {
+        const rgb = result.data;
+        return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
       }
-      if (typeof value === "string" && value.startsWith("rgba")) {
-        const match = value.match(/rgba?\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
-        if (match) {
-          alpha = parseFloat(match[1]);
-        }
-      }
-      return __spreadProps(__spreadValues({}, rgb), { a: alpha });
-    }
-    /**
-     * Parse rgb() or rgba() string to RGB
-     * Note: Alpha channel is ignored - Figma COLOR type only accepts RGB
-     */
-    parseRgbString(rgbString) {
-      const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-      if (match) {
-        return {
-          r: parseInt(match[1]) / 255,
-          g: parseInt(match[2]) / 255,
-          b: parseInt(match[3]) / 255
-        };
-      }
-      return { r: 0, g: 0, b: 0 };
-    }
-    /**
-     * Convert hex color to RGB
-     * Supports 3, 6, and 8 digit hex codes
-     * Note: Alpha channel (8-digit hex) is ignored - Figma COLOR type only accepts RGB
-     */
-    hexToRgb(hex) {
-      const cleanHex = hex.replace(/^#/, "");
-      if (cleanHex.length === 3) {
-        const r = parseInt(cleanHex[0] + cleanHex[0], 16) / 255;
-        const g = parseInt(cleanHex[1] + cleanHex[1], 16) / 255;
-        const b = parseInt(cleanHex[2] + cleanHex[2], 16) / 255;
-        return { r, g, b };
-      }
-      if (cleanHex.length === 6) {
-        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-        return { r, g, b };
-      }
-      if (cleanHex.length === 8) {
-        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-        return { r, g, b };
-      }
-      console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
-      return { r: 0, g: 0, b: 0 };
+      console.warn(`[FigmaSyncService] Could not convert color to RGBA: ${result.error}`);
+      return { r: 0, g: 0, b: 0, a: 1 };
     }
     /**
      * Convert numeric value (handle units like px, rem, em, %)
