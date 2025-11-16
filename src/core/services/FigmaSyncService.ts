@@ -350,15 +350,7 @@ export class FigmaSyncService {
       } else {
         // Direct value - use resolvedValue if available (handles embedded references)
         const valueToConvert = token.resolvedValue || token.value;
-        console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
-          tokenValue: token.value,
-          resolvedValue: token.resolvedValue,
-          tokenType: token.type,
-          figmaType,
-          valueType: typeof valueToConvert,
-        });
         const value = this.convertValue(valueToConvert, figmaType);
-        console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
         variable.setValueForMode(modeId, value);
       }
 
@@ -504,7 +496,6 @@ export class FigmaSyncService {
       // Format 3: ColorValue with HSL properties { h, s, l }
       // Convert HSL to RGB
       if ('h' in value && 's' in value && 'l' in value) {
-        console.log('[FigmaSyncService] Converting ColorValue with HSL:', { h: value.h, s: value.s, l: value.l });
         return this.hslToRgb(value.h, value.s, value.l);
       }
 
@@ -520,11 +511,9 @@ export class FigmaSyncService {
       // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
         const [h, s, l] = value.components;
-        console.log('[FigmaSyncService] Converting HSL colorSpace with components:', { h, s, l });
 
         // Use hex fallback if available (more accurate)
         if ('hex' in value && value.hex && typeof value.hex === 'string') {
-          console.log('[FigmaSyncService] Using hex fallback for HSL:', value.hex);
           return this.hexToRgb(value.hex);
         }
 
@@ -1291,12 +1280,7 @@ export class FigmaSyncService {
         effectStyle.description = token.description;
       }
 
-      // Log shadow value for debugging
-      console.group(`[FigmaSyncService] Creating shadow effect: ${token.qualifiedName}`);
-      console.log('Shadow value:', shadowValue);
-      console.log('Resolved color:', shadowValue.color);
-
-      // Convert values with logging
+      // Convert shadow values
       const offsetX = this.convertNumericValue(shadowValue.offsetX, options.percentageBase);
       const offsetY = this.convertNumericValue(shadowValue.offsetY, options.percentageBase);
       const blur = this.convertNumericValue(shadowValue.blur, options.percentageBase);
@@ -1304,9 +1288,6 @@ export class FigmaSyncService {
         ? this.convertNumericValue(shadowValue.spread, options.percentageBase)
         : 0;
       const color = this.convertColorToRGBA(shadowValue.color);
-
-      console.log('Converted values:', { offsetX, offsetY, blur, spread, color });
-      console.groupEnd();
 
       // Create shadow effect (drop shadow or inner shadow)
       const shadowEffect: DropShadowEffect | InnerShadowEffect = shadowValue.inset
