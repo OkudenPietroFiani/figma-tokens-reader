@@ -1,71 +1,269 @@
 # W3C Design Tokens Importer for Figma
 
-A Figma plugin that imports W3C Design Tokens and Style Dictionary formats from GitHub or local files, automatically converting them to Figma variables with parallel processing and smart format detection.
+A Figma plugin that imports W3C Design Tokens and Style Dictionary formats, converting them to Figma variables with automatic type detection, reference resolution, and style generation.
 
 ## Features
 
-- **Multiple Token Formats**: W3C Design Tokens and Style Dictionary support
-- **GitHub Integration**: Direct import from GitHub repositories
+- **Multiple Token Formats**: W3C Design Tokens and Style Dictionary with auto-detection
+- **Smart References**: Automatic resolution of token aliases (e.g., `{color.primary}`)
+- **GitHub Integration**: Direct import from repositories with parallel fetching
 - **Local Import**: Upload ZIP files or individual JSON files
-- **Parallel Processing**: 6x faster file fetching with batched parallel processing
-- **Auto-Format Detection**: Automatically detects token format with confidence scoring
-- **Smart References**: Resolves token references and creates Figma variable aliases
-- **Comprehensive Types**: Colors (HSL, RGB, HEX), spacing, dimensions, typography, shadows, numbers
-- **Text & Effect Styles**: Typography tokens → Text Styles, Shadow tokens → Effect Styles
-- **Unit Conversion**: Automatic conversion of rem/em/% to pixels
+- **Type Support**: Colors, dimensions, typography, shadows, spacing, numbers, strings
+- **Style Generation**: Typography → Text Styles, Shadows → Effect Styles
+- **Unit Conversion**: Automatic rem/em/% to pixel conversion
 - **Scope Management**: Apply Figma variable scopes via dedicated UI
-- **Modern Architecture**: SOLID principles, registry pattern, dependency injection
+
+---
+
+## Critical Technical Constraints
+
+### ES2017 Runtime Environment
+
+**Figma plugins run in a strict ES2017 JavaScript environment.**
+
+✅ **Allowed:**
+- ES2017 features: async/await, Object.values(), Object.entries()
+- Promise.all(), Promise.race()
+- Array.map(), .filter(), .reduce(), .concat()
+
+❌ **NOT Allowed:**
+- ES2019+ features: `Array.flatMap()`, `Promise.allSettled()`, `Object.fromEntries()`
+- BigInt type or libraries using BigInt
+- ES2020+ features
+
+**Critical:** Dependencies MUST be ES2017-compatible. Libraries like Zod 4.x (uses BigInt) will cause runtime errors.
+
+### Dependency Policy
+
+**Zero runtime dependencies.** All production code is self-contained.
+
+- ✅ DevDependencies only: TypeScript, esbuild, Jest, ESLint
+- ❌ No runtime dependencies (no libraries in node_modules bundled)
+- ✅ If validation is needed: Write custom validators (no Zod, Yup, etc.)
+
+**Rationale:** Bundle size control, ES2017 compatibility guarantee, no external breakage
+
+### Bundle Size Limits
+
+**Figma has strict plugin size limits.**
+
+- code.js (backend): ~200KB target (current: 196KB)
+- ui.js (frontend): ~100KB target (current: 95KB)
+- ui.html: ~130KB target (current: 126KB)
+
+**Total:** ~420KB (well under 1MB storage limit)
+
+### Build Artifacts in Git
+
+**Build artifacts (code.js, ui.js, ui.html) are committed to git.**
+
+**Rationale:** Non-technical users can use the plugin without building. The repository is ready to import into Figma immediately.
+
+---
+
+## Key Architecture Principles
+
+### 1. SOLID Principles (9/10 minimum)
+
+**Every component follows SOLID design:**
+
+- **Single Responsibility**: One class, one purpose
+  - `TokenRepository`: Storage only
+  - `TokenResolver`: Reference resolution only
+  - `FigmaSyncService`: Figma API sync only
+
+- **Open/Closed**: Extension via strategies/adapters
+  - Add new token formats by implementing `ITokenFormatStrategy`
+  - Add new file sources by implementing `IFileSource`
+
+- **Dependency Inversion**: Depend on abstractions
+  - Services depend on interfaces, not concrete implementations
+
+**Example:**
+```typescript
+// ✅ Good: Depends on interface
+class TokenProcessor {
+  constructor(private strategy: ITokenFormatStrategy) {}
+}
+
+// ❌ Bad: Depends on concrete class
+class TokenProcessor {
+  constructor(private w3cParser: W3CParser) {}
+}
+```
+
+### 2. Registry Pattern
+
+**Dynamic feature discovery via registries:**
+
+- `TokenFormatRegistry`: Detects W3C vs Style Dictionary format
+- `FileSourceRegistry`: Manages GitHub, Local, API sources
+
+**Benefits:**
+- Add new formats without modifying existing code
+- Auto-detection with confidence scoring
+- Extensible without breaking changes
+
+### 3. Type Safety
+
+**TypeScript strict mode, Result pattern for errors:**
+
+```typescript
+// All operations return Result<T> for type-safe error handling
+const result = await tokenProcessor.processTokenData(data, options);
+if (result.success) {
+  const tokens = result.data; // Type: Token[]
+} else {
+  console.error(result.error); // Type: string
+}
+```
+
+**No exceptions thrown:** All errors returned as Result<T> values
+
+### 4. Minimal Logging in Production
+
+**Debug logging is gated by feature flags:**
+
+```typescript
+import { debug } from './shared/logger';
+
+// Only logs when DEBUG_MODE = true
+debug.log('Processing tokens...');
+
+// Always logs (for user-facing errors)
+console.warn('Token not found');
+console.error('Sync failed');
+```
+
+**Production bundle:** 0 debug.log() calls execute (controlled by `FeatureFlags.DEBUG_MODE`)
+
+---
+
+## Critical Quality Points
+
+### 1. No Shared Mutable State
+
+**Deep clone all token values to prevent reference pollution:**
+
+```typescript
+// ✅ Correct: Deep clone prevents shared references
+value: deepClone(pt.value)
+
+// ❌ Wrong: Multiple tokens share same object reference
+value: pt.value
+```
+
+**Why:** Prevents bugs where modifying one token affects another
+
+### 2. XSS Prevention
+
+**All user-provided content must be sanitized:**
+
+```typescript
+import { escapeHtml } from './utils/htmlSanitizer';
+
+// ✅ Safe
+element.innerHTML = `<div>${escapeHtml(userInput)}</div>`;
+
+// ❌ Unsafe
+element.innerHTML = `<div>${error.message}</div>`;
+```
+
+**Critical paths:** Error messages, token names, file names
+
+### 3. ES2017 Compliance
+
+**All code must transpile to ES2017:**
+
+```typescript
+// ✅ ES2017-compatible
+const arr = [1, 2, 3];
+const doubled = arr.reduce((acc, val) => acc.concat(val * 2), []);
+
+// ❌ ES2019+ (will break in Figma)
+const doubled = arr.flatMap(val => [val * 2]);
+```
+
+**Verification:** `grep -c "flatMap\|Promise.allSettled\|BigInt" code.js` must return 0
+
+### 4. Reference Resolution
+
+**All token references MUST be in the same project:**
+
+```json
+// ✅ Works: Both in "default" project
+{
+  "color": { "primary": { "$value": "#1e40af" } },
+  "button": { "bg": { "$value": "{color.primary}" } }
+}
+
+// ❌ Fails: Different projects
+// Project "primitives": color.primary
+// Project "semantic": button.bg references {color.primary}
+```
+
+**Rule:** Cross-project references are NOT supported (would require registry refactoring)
+
+### 5. Figma API Constraints
+
+**Variable types are immutable:**
+
+- Cannot change COLOR variable to FLOAT
+- Cannot change alias to direct value (or vice versa)
+- Plugin detects mismatches and warns user
+
+**Alpha channels:**
+- Variables: Alpha ignored (Figma COLOR limitation)
+- Effect Styles: Alpha preserved (RGBA support)
+
+---
 
 ## Installation
 
-### Development Installation
+### For Users (No Build Required)
 
-1. Clone and install:
-   ```bash
-   git clone https://github.com/OkudenPietroFiana/figma-tokens-reader.git
-   cd figma-tokens-reader
-   npm install
-   npm run build
-   ```
+1. Download or clone repository
+2. In Figma: **Plugins → Development → Import plugin from manifest**
+3. Select `manifest.json`
+4. Plugin ready to use
 
-2. In Figma:
-   - Go to **Plugins → Development → Import plugin from manifest**
-   - Select the `manifest.json` file
-   - Plugin appears in your Plugins menu
+### For Developers
 
-## Quick Start
+```bash
+git clone https://github.com/OkudenPietroFiana/figma-tokens-reader.git
+cd figma-tokens-reader
+npm install
+npm run build
+```
 
-### GitHub Import
+---
+
+## Usage
+
+### Quick Start
+
 1. Open plugin in Figma
-2. Select **GitHub** import mode
-3. Enter repository details (owner, repo, branch, token)
-4. Select token files to import
-5. Click **Sync to Figma** to import
+2. Select import mode:
+   - **GitHub**: Enter repo details (owner/repo/branch/token)
+   - **Local**: Upload ZIP or JSON files
+3. Review loaded tokens
+4. Click **Sync to Figma**
 
-### Local Import
-1. Open plugin in Figma
-2. Select **Local** import mode
-3. Upload ZIP file or individual JSON files
-4. Preview loaded tokens
-5. Click **Export to Figma Variables**
+### Supported Token Formats
 
-### Token Format Examples
-
-**W3C Design Tokens** (primitives.json):
+**W3C Design Tokens:**
 ```json
 {
   "color": {
     "primary": {
-      "600": {
-        "$value": "#1e40af",
-        "$type": "color"
-      }
+      "$value": "#1e40af",
+      "$type": "color"
     }
   }
 }
 ```
 
-**Style Dictionary** (tokens.json):
+**Style Dictionary:**
 ```json
 {
   "color": {
@@ -77,303 +275,250 @@ A Figma plugin that imports W3C Design Tokens and Style Dictionary formats from 
 }
 ```
 
-**References** (semantics.json):
+**References:**
 ```json
 {
   "button": {
     "background": {
-      "$value": "{color.primary.600}",
+      "$value": "{color.primary}",
       "$type": "color"
     }
   }
 }
 ```
 
-## Token Sync Features
+### Color Formats
 
-### Supported Token Types
+All formats auto-convert to Figma RGB:
 
-#### Colors
-The plugin supports multiple color formats with automatic conversion to Figma RGB:
+- **Hex**: `#E8E9EC`, `#f80`, `#ff8800ff`
+- **RGB**: `rgb(255, 128, 0)`, `{ r: 255, g: 128, b: 0 }`
+- **HSL with hex fallback**: `{ colorSpace: "hsl", components: [225, 16, 92], hex: "#E8E9EC" }`
+- **Nested components**: `{ colorSpace: "hsl", components: { components: [60, 8, 33], alpha: 1 } }`
 
-**✅ Supported Formats:**
-- Hex: `"#E8E9EC"`, `"#f80"` (3-digit), `"#ff8800ff"` (8-digit)
-- RGB strings: `"rgb(255, 128, 0)"`, `"rgba(255, 128, 0, 0.5)"`
-- RGB objects: `{ r: 255, g: 128, b: 0 }` or `{ r: 1.0, g: 0.5, b: 0.0 }`
-- HSL with hex: `{ colorSpace: "hsl", components: [225, 16, 92], hex: "#E8E9EC" }`
+### Unit Conversion
 
-**Expected Result**: Colors display correctly in Figma variables (not black or gray)
+**Automatic rem/em to pixels (16px base):**
 
-#### Dimensions (Font Size, Spacing, Border Radius)
-The plugin automatically converts rem/em units to pixels:
-
-**✅ Supported Formats:**
-- Direct pixels: `16`, `"32px"`, `{ value: 16, unit: "px" }`
-- REM units: `"0.625rem"` → **10px**, `{ value: 0.625, unit: "rem" }` → **10px**
-- EM units: `"1.5em"` → **24px**, `{ value: 1.5, unit: "em" }` → **24px**
-
-**Conversion Rule**: REM/EM values × 16 = Pixels (standard browser base)
-
-**Examples:**
 - `0.625rem` → `10px`
 - `0.75rem` → `12px`
 - `1rem` → `16px`
 - `1.5rem` → `24px`
-- `2.5rem` → `40px`
-
-**Expected Result**: Dimensions show pixel values in Figma (not fractional rem values like 0.625)
-
-#### Token References
-The plugin resolves all token references before syncing:
-
-**✅ Supported Formats:**
-- Simple alias: `"{primitive.color.primary.600}"`
-- Nested references: `"{semantic.button.background}"`
-- Cross-collection: Semantic tokens can reference primitive tokens
-
-**Expected Result**: Variables show resolved values (not `"{...}"` reference strings)
-
-### Code Syntax Generation
-
-All synced variables include platform-specific code syntax:
-
-- **WEB**: `--color-primary` (CSS custom properties)
-- **ANDROID**: `@dimen/color_primary` (Android resources)
-- **iOS**: `color.primary` (iOS tokens)
-
-**How to View**: In Figma, select a variable → right panel shows code syntax for each platform
 
 ### Collections
 
-Tokens are organized into separate Figma variable collections:
+Tokens organize into Figma variable collections by filename or metadata:
 
-- **primitive** collection: Base design tokens (colors, spacing, etc.)
-- **semantic** collection: Contextual tokens (button.background, text.primary, etc.)
-- Custom collections: Any collection name from your tokens
+- `primitives.json` → "primitives" collection
+- `semantic-colors.json` → "semantic-colors" collection
+- Auto-detected from file path
 
-**Expected Result**: Each collection appears separately in Figma's variable panel
+---
 
-### Verification Checklist
+## Troubleshooting
 
-After syncing tokens, verify:
+### Plugin Won't Load
 
-✅ **Colors display correctly**
-- Primitive colors show RGB values (not black)
-- HSL colors use hex fallback (not black)
-- Semantic colors resolve to primitive values
+**Error:** "ReferenceError: 'BigInt' is not defined"
 
-✅ **Dimensions show pixel values**
-- Font sizes: `10px`, `12px`, `16px` (not `0.625`, `0.75`, `1`)
-- Spacing: `4px`, `8px`, `16px` (not fractional rem values)
-- Border radius: pixel values (not rem values)
+**Cause:** A library using BigInt was added
 
-✅ **Variable types match token types**
-- Color tokens → COLOR variables
-- Dimension/number tokens → FLOAT variables
-- String tokens → STRING variables
+**Fix:** Remove the library. Use ES2017-compatible alternatives only.
 
-✅ **Code syntax present**
-- WEB syntax shows `--token-name`
-- ANDROID syntax shows `@dimen/token_name`
-- iOS syntax shows `token.name`
+---
 
-✅ **Collections organized**
-- Primitive collection exists with base tokens
-- Semantic collection exists with contextual tokens
-- No mixing of collections
+### Colors Appear Black
 
-### Troubleshooting Sync Issues
+**Cause:** HSL colors without hex fallback OR nested components object
 
-#### **Issue: Typography tokens showing 12px font and AUTO line height**
-
-**Symptoms**: Typography text styles sync but use Figma defaults (12px, AUTO) instead of your token values
-
-**Root Cause**: Unresolved token references in composite typography values
-
-**How to Diagnose**:
-1. Open Figma Console: **Plugins → Development → Open Console**
-2. Run sync and look for collapsible error groups:
-   ```
-   ❌ UNRESOLVED: {primitive.typography.font-size.20}
-     🔍 Searching in project: "default"
-
-     ⚠️  PROJECT MISMATCH - Token found in different project:
-       📍 "primitive.typography.font-size.20"
-          Project: "primitive" (expected: "default")
-          Value: "1.25rem"
-
-       💡 FIX: Ensure all tokens are in the same project ID
-
-   ⚠️  TYPOGRAPHY: semantic.typography.heading.md
-     ❌ 5 unresolved reference(s) - will use Figma defaults
-   ```
-
-**Common Causes**:
-- **Project ID Mismatch**: Referenced tokens exist but in different project ID
-  - Typography token in project "default" references primitive token in project "primitive"
-  - Token resolution can only find tokens in the SAME project
-- **Missing Tokens**: Referenced token doesn't exist in any project
-- **Naming Issues**: Reference uses wrong token path (typos, wrong prefix)
-
-**Solutions**:
-1. **For Project Mismatch**: Ensure all tokens imported together use same project ID
-2. **For Missing Tokens**: Add the missing token to your token files
-3. **For Naming Issues**: Fix reference path to match actual token qualified name
-
-#### **Issue: Shadow effects missing colors (invisible shadows)**
-
-**Symptoms**: Shadow effect styles sync but shadows are invisible or black
-
-**Root Cause**: Unresolved color reference in shadow token
-
-**How to Diagnose**:
-1. Open Figma Console and look for:
-   ```
-   ❌ UNRESOLVED: {primitive.color.neutral.900}
-     (details about where token exists)
-
-   ⚠️  SHADOW: semantic.shadow.elevation.high
-     ❌ 1 unresolved reference(s)
-        color: {primitive.color.neutral.900} ⚠️  MISSING COLOR
-   ```
-
-**Solution**: Same as typography - ensure color tokens are in same project ID
-
-#### **Issue: Font loading failures (SemiBold, Semi Bold, etc.)**
-
-**Symptoms**: Error "The font 'Inter SemiBold' could not be loaded"
-
-**Causes**:
-- Font not installed in Figma
-- Font style name mismatch (Figma uses "Semi Bold" not "SemiBold")
-- Unresolved font weight reference
-
-**How to Diagnose**:
-```
-⚠️  "Inter" "SemiBold" not available - using Regular
-
-❌ FONT ERROR: typography.heading
-  Family: "Inter,system-ui,sans-serif"
-  Weight: "{primitive.typography.font-weight.semibold}"
+**Fix:** Ensure HSL tokens include `hex` property:
+```json
+{
+  "colorSpace": "hsl",
+  "components": [225, 16, 92],
+  "hex": "#E8E9EC"
+}
 ```
 
-**Solutions**:
-- Plugin automatically falls back to "Regular" style
-- Install missing font weights in Figma
-- Ensure font weight references resolve correctly
+---
 
-#### **Issue: All colors are black**
+### Typography Shows 12px/AUTO
 
-**Cause**: HSL colors without hex fallback OR unresolved references
+**Cause:** Unresolved font size or line height reference
 
-**Solution**: Ensure your HSL color tokens include a `hex` property
+**Diagnosis:**
+1. Open **Plugins → Development → Open Console**
+2. Look for `❌ UNRESOLVED:` errors
+3. Check if referenced tokens are in different project ID
 
-#### **Issue: Font sizes show 0.625 instead of 10px**
+**Fix:** Ensure all tokens imported together use same project ID
 
-**Cause**: REM/EM units not being converted
+---
 
-**Solution**: Verify tokens have `unit: "rem"` property (conversion happens automatically)
+### Dimensions Show 0.625 Instead of 10px
 
-### Debugging with Console Diagnostics
+**Cause:** REM values not converting
 
-The plugin provides comprehensive diagnostic logging to help identify issues:
+**Fix:** Verify token has explicit unit:
+```json
+{
+  "fontSize": {
+    "$value": "0.625rem",
+    "$type": "dimension"
+  }
+}
+```
 
-**Collapsible Error Groups**:
-- Each unresolved reference gets detailed diagnostics
-- Shows where token exists (or if it doesn't exist)
-- Suggests fixes based on the issue type
+---
 
-**Reference Resolution Errors**:
-- `⚠️  PROJECT MISMATCH`: Token exists but in different project ID
-- `⚠️  NAMING ISSUE`: Similar tokens found (typos detected)
-- `❌ TOKEN NOT FOUND`: Token doesn't exist anywhere
+### Shadows Missing Colors
 
-**Token Validation Summaries**:
-- `⚠️  TYPOGRAPHY`: Shows which properties have unresolved references
-- `⚠️  SHADOW`: Highlights missing color references specifically
-- `❌ FONT ERROR`: Shows font loading failures with details
+**Cause:** Unresolved color reference in shadow token
 
-**How to Use**:
-1. Open console: **Plugins → Development → Open Console**
-2. Run sync
-3. Click to expand error groups (▶️ arrows)
-4. Follow the `💡 FIX:` suggestions
-5. Check if tokens exist in different project IDs
+**Fix:** Ensure shadow color tokens exist in same project:
+```json
+{
+  "shadow": {
+    "color": "{color.neutral.900}",  // Must exist in same project
+    "offsetX": 0,
+    "offsetY": 1
+  }
+}
+```
 
-### Known Limitations
-
-- **Alpha channels**: Ignored for variable colors (Figma COLOR limitation - shadows support alpha)
-- **HSL colors**: Must include hex fallback for variables
-- **Font loading**: Typography styles require fonts to be available in Figma
+---
 
 ## Development
 
 ### Build Commands
+
 ```bash
-npm run build        # Build plugin
-npm run watch        # Auto-rebuild on changes
-npm test             # Run tests (172 tests)
-npm run lint         # Check code quality
-npm run lint:fix     # Auto-fix lint issues
+npm run build          # Build plugin (backend + frontend)
+npm run watch          # Auto-rebuild on changes
+npm test               # Run 172+ tests
+npm run test:coverage  # Generate coverage report
+npm run lint           # Check code quality
+npm run lint:fix       # Auto-fix issues
 ```
 
-### Architecture
+### Debug Mode
 
-The plugin uses a modern, extensible architecture (Phases 1-4 complete):
-- **Registry Pattern**: For file sources and token formats
-- **Adapter Pattern**: Wraps existing services with new interfaces
-- **Strategy Pattern**: Different parsing strategies per format
-- **Parallel Processing**: BatchProcessor for 6x faster fetching
-- **Feature Flags**: Safe rollout of new features
-- **Result Pattern**: Type-safe error handling
+Enable verbose logging:
 
-### Contributing
+1. Edit `src/core/config/FeatureFlags.ts`
+2. Set `DEBUG_MODE: true`
+3. Rebuild: `npm run build`
+4. Open Figma console to see debug.log() output
 
-For development guidelines, see:
-- `.claude/instructions/SOLID_PRINCIPLES.md` - SOLID architecture guidelines
-- `.claude/instructions/CODE_STYLE.md` - Code style and DRY principles
-- `.claude/instructions/TESTING.md` - Testing requirements and patterns
-- `.claude/instructions/ARCHITECTURE_DECISIONS.md` - Mandatory patterns
-- `.claude/instructions/CONTRIBUTING.md` - Quick-start guides for adding features
+**Production:** Always set `DEBUG_MODE: false` before committing
 
-All contributions must:
-- Follow SOLID principles (target: 9/10 minimum)
-- Maintain 85-100% test coverage
-- Pass all 172+ tests
-- Follow DRY principles for code and CSS
-- Include tests for new features
+### Adding a New Token Format
 
-See `ARCHITECTURE.md` for detailed architecture documentation.
+1. Implement `ITokenFormatStrategy` interface
+2. Register in `TokenFormatRegistry`
+3. Add detection logic with confidence score
+4. Write tests (85%+ coverage required)
+
+Example:
+```typescript
+export class MyFormatStrategy implements ITokenFormatStrategy {
+  detectFormat(data: TokenData): number {
+    // Return 0-100 confidence score
+    return data.hasOwnProperty('myFormat') ? 90 : 0;
+  }
+
+  parseTokens(data: TokenData): Result<ProcessedToken[]> {
+    // Parse and return tokens
+  }
+}
+```
+
+### Code Quality Standards
+
+All contributions must meet:
+
+- ✅ **SOLID Score**: 9/10 minimum
+- ✅ **Test Coverage**: 85-100%
+- ✅ **ES2017 Compliance**: No ES2019+ features
+- ✅ **Type Safety**: TypeScript strict mode
+- ✅ **Error Handling**: Result<T> pattern (no throw)
+- ✅ **Documentation**: JSDoc on public APIs
+
+---
+
+## Architecture Overview
+
+```
+src/
+├── backend/          # Figma plugin backend (runs in sandbox)
+│   ├── controllers/  # Business logic coordination
+│   └── services/     # Figma API interactions
+├── frontend/         # UI components (runs in iframe)
+│   ├── components/   # Screen components
+│   ├── services/     # Bridge to backend
+│   └── state/        # App state management
+├── core/             # Format-agnostic token processing
+│   ├── services/     # TokenProcessor, TokenResolver, FigmaSyncService
+│   ├── models/       # Token data model
+│   ├── adapters/     # Format strategies (W3C, Style Dictionary)
+│   └── registries/   # Dynamic feature discovery
+├── services/         # Shared services (GitHub, styles)
+├── shared/           # Shared types and utilities
+│   ├── types.ts      # Core type definitions
+│   ├── logger.ts     # Debug logging (feature-gated)
+│   └── constants.ts  # Figma scopes and categories
+└── utils/            # Pure utility functions
+```
+
+**Key Patterns:**
+- **Registry**: Dynamic feature discovery (formats, sources)
+- **Strategy**: Pluggable token format parsers
+- **Adapter**: Legacy service wrappers
+- **Result**: Type-safe error handling (no exceptions)
+- **Observer**: State change events (AppState)
+
+---
 
 ## Technology Stack
 
-- **TypeScript**: Type-safe development
-- **Figma Plugin API**: Variable and scope management
-- **GitHub API**: Repository integration with parallel fetching
-- **Jest**: Testing framework (172 tests, 85-100% coverage)
-- **ESBuild**: Fast compilation
+- **TypeScript 5.3**: Strict mode, ES2017 target
+- **Figma Plugin API**: Variables, styles, scopes
+- **GitHub API**: Repository integration
+- **Jest**: Testing (172+ tests, 85-100% coverage)
+- **ESBuild**: Fast compilation to ES2017
 
-## Troubleshooting
+---
 
-**Plugin won't load**: Run `npm run build` to compile code.js
+## Feature Flags
 
-**Tokens not importing**: Verify JSON matches W3C or Style Dictionary format
+Control experimental features in `src/core/config/FeatureFlags.ts`:
 
-**GitHub import fails**: Check token permissions and repository access
+```typescript
+export const FeatureFlags = {
+  DEBUG_MODE: false,              // Enable verbose logging
+  DRY_RUN: false,                 // Validate without syncing
+  UNIFIED_PROJECT_ID: false,      // Experimental: Single project
+  CROSS_PROJECT_REFS: false,      // Experimental: Cross-project refs
+  SYNC_STATE_TRACKING: false,     // Experimental: Track sync state
+  TRANSACTION_SYNC: false,        // Experimental: Atomic operations
+};
+```
 
-**References not resolving**: Ensure referenced tokens exist and use correct syntax `{path.to.token}`
+**Production Rule:** All experimental flags MUST be `false`
 
-For detailed troubleshooting, check Figma console: **Plugins → Development → Open Console**
-
-## Support
-
-- Open issues on [GitHub](https://github.com/OkudenPietroFiana/figma-tokens-reader/issues)
-- Review [W3C Design Tokens spec](https://design-tokens.github.io/community-group/format/)
-- Review [Style Dictionary docs](https://amzn.github.io/style-dictionary/)
+---
 
 ## License
 
-MIT License
+MIT License - See LICENSE file
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/OkudenPietroFiana/figma-tokens-reader/issues)
+- **Specs**: [W3C Design Tokens](https://design-tokens.github.io/community-group/format/)
+- **Docs**: [Style Dictionary](https://amzn.github.io/style-dictionary/)
 
 ---
 
