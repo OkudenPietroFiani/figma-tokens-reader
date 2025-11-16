@@ -821,59 +821,15 @@ export class FigmaSyncService {
   private resolveNestedReferences(value: any, projectId: string): any {
     if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
       // It's a reference - use TokenResolver for sophisticated resolution
-      // TokenResolver handles: brace removal, normalization, case-insensitive, fuzzy matching
-      console.log(`[FigmaSyncService] Resolving reference: "${value}" (project: "${projectId}")`);
-
       const referencedToken = this.resolver.resolveReference(value, projectId);
 
       if (referencedToken) {
         const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
-        console.log(`[FigmaSyncService] ✓ Resolved "${value}" → ${JSON.stringify(resolvedValue)} (from project: "${referencedToken.projectId}")`);
-
         // If the resolved value is also a reference, resolve it recursively
         return this.resolveNestedReferences(resolvedValue, projectId);
       } else {
-        console.error(`[FigmaSyncService] ✗ Could not resolve reference: "${value}"`);
-        console.error(`[FigmaSyncService]   🔍 Searching in project: "${projectId}"`);
-
-        // Check current project
-        const projectTokens = this.repository.getByProject(projectId);
-        console.error(`[FigmaSyncService]   📦 Project "${projectId}" has ${projectTokens.length} tokens`);
-
-        // Clean the reference for searching
-        const cleanRef = value.slice(1, -1); // Remove { }
-        console.error(`[FigmaSyncService]   🎯 Looking for: "${cleanRef}"`);
-
-        // Search across ALL projects to see if token exists elsewhere
-        const allTokens = this.repository.getAll();
-        const exactMatches = allTokens.filter(t => t.qualifiedName === cleanRef);
-        const partialMatches = allTokens.filter(t =>
-          t.qualifiedName.includes(cleanRef) ||
-          cleanRef.includes(t.qualifiedName) ||
-          t.qualifiedName.toLowerCase() === cleanRef.toLowerCase()
-        );
-
-        if (exactMatches.length > 0) {
-          console.error(`[FigmaSyncService]   ✅ FOUND exact match(es) in OTHER project(s):`);
-          exactMatches.forEach(t => {
-            console.error(`[FigmaSyncService]      - "${t.qualifiedName}" in project "${t.projectId}" (collection: ${t.collection}, type: ${t.type})`);
-            console.error(`[FigmaSyncService]        Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
-          });
-          console.error(`[FigmaSyncService]   ⚠️  ISSUE: Token exists but in DIFFERENT project! Expected "${projectId}" but found in "${exactMatches[0].projectId}"`);
-        } else if (partialMatches.length > 0) {
-          console.error(`[FigmaSyncService]   ⚠️  Found ${partialMatches.length} partial match(es):`);
-          partialMatches.slice(0, 5).forEach(t => {
-            console.error(`[FigmaSyncService]      - "${t.qualifiedName}" in project "${t.projectId}"`);
-          });
-          console.error(`[FigmaSyncService]   💡 Check if reference name is correct`);
-        } else {
-          console.error(`[FigmaSyncService]   ❌ Token NOT FOUND in any project!`);
-          console.error(`[FigmaSyncService]   📋 Available tokens in project "${projectId}":`);
-          projectTokens.slice(0, 10).forEach(t => {
-            console.error(`[FigmaSyncService]      - ${t.qualifiedName}`);
-          });
-        }
-
+        // Reference failed - log detailed diagnostics
+        this.logUnresolvedReference(value, projectId);
         return value; // Return as-is if can't resolve
       }
     }
@@ -888,6 +844,86 @@ export class FigmaSyncService {
     }
 
     return value;
+  }
+
+  /**
+   * Find all unresolved references in a value (recursive)
+   */
+  private findUnresolvedReferences(obj: any, path: string = ''): string[] {
+    const unresolvedRefs: string[] = [];
+
+    if (typeof obj === 'string' && obj.startsWith('{') && obj.endsWith('}')) {
+      unresolvedRefs.push(`${path}: ${obj}`);
+    } else if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+      for (const [key, val] of Object.entries(obj)) {
+        const refs = this.findUnresolvedReferences(val, path ? `${path}.${key}` : key);
+        unresolvedRefs.push(...refs);
+      }
+    } else if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        const refs = this.findUnresolvedReferences(item, `${path}[${index}]`);
+        unresolvedRefs.push(...refs);
+      });
+    }
+
+    return unresolvedRefs;
+  }
+
+  /**
+   * Log detailed diagnostics for an unresolved reference
+   */
+  private logUnresolvedReference(reference: string, projectId: string): void {
+    const cleanRef = reference.slice(1, -1); // Remove { }
+    const projectTokens = this.repository.getByProject(projectId);
+    const allTokens = this.repository.getAll();
+
+    // Search for matches
+    const exactMatches = allTokens.filter(t => t.qualifiedName === cleanRef);
+    const partialMatches = allTokens.filter(t =>
+      !exactMatches.includes(t) && (
+        t.qualifiedName.includes(cleanRef) ||
+        cleanRef.includes(t.qualifiedName) ||
+        t.qualifiedName.toLowerCase() === cleanRef.toLowerCase()
+      )
+    );
+
+    // Structured error output
+    console.group(`❌ UNRESOLVED: ${reference}`);
+    console.log(`🔍 Searching in project: "${projectId}" (${projectTokens.length} tokens)`);
+    console.log(`🎯 Looking for: "${cleanRef}"`);
+
+    if (exactMatches.length > 0) {
+      console.group(`⚠️  PROJECT MISMATCH - Token found in different project(s):`);
+      exactMatches.forEach(t => {
+        console.log(`📍 "${t.qualifiedName}"`);
+        console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
+        console.log(`   Collection: ${t.collection}`);
+        console.log(`   Type: ${t.type}`);
+        console.log(`   Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
+      });
+      console.log(`\n💡 FIX: Ensure all tokens are in the same project ID`);
+      console.groupEnd();
+    } else if (partialMatches.length > 0) {
+      console.group(`⚠️  NAMING ISSUE - Found ${partialMatches.length} similar token(s):`);
+      partialMatches.slice(0, 5).forEach(t => {
+        console.log(`📍 "${t.qualifiedName}" (project: ${t.projectId})`);
+      });
+      console.log(`\n💡 FIX: Check reference name for typos`);
+      console.groupEnd();
+    } else {
+      console.group(`❌ TOKEN NOT FOUND - Token doesn't exist in any project`);
+      console.log(`📋 Sample tokens in project "${projectId}":`);
+      projectTokens.slice(0, 8).forEach(t => {
+        console.log(`   - ${t.qualifiedName} (${t.type})`);
+      });
+      if (projectTokens.length > 8) {
+        console.log(`   ... and ${projectTokens.length - 8} more`);
+      }
+      console.log(`\n💡 FIX: Add the missing token to your token files`);
+      console.groupEnd();
+    }
+
+    console.groupEnd();
   }
 
   /**
@@ -910,82 +946,16 @@ export class FigmaSyncService {
       const resolvedValue = this.resolveNestedReferences(value, token.projectId);
       const typValue = resolvedValue as any; // TypographyValue
 
-      console.log(`[FigmaSyncService] Processing typography token ${token.qualifiedName}:`, {
-        fontFamily: typValue.fontFamily,
-        fontSize: typValue.fontSize,
-        fontWeight: typValue.fontWeight,
-        lineHeight: typValue.lineHeight,
-        letterSpacing: typValue.letterSpacing,
-      });
-
-      // DIAGNOSTIC: Check for unresolved references in composite value
-      const unresolvedRefs: string[] = [];
-      const validateResolution = (obj: any, path: string = ''): void => {
-        if (typeof obj === 'string' && obj.startsWith('{') && obj.endsWith('}')) {
-          unresolvedRefs.push(`${path}: ${obj}`);
-        } else if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
-          for (const [key, val] of Object.entries(obj)) {
-            validateResolution(val, path ? `${path}.${key}` : key);
-          }
-        } else if (Array.isArray(obj)) {
-          obj.forEach((item, index) => {
-            validateResolution(item, `${path}[${index}]`);
-          });
-        }
-      };
-
-      validateResolution(resolvedValue);
+      // Validate that all references were resolved
+      const unresolvedRefs = this.findUnresolvedReferences(resolvedValue);
 
       if (unresolvedRefs.length > 0) {
-        console.error(`[FigmaSyncService] ❌ Typography token "${token.qualifiedName}" has ${unresolvedRefs.length} unresolved reference(s):`);
-        unresolvedRefs.forEach(ref => console.error(`  - ${ref}`));
-        console.error(`[FigmaSyncService] 🔍 This will cause Figma to use DEFAULT VALUES (12px font, AUTO line height)`);
-        console.error(`[FigmaSyncService] 📋 Token details:`);
-        console.error(`  - Project ID: "${token.projectId}"`);
-        console.error(`  - Collection: "${token.collection}"`);
-        console.error(`  - Source: ${token.source.type} (${token.source.location})`);
-
-        // Log available tokens in this project for debugging
-        const allTokens = this.repository.getByProject(token.projectId);
-        console.error(`[FigmaSyncService] 📚 Available tokens in project "${token.projectId}" (${allTokens.length} total):`);
-
-        // Show first 15 tokens for context
-        const sampleTokens = allTokens.slice(0, 15);
-        sampleTokens.forEach(t => {
-          console.error(`    - ${t.qualifiedName} (type: ${t.type}, collection: ${t.collection})`);
-        });
-
-        if (allTokens.length > 15) {
-          console.error(`    ... and ${allTokens.length - 15} more tokens`);
-        }
-
-        // Try to find similar tokens (fuzzy matching hints)
-        console.error(`[FigmaSyncService] 💡 Searching for similar tokens across ALL projects...`);
-        const allProjects = this.repository.getAll();
-        const hints: string[] = [];
-
-        for (const ref of unresolvedRefs) {
-          const refValue = ref.split(': ')[1]; // Extract "{reference}"
-          const cleanRef = refValue.slice(1, -1); // Remove braces
-
-          // Look for partial matches
-          const matches = allProjects.filter(t =>
-            t.qualifiedName.includes(cleanRef) ||
-            cleanRef.includes(t.qualifiedName) ||
-            t.qualifiedName.toLowerCase().includes(cleanRef.toLowerCase())
-          );
-
-          if (matches.length > 0) {
-            hints.push(`  "${refValue}" might be: ${matches.slice(0, 3).map(m => `"${m.qualifiedName}" (project: ${m.projectId})`).join(', ')}`);
-          } else {
-            hints.push(`  "${refValue}" - NO MATCHES FOUND (token may not exist)`);
-          }
-        }
-
-        hints.forEach(hint => console.error(hint));
-        console.error(`[FigmaSyncService] ⚠️  Fix: Ensure referenced tokens exist and use correct names`);
-      } else {
-        console.log(`[FigmaSyncService] ✅ All references resolved successfully for ${token.qualifiedName}`);
+        console.group(`⚠️  TYPOGRAPHY: ${token.qualifiedName}`);
+        console.log(`❌ ${unresolvedRefs.length} unresolved reference(s) - will use Figma defaults (12px, AUTO)`);
+        unresolvedRefs.forEach(ref => console.log(`   ${ref}`));
+        console.log(`📋 Project: "${token.projectId}" | Collection: "${token.collection}"`);
+        console.log(`💡 See individual reference errors above for details`);
+        console.groupEnd();
       }
 
       const styleName = token.path.join('/');
@@ -998,14 +968,12 @@ export class FigmaSyncService {
         textStyle = figma.createTextStyle();
         textStyle.name = styleName;
         stats.added++;
-        console.log(`[FigmaSyncService] Created text style: ${styleName}`);
       } else {
         if (!options.updateExisting) {
           stats.skipped++;
           return stats;
         }
         stats.updated++;
-        console.log(`[FigmaSyncService] Updated text style: ${styleName}`);
       }
 
       // Set text style properties
@@ -1023,65 +991,49 @@ export class FigmaSyncService {
             if (typValue.fontFamily.includes(',')) {
               const fontStack = typValue.fontFamily.split(',').map(f => f.trim());
               fontFamily = fontStack[0];
-              console.log(`[FigmaSyncService] Font stack detected: ${typValue.fontFamily}`);
-              console.log(`[FigmaSyncService] Using first font: "${fontFamily}"`);
             } else {
               fontFamily = typValue.fontFamily;
             }
           } else if (Array.isArray(typValue.fontFamily)) {
             fontFamily = typValue.fontFamily[0];
-            console.log(`[FigmaSyncService] Font array detected, using first: "${fontFamily}"`);
           } else {
-            console.error(`[FigmaSyncService] Invalid fontFamily type: ${typeof typValue.fontFamily}`);
             throw new Error(`Invalid fontFamily type: ${typeof typValue.fontFamily}`);
           }
 
           // Convert font weight to style name
           const fontWeight = typValue.fontWeight || 400;
-          console.log(`[FigmaSyncService] Font weight: ${fontWeight} (type: ${typeof fontWeight})`);
 
           // Check if fontWeight is still an unresolved reference
           if (typeof fontWeight === 'string' && fontWeight.startsWith('{')) {
-            console.error(`[FigmaSyncService] ⚠️  Font weight is still an unresolved reference: ${fontWeight}`);
-            console.error(`[FigmaSyncService] Using default weight: 400 (Regular)`);
-            const fontStyle = 'Regular';
-            console.log(`[FigmaSyncService] Attempting to load font: "${fontFamily}" "${fontStyle}"`);
-            await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
-            textStyle.fontName = { family: fontFamily, style: fontStyle };
+            console.warn(`⚠️  Unresolved font weight "${fontWeight}" - using Regular`);
+            await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+            textStyle.fontName = { family: fontFamily, style: 'Regular' };
           } else {
             const numericWeight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
             const fontStyle = this.mapFontWeightToStyle(numericWeight);
 
-            console.log(`[FigmaSyncService] Mapped font weight ${numericWeight} → style "${fontStyle}"`);
-            console.log(`[FigmaSyncService] Attempting to load font: "${fontFamily}" "${fontStyle}"`);
-
             try {
               await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
               textStyle.fontName = { family: fontFamily, style: fontStyle };
-              console.log(`[FigmaSyncService] ✅ Successfully loaded font: "${fontFamily}" "${fontStyle}"`);
             } catch (fontLoadError) {
               // Try fallback to Regular if specific weight fails
-              console.error(`[FigmaSyncService] ❌ Failed to load "${fontFamily}" "${fontStyle}"`);
-              console.error(`[FigmaSyncService] Trying fallback to "${fontFamily}" "Regular"...`);
-
+              console.warn(`⚠️  "${fontFamily}" "${fontStyle}" not available - using Regular`);
               try {
                 await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
                 textStyle.fontName = { family: fontFamily, style: 'Regular' };
-                console.log(`[FigmaSyncService] ✅ Loaded with fallback style "Regular"`);
               } catch (fallbackError) {
-                console.error(`[FigmaSyncService] ❌ Fallback to "Regular" also failed`);
-                console.error(`[FigmaSyncService] 💡 Font "${fontFamily}" may not be installed in Figma`);
-                console.error(`[FigmaSyncService] 💡 Available styles might be: Regular, Medium, Bold, etc. (not SemiBold)`);
+                console.error(`❌ Font "${fontFamily}" not installed in Figma`);
                 throw fontLoadError; // Re-throw original error
               }
             }
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          console.error(`[FigmaSyncService] ❌ Font loading failed for ${token.qualifiedName}`);
-          console.error(`[FigmaSyncService]   Raw fontFamily value: ${JSON.stringify(typValue.fontFamily)}`);
-          console.error(`[FigmaSyncService]   Raw fontWeight value: ${JSON.stringify(typValue.fontWeight)}`);
-          console.error(`[FigmaSyncService]   Error: ${message}`);
+          console.group(`❌ FONT ERROR: ${token.qualifiedName}`);
+          console.log(`Family: ${JSON.stringify(typValue.fontFamily)}`);
+          console.log(`Weight: ${JSON.stringify(typValue.fontWeight)}`);
+          console.log(`Error: ${message}`);
+          console.groupEnd();
           throw error; // Re-throw to skip this style
         }
       }
@@ -1089,11 +1041,9 @@ export class FigmaSyncService {
       // Font size (CRITICAL: validate >= 1)
       if (typValue.fontSize !== undefined) {
         const fontSize = this.convertNumericValue(typValue.fontSize, options.percentageBase);
-        console.log(`[FigmaSyncService] Font size converted: ${typValue.fontSize} → ${fontSize}px`);
 
         if (fontSize < 1) {
-          console.error(`[FigmaSyncService] Invalid font size: ${fontSize}px (must be >= 1). Original value: ${typValue.fontSize}`);
-          throw new Error(`Font size must be >= 1 (got ${fontSize})`);
+          throw new Error(`Font size must be >= 1 (got ${fontSize} from ${typValue.fontSize})`);
         }
 
         textStyle.fontSize = fontSize;
@@ -1102,17 +1052,12 @@ export class FigmaSyncService {
       // Line height
       if (typValue.lineHeight !== undefined) {
         const lineHeightResult = this.convertLineHeight(typValue.lineHeight, options.percentageBase);
-        const displayValue = lineHeightResult.unit === 'AUTO'
-          ? 'AUTO'
-          : `${lineHeightResult.value}${lineHeightResult.unit === 'PERCENT' ? '%' : 'px'}`;
-        console.log(`[FigmaSyncService] Line height converted: ${typValue.lineHeight} → ${displayValue}`);
         textStyle.lineHeight = lineHeightResult;
       }
 
       // Letter spacing
       if (typValue.letterSpacing !== undefined) {
         const letterSpacing = this.convertNumericValue(typValue.letterSpacing, options.percentageBase);
-        console.log(`[FigmaSyncService] Letter spacing converted: ${typValue.letterSpacing} → ${letterSpacing}px`);
         textStyle.letterSpacing = { value: letterSpacing, unit: 'PIXELS' };
       }
 
@@ -1151,57 +1096,22 @@ export class FigmaSyncService {
       const resolvedValue = this.resolveNestedReferences(value, token.projectId);
       const shadowValue = resolvedValue as any; // ShadowValue
 
-      // DIAGNOSTIC: Check for unresolved references in shadow value
-      const unresolvedRefs: string[] = [];
-      const validateResolution = (obj: any, path: string = ''): void => {
-        if (typeof obj === 'string' && obj.startsWith('{') && obj.endsWith('}')) {
-          unresolvedRefs.push(`${path}: ${obj}`);
-        } else if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
-          for (const [key, val] of Object.entries(obj)) {
-            validateResolution(val, path ? `${path}.${key}` : key);
-          }
-        } else if (Array.isArray(obj)) {
-          obj.forEach((item, index) => {
-            validateResolution(item, `${path}[${index}]`);
-          });
-        }
-      };
-
-      validateResolution(resolvedValue);
+      // Validate that all references were resolved (especially color!)
+      const unresolvedRefs = this.findUnresolvedReferences(resolvedValue);
 
       if (unresolvedRefs.length > 0) {
-        console.error(`[FigmaSyncService] ❌ Shadow token "${token.qualifiedName}" has ${unresolvedRefs.length} unresolved reference(s):`);
-        unresolvedRefs.forEach(ref => console.error(`  - ${ref}`));
-        console.error(`[FigmaSyncService] 🔍 This may cause rendering issues or default shadow values`);
-        console.error(`[FigmaSyncService] 📋 Token details:`);
-        console.error(`  - Project ID: "${token.projectId}"`);
-        console.error(`  - Collection: "${token.collection}"`);
-
-        // Try to find similar tokens
-        const allProjects = this.repository.getAll();
-        const hints: string[] = [];
-
-        for (const ref of unresolvedRefs) {
-          const refValue = ref.split(': ')[1];
-          const cleanRef = refValue.slice(1, -1);
-
-          const matches = allProjects.filter(t =>
-            t.qualifiedName.includes(cleanRef) ||
-            cleanRef.includes(t.qualifiedName) ||
-            t.qualifiedName.toLowerCase().includes(cleanRef.toLowerCase())
-          );
-
-          if (matches.length > 0) {
-            hints.push(`  "${refValue}" might be: ${matches.slice(0, 3).map(m => `"${m.qualifiedName}" (project: ${m.projectId})`).join(', ')}`);
+        console.group(`⚠️  SHADOW: ${token.qualifiedName}`);
+        console.log(`❌ ${unresolvedRefs.length} unresolved reference(s) - shadow may not render correctly`);
+        unresolvedRefs.forEach(ref => {
+          if (ref.includes('color')) {
+            console.log(`   ${ref} ⚠️  MISSING COLOR - shadow will be invisible!`);
           } else {
-            hints.push(`  "${refValue}" - NO MATCHES FOUND`);
+            console.log(`   ${ref}`);
           }
-        }
-
-        console.error(`[FigmaSyncService] 💡 Suggestions:`);
-        hints.forEach(hint => console.error(hint));
-      } else {
-        console.log(`[FigmaSyncService] ✅ All shadow references resolved successfully for ${token.qualifiedName}`);
+        });
+        console.log(`📋 Project: "${token.projectId}" | Collection: "${token.collection}"`);
+        console.log(`💡 See individual reference errors above for details`);
+        console.groupEnd();
       }
 
       const styleName = token.path.join('/');
@@ -1214,14 +1124,12 @@ export class FigmaSyncService {
         effectStyle = figma.createEffectStyle();
         effectStyle.name = styleName;
         stats.added++;
-        console.log(`[FigmaSyncService] Created effect style: ${styleName}`);
       } else {
         if (!options.updateExisting) {
           stats.skipped++;
           return stats;
         }
         stats.updated++;
-        console.log(`[FigmaSyncService] Updated effect style: ${styleName}`);
       }
 
       // Set effect style description
