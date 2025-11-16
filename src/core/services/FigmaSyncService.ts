@@ -452,6 +452,14 @@ export class FigmaSyncService {
   private convertColorValue(value: any): RGB {
     // Handle string colors (hex format)
     if (typeof value === 'string') {
+      // Check for unresolved reference FIRST
+      if (value.startsWith('{') && value.endsWith('}')) {
+        console.error(`[FigmaSyncService] UNRESOLVED COLOR REFERENCE: ${value}`);
+        console.error(`[FigmaSyncService] This reference was not resolved - shadow/style will use BLACK as fallback`);
+        console.error(`[FigmaSyncService] Check that the referenced token exists and is in the same project`);
+        return { r: 0, g: 0, b: 0 }; // Black fallback for unresolved references
+      }
+
       if (value.startsWith('#')) {
         return this.hexToRgb(value);
       }
@@ -939,14 +947,18 @@ export class FigmaSyncService {
   private resolveNestedReferences(value: any, projectId: string): any {
     if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
       // It's a reference - use TokenResolver for sophisticated resolution
-      const referencedToken = this.resolver.resolveReference(value, projectId);
+      console.log(`[FigmaSyncService] 🔍 Resolving reference: ${value} in project "${projectId}"`);
+      const referencedToken = this.resolver.resolveReference(value, projectId, true); // Enable debug mode
 
       if (referencedToken) {
+        console.log(`[FigmaSyncService] ✓ Resolved ${value} -> ${referencedToken.qualifiedName} (${referencedToken.type})`);
         const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
+        console.log(`[FigmaSyncService]   Value:`, JSON.stringify(resolvedValue).slice(0, 100));
         // If the resolved value is also a reference, resolve it recursively
         return this.resolveNestedReferences(resolvedValue, projectId);
       } else {
         // Reference failed - log detailed diagnostics
+        console.error(`[FigmaSyncService] ✗ Failed to resolve: ${value}`);
         this.logUnresolvedReference(value, projectId);
         return value; // Return as-is if can't resolve
       }
@@ -1268,30 +1280,41 @@ export class FigmaSyncService {
         effectStyle.description = token.description;
       }
 
+      // Log shadow value for debugging
+      console.group(`[FigmaSyncService] Creating shadow effect: ${token.qualifiedName}`);
+      console.log('Shadow value:', shadowValue);
+      console.log('Resolved color:', shadowValue.color);
+
+      // Convert values with logging
+      const offsetX = this.convertNumericValue(shadowValue.offsetX, options.percentageBase);
+      const offsetY = this.convertNumericValue(shadowValue.offsetY, options.percentageBase);
+      const blur = this.convertNumericValue(shadowValue.blur, options.percentageBase);
+      const spread = shadowValue.spread !== undefined
+        ? this.convertNumericValue(shadowValue.spread, options.percentageBase)
+        : 0;
+      const color = this.convertColorToRGBA(shadowValue.color);
+
+      console.log('Converted values:', { offsetX, offsetY, blur, spread, color });
+      console.groupEnd();
+
       // Create shadow effect (drop shadow or inner shadow)
       const shadowEffect: DropShadowEffect | InnerShadowEffect = shadowValue.inset
         ? {
             type: 'INNER_SHADOW',
             visible: true,
-            color: this.convertColorToRGBA(shadowValue.color),
-            offset: {
-              x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
-              y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase),
-            },
-            radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
-            spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
+            color,
+            offset: { x: offsetX, y: offsetY },
+            radius: blur,
+            spread,
             blendMode: 'NORMAL',
           }
         : {
             type: 'DROP_SHADOW',
             visible: true,
-            color: this.convertColorToRGBA(shadowValue.color),
-            offset: {
-              x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
-              y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase),
-            },
-            radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
-            spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
+            color,
+            offset: { x: offsetX, y: offsetY },
+            radius: blur,
+            spread,
             blendMode: 'NORMAL',
           };
 
