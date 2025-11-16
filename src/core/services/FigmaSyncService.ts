@@ -8,6 +8,7 @@ import { Result, Success, Failure, ImportStats } from '../../shared/types';
 import { TokenRepository } from './TokenRepository';
 import { TokenResolver } from './TokenResolver';
 import { debug } from '../../shared/logger';
+import { converters } from '../converters';
 
 /**
  * Sync result with detailed statistics
@@ -408,74 +409,17 @@ export class FigmaSyncService {
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
-    // Handle string colors (hex format)
-    if (typeof value === 'string') {
-      if (value.startsWith('#')) {
-        return this.hexToRgb(value);
-      }
-      // Handle rgb(), rgba() string formats
-      if (value.startsWith('rgb')) {
-        return this.parseRgbString(value);
-      }
+    // Use ColorConverter (handles all formats including nested components)
+    const result = converters.color.toRGB(value);
+
+    if (result.success) {
+      // Return RGB without alpha (Figma COLOR type only accepts RGB)
+      const { r, g, b } = result.data!;
+      return { r, g, b };
     }
 
-    // Handle object formats
-    if (typeof value === 'object' && value !== null) {
-      // Format 1: Direct Figma RGB format { r: 0-1, g: 0-1, b: 0-1 }
-      if ('r' in value && 'g' in value && 'b' in value) {
-        // Check if values are already normalized (0-1)
-        const isNormalized = value.r <= 1 && value.g <= 1 && value.b <= 1;
-        if (isNormalized) {
-          // Return only RGB (no alpha)
-          return { r: value.r, g: value.g, b: value.b };
-        }
-        // Convert from 0-255 to 0-1
-        return {
-          r: value.r / 255,
-          g: value.g / 255,
-          b: value.b / 255,
-        };
-      }
-
-      // Format 2: Nested components object (components is an object, not an array)
-      // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
-      if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
-        // Recursively convert the nested components object
-        return this.convertColorValue(value.components);
-      }
-
-      // Format 3: HSL colorSpace with hex fallback (common in W3C Design Tokens)
-      // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
-      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
-        debug.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
-        return this.hexToRgb(value.hex);
-      }
-
-      // Format 4: RGB colorSpace with components array
-      // Example: { colorSpace: 'rgb', components: [255, 128, 0] }
-      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
-        const [r, g, b] = value.components;
-        return {
-          r: r / 255,
-          g: g / 255,
-          b: b / 255,
-        };
-      }
-
-      // Format 5: W3C color object with components array (no colorSpace)
-      // Example: { components: [255, 128, 0], alpha: 1 }
-      // Note: Alpha is ignored - Figma COLOR type only accepts RGB
-      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
-        const [r, g, b] = value.components;
-        return {
-          r: r / 255,
-          g: g / 255,
-          b: b / 255,
-        };
-      }
-    }
-
-    console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
+    // Conversion failed
+    console.warn(`[FigmaSyncService] Could not convert color value: ${result.error}`);
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 
@@ -484,84 +428,20 @@ export class FigmaSyncService {
    * Similar to convertColorValue but includes alpha channel
    */
   private convertColorToRGBA(value: any): RGBA {
-    // Get RGB components
-    const rgb = this.convertColorValue(value);
+    // Use ColorConverter (handles all formats including alpha extraction)
+    const result = converters.color.toRGB(value);
 
-    // Extract alpha if available
-    let alpha = 1;
-
-    if (typeof value === 'object' && value !== null) {
-      if ('a' in value && typeof value.a === 'number') {
-        alpha = value.a;
-      } else if ('alpha' in value && typeof value.alpha === 'number') {
-        alpha = value.alpha;
-      }
+    if (result.success) {
+      const rgb = result.data!;
+      // Convert to RGBA (includes alpha channel for shadows/effects)
+      return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
     }
 
-    // Parse alpha from rgba() string
-    if (typeof value === 'string' && value.startsWith('rgba')) {
-      const match = value.match(/rgba?\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
-      if (match) {
-        alpha = parseFloat(match[1]);
-      }
-    }
-
-    return { ...rgb, a: alpha };
+    // Conversion failed
+    console.warn(`[FigmaSyncService] Could not convert color to RGBA: ${result.error}`);
+    return { r: 0, g: 0, b: 0, a: 1 }; // Fallback to opaque black
   }
 
-  /**
-   * Parse rgb() or rgba() string to RGB
-   * Note: Alpha channel is ignored - Figma COLOR type only accepts RGB
-   */
-  private parseRgbString(rgbString: string): RGB {
-    const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-    if (match) {
-      return {
-        r: parseInt(match[1]) / 255,
-        g: parseInt(match[2]) / 255,
-        b: parseInt(match[3]) / 255,
-      };
-    }
-    return { r: 0, g: 0, b: 0 };
-  }
-
-  /**
-   * Convert hex color to RGB
-   * Supports 3, 6, and 8 digit hex codes
-   * Note: Alpha channel (8-digit hex) is ignored - Figma COLOR type only accepts RGB
-   */
-  private hexToRgb(hex: string): RGB {
-    // Remove # if present
-    const cleanHex = hex.replace(/^#/, '');
-
-    // Handle 3-digit hex (e.g., #f80)
-    if (cleanHex.length === 3) {
-      const r = parseInt(cleanHex[0] + cleanHex[0], 16) / 255;
-      const g = parseInt(cleanHex[1] + cleanHex[1], 16) / 255;
-      const b = parseInt(cleanHex[2] + cleanHex[2], 16) / 255;
-      return { r, g, b };
-    }
-
-    // Handle 6-digit hex (e.g., #ff8800)
-    if (cleanHex.length === 6) {
-      const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-      const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-      const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-      return { r, g, b };
-    }
-
-    // Handle 8-digit hex with alpha (e.g., #ff8800ff)
-    // Note: Alpha is ignored - Figma COLOR type only accepts RGB
-    if (cleanHex.length === 8) {
-      const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-      const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-      const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-      return { r, g, b };
-    }
-
-    console.warn(`[FigmaSyncService] Invalid hex format: ${hex}`);
-    return { r: 0, g: 0, b: 0 };
-  }
 
   /**
    * Convert numeric value (handle units like px, rem, em, %)
