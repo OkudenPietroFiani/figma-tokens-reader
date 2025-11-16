@@ -493,11 +493,20 @@ export class FigmaSyncService {
         return this.hslToRgb(value.h, value.s, value.l);
       }
 
-      // Format 4: HSL colorSpace with hex fallback (common in W3C Design Tokens)
-      // Example: { colorSpace: 'hsl', components: [225, 16, 92], alpha: 1, hex: '#E8E9EC' }
-      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
-        console.log('[FigmaSyncService] Converting HSL color using hex fallback:', value.hex);
-        return this.hexToRgb(value.hex);
+      // Format 4: HSL colorSpace with components array
+      // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
+      if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
+        const [h, s, l] = value.components;
+        console.log('[FigmaSyncService] Converting HSL colorSpace with components:', { h, s, l });
+
+        // Use hex fallback if available (more accurate)
+        if ('hex' in value && value.hex && typeof value.hex === 'string') {
+          console.log('[FigmaSyncService] Using hex fallback for HSL:', value.hex);
+          return this.hexToRgb(value.hex);
+        }
+
+        // Otherwise convert HSL to RGB
+        return this.hslToRgb(h, s, l);
       }
 
       // Format 5: RGB colorSpace with components array
@@ -541,10 +550,23 @@ export class FigmaSyncService {
     let alpha = 1;
 
     if (typeof value === 'object' && value !== null) {
+      // Check for numeric alpha values
       if ('a' in value && typeof value.a === 'number') {
         alpha = value.a;
       } else if ('alpha' in value && typeof value.alpha === 'number') {
         alpha = value.alpha;
+      }
+      // Warn about unresolved alpha references
+      else if ('alpha' in value && typeof value.alpha === 'string' && value.alpha.startsWith('{')) {
+        console.warn(
+          `[FigmaSyncService] Unresolved alpha reference: ${value.alpha} - using default alpha=1`
+        );
+        alpha = 1; // Default to fully opaque
+      } else if ('a' in value && typeof value.a === 'string' && value.a.startsWith('{')) {
+        console.warn(
+          `[FigmaSyncService] Unresolved alpha reference: ${value.a} - using default alpha=1`
+        );
+        alpha = 1; // Default to fully opaque
       }
     }
 
@@ -1108,19 +1130,32 @@ export class FigmaSyncService {
             const numericWeight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
             const fontStyle = this.mapFontWeightToStyle(numericWeight);
 
-            try {
-              await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
-              textStyle.fontName = { family: fontFamily, style: fontStyle };
-            } catch (fontLoadError) {
-              // Try fallback to Regular if specific weight fails
-              console.warn(`⚠️  "${fontFamily}" "${fontStyle}" not available - using Regular`);
+            // Try loading the font with fallbacks for common variations
+            let fontLoaded = false;
+            const stylesToTry = [
+              fontStyle, // Try exact match first (e.g., "SemiBold")
+              fontStyle.replace(/([A-Z])/g, ' $1').trim(), // Try with spaces (e.g., "Semi Bold")
+              'Regular', // Fallback to Regular
+            ];
+
+            for (const styleVariant of stylesToTry) {
               try {
-                await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
-                textStyle.fontName = { family: fontFamily, style: 'Regular' };
-              } catch (fallbackError) {
-                console.error(`❌ Font "${fontFamily}" not installed in Figma`);
-                throw fontLoadError; // Re-throw original error
+                await figma.loadFontAsync({ family: fontFamily, style: styleVariant });
+                textStyle.fontName = { family: fontFamily, style: styleVariant };
+                if (styleVariant !== fontStyle) {
+                  console.log(`✓ Loaded "${fontFamily}" with style variant "${styleVariant}" (requested: "${fontStyle}")`);
+                }
+                fontLoaded = true;
+                break;
+              } catch (error) {
+                // Try next variant
+                continue;
               }
+            }
+
+            if (!fontLoaded) {
+              console.error(`❌ Font "${fontFamily}" not available in any style variant`);
+              throw new Error(`Font "${fontFamily}" not installed in Figma`);
             }
           }
         } catch (error) {
