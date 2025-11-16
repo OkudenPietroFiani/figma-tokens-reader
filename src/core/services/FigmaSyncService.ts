@@ -545,8 +545,7 @@ export class FigmaSyncService {
       }
     }
 
-    console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-    console.warn(`[FigmaSyncService] Value type: ${typeof value}`);
+    console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 
@@ -763,7 +762,7 @@ export class FigmaSyncService {
       }
     }
 
-    console.warn('[FigmaSyncService] Could not convert value to number:', value);
+    console.warn(`[FigmaSyncService] Could not convert value to number - type: ${typeof value}`);
     return 0;
   }
 
@@ -848,7 +847,7 @@ export class FigmaSyncService {
     }
 
     // Fallback: treat as AUTO
-    console.warn('[FigmaSyncService] Could not convert line height, using AUTO:', value);
+    console.warn(`[FigmaSyncService] Could not convert line height (type: ${typeof value}), using AUTO`);
     return { unit: 'AUTO' };
   }
 
@@ -880,7 +879,8 @@ export class FigmaSyncService {
         console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
       }
     } catch (error) {
-      console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}: ${message}`);
       // Non-fatal error - continue sync
     }
   }
@@ -1029,7 +1029,6 @@ export class FigmaSyncService {
         console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
         console.log(`   Collection: ${t.collection}`);
         console.log(`   Type: ${t.type}`);
-        console.log(`   Value:`, t.resolvedValue || t.value);
       });
       console.log(`\n💡 FIX: Ensure all tokens are in the same project ID`);
       console.groupEnd();
@@ -1173,8 +1172,8 @@ export class FigmaSyncService {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.group(`❌ FONT ERROR: ${token.qualifiedName}`);
-          console.log(`Family:`, typValue.fontFamily);
-          console.log(`Weight:`, typValue.fontWeight);
+          console.log(`Family: ${typValue.fontFamily}`);
+          console.log(`Weight: ${typValue.fontWeight}`);
           console.log(`Error: ${message}`);
           console.groupEnd();
           throw error; // Re-throw to skip this style
@@ -1213,7 +1212,6 @@ export class FigmaSyncService {
       if (stack) {
         console.error(`  Stack: ${stack}`);
       }
-      console.error(`  Token value:`, token.value);
       stats.skipped++;
       return stats;
     }

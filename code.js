@@ -15184,8 +15184,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           };
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert color value:`, value);
-      console.warn(`[FigmaSyncService] Value type: ${typeof value}`);
+      console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -15351,7 +15350,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         }
       }
-      console.warn("[FigmaSyncService] Could not convert value to number:", value);
+      console.warn(`[FigmaSyncService] Could not convert value to number - type: ${typeof value}`);
       return 0;
     }
     /**
@@ -15411,7 +15410,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         }
       }
-      console.warn("[FigmaSyncService] Could not convert line height, using AUTO:", value);
+      console.warn(`[FigmaSyncService] Could not convert line height (type: ${typeof value}), using AUTO`);
       return { unit: "AUTO" };
     }
     /**
@@ -15432,7 +15431,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
         }
       } catch (error46) {
-        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error46);
+        const message = error46 instanceof Error ? error46.message : String(error46);
+        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}: ${message}`);
       }
     }
     /**
@@ -15536,7 +15536,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
           console.log(`   Collection: ${t.collection}`);
           console.log(`   Type: ${t.type}`);
-          console.log(`   Value:`, t.resolvedValue || t.value);
         });
         console.log(`
 \u{1F4A1} FIX: Ensure all tokens are in the same project ID`);
@@ -15657,8 +15656,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           } catch (error46) {
             const message = error46 instanceof Error ? error46.message : String(error46);
             console.group(`\u274C FONT ERROR: ${token.qualifiedName}`);
-            console.log(`Family:`, typValue.fontFamily);
-            console.log(`Weight:`, typValue.fontWeight);
+            console.log(`Family: ${typValue.fontFamily}`);
+            console.log(`Weight: ${typValue.fontWeight}`);
             console.log(`Error: ${message}`);
             console.groupEnd();
             throw error46;
@@ -15688,7 +15687,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (stack) {
           console.error(`  Stack: ${stack}`);
         }
-        console.error(`  Token value:`, token.value);
         stats.skipped++;
         return stats;
       }
