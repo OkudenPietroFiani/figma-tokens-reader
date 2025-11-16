@@ -233,6 +233,8 @@ private resolveNestedReferences(value: any, projectId: string): any {
       // Recursively resolve in case the resolved value is also a reference
       return this.resolveNestedReferences(resolvedValue, projectId);
     }
+    // FAILED - Log diagnostics and return unresolved
+    this.logUnresolvedReference(value, projectId);
     return value; // Return as-is if can't resolve
   }
   // ... recursively process objects and arrays
@@ -250,6 +252,95 @@ private resolveNestedReferences(value: any, projectId: string): any {
 **Applied to**:
 - Typography tokens (fontFamily, fontSize, fontWeight, lineHeight, letterSpacing)
 - Shadow tokens (color, offsetX, offsetY, blur, spread)
+
+### Project ID Scoping (CRITICAL)
+
+**IMPORTANT**: Token resolution is **scoped to project ID**. References can only resolve tokens in the SAME project.
+
+**Common Failure Pattern**:
+```typescript
+// Typography token in project "default"
+{
+  projectId: "default",
+  value: {
+    fontFamily: "{primitive.typography.font-family.primary}"  // ❌ FAILS
+  }
+}
+
+// Referenced token in project "primitive"
+{
+  projectId: "primitive",  // ← Different project ID!
+  qualifiedName: "primitive.typography.font-family.primary",
+  value: "Inter"
+}
+```
+
+**Why This Fails**:
+- `resolver.resolveReference(ref, "default")` only searches project "default"
+- Referenced token exists but in project "primitive"
+- Result: Reference remains unresolved → Figma uses defaults (12px, AUTO)
+
+**Solutions**:
+1. **Import all tokens with same project ID** (recommended)
+2. **Future**: Implement cross-project reference resolution
+
+### Diagnostic Logging
+
+The plugin provides comprehensive diagnostics for unresolved references:
+
+**Collapsible Error Groups** (console.group):
+```
+❌ UNRESOLVED: {primitive.typography.font-size.20}
+  🔍 Searching in project: "default" (45 tokens)
+  🎯 Looking for: "primitive.typography.font-size.20"
+
+  ⚠️  PROJECT MISMATCH - Token found in different project(s):
+    📍 "primitive.typography.font-size.20"
+       Project: "primitive" (expected: "default")
+       Collection: primitive
+       Type: fontSize
+       Value: "1.25rem"
+
+    💡 FIX: Ensure all tokens are in the same project ID
+```
+
+**Error Types**:
+1. **PROJECT MISMATCH**: Token exists but in different project ID
+   - Shows actual project ID vs expected
+   - Shows token value for verification
+2. **NAMING ISSUE**: Similar tokens found (typos detected)
+   - Shows partial matches with project IDs
+3. **TOKEN NOT FOUND**: Token doesn't exist anywhere
+   - Shows available tokens in current project
+
+**Token Validation Summaries**:
+```typescript
+// Typography validation
+const unresolvedRefs = this.findUnresolvedReferences(resolvedValue);
+if (unresolvedRefs.length > 0) {
+  console.group(`⚠️  TYPOGRAPHY: ${token.qualifiedName}`);
+  console.log(`❌ ${unresolvedRefs.length} unresolved reference(s) - will use Figma defaults (12px, AUTO)`);
+  // ... show which properties failed
+  console.groupEnd();
+}
+
+// Shadow validation (highlights missing colors!)
+if (unresolvedRefs.length > 0) {
+  console.group(`⚠️  SHADOW: ${token.qualifiedName}`);
+  unresolvedRefs.forEach(ref => {
+    if (ref.includes('color')) {
+      console.log(`   ${ref} ⚠️  MISSING COLOR - shadow will be invisible!`);
+    }
+  });
+  console.groupEnd();
+}
+```
+
+**Benefits**:
+- Instant identification of project ID mismatches
+- Clear distinction between missing tokens vs wrong project
+- Collapsible groups prevent console spam
+- Color references in shadows explicitly flagged
 
 ---
 
@@ -328,6 +419,52 @@ await figma.loadFontAsync({
 
 textStyle.fontName = { family: fontFamily, style: fontStyle };
 ```
+
+**Font Family Handling** (Font Stacks):
+```typescript
+// Typography tokens may contain CSS font stacks
+"fontFamily": "Inter,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"
+
+// SOLUTION: Extract first font from stack
+let fontFamily: string;
+if (typValue.fontFamily.includes(',')) {
+  const fontStack = typValue.fontFamily.split(',').map(f => f.trim());
+  fontFamily = fontStack[0];  // Use "Inter" only
+}
+
+// Figma only supports single font, not fallback stacks
+```
+
+**Font Weight Resolution** (Common Pitfall):
+```typescript
+// Font weight might be an unresolved reference
+const fontWeight = typValue.fontWeight || 400;
+
+if (typeof fontWeight === 'string' && fontWeight.startsWith('{')) {
+  // ❌ UNRESOLVED: "{primitive.typography.font-weight.semibold}"
+  // Fallback to Regular to prevent errors
+  await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+} else {
+  // ✅ Resolved numeric weight
+  const fontStyle = this.mapFontWeightToStyle(fontWeight);
+
+  try {
+    await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+  } catch (error) {
+    // Font style not available (e.g., "SemiBold" vs "Semi Bold")
+    // Fallback to "Regular"
+    await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+  }
+}
+```
+
+**Common Font Loading Errors**:
+- `"Inter SemiBold"` fails → Font not installed or wrong style name
+- Different fonts use different style names:
+  - Some: "SemiBold" (one word)
+  - Others: "Semi Bold" (two words)
+  - Mapping 600 → "SemiBold" may fail if font uses "Semi Bold"
+- **Solution**: Always fallback to "Regular" on load failure
 
 **Line Height** (CRITICAL: Unit handling):
 ```typescript
