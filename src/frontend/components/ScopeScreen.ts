@@ -7,6 +7,7 @@ import { BaseComponent } from './BaseComponent';
 import { AppState } from '../state/AppState';
 import { PluginBridge } from '../services/PluginBridge';
 import { escapeHtml } from '../../utils/htmlSanitizer';
+import { debug } from '../../shared/logger';
 
 /**
  * ScopeScreen component

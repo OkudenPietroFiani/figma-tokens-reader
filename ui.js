@@ -57,7 +57,7 @@
   }
 
   // src/shared/logger.ts
-  var debug2 = {
+  var debug = {
     log: (...args) => {
       if (isFeatureEnabled("DEBUG_MODE")) {
         console.log(...args);
@@ -176,7 +176,7 @@
       });
       this._lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
       this.emit("files-loaded", files);
-      debug2.log(`[AppState] Token files updated: ${files.length} files`);
+      debug.log(`[AppState] Token files updated: ${files.length} files`);
     }
     /**
      * Add a single token file
@@ -184,7 +184,7 @@
     addTokenFile(file) {
       this._tokenFiles.set(file.name, file);
       this.emit("files-loaded", Array.from(this._tokenFiles.values()));
-      debug2.log(`[AppState] Token file added: ${file.name}`);
+      debug.log(`[AppState] Token file added: ${file.name}`);
     }
     /**
      * Remove a token file
@@ -192,7 +192,7 @@
     removeTokenFile(fileName) {
       this._tokenFiles.delete(fileName);
       this.emit("files-loaded", Array.from(this._tokenFiles.values()));
-      debug2.log(`[AppState] Token file removed: ${fileName}`);
+      debug.log(`[AppState] Token file removed: ${fileName}`);
     }
     /**
      * Clear all token files
@@ -200,7 +200,7 @@
     clearTokenFiles() {
       this._tokenFiles.clear();
       this.emit("files-loaded", []);
-      debug2.log(`[AppState] All token files cleared`);
+      debug.log(`[AppState] All token files cleared`);
     }
     /**
      * Set selected file and emit event
@@ -208,7 +208,7 @@
     setSelectedFile(fileName) {
       this._selectedFile = fileName;
       this.emit("file-selected", fileName);
-      debug2.log(`[AppState] Selected file: ${fileName}`);
+      debug.log(`[AppState] Selected file: ${fileName}`);
     }
     /**
      * Select a token (for scope assignment)
@@ -216,7 +216,7 @@
     selectToken(tokenPath) {
       this._selectedTokens.add(tokenPath);
       this.emit("tokens-selected", Array.from(this._selectedTokens));
-      debug2.log(`[AppState] Token selected: ${tokenPath}`);
+      debug.log(`[AppState] Token selected: ${tokenPath}`);
     }
     /**
      * Deselect a token
@@ -224,7 +224,7 @@
     deselectToken(tokenPath) {
       this._selectedTokens.delete(tokenPath);
       this.emit("tokens-selected", Array.from(this._selectedTokens));
-      debug2.log(`[AppState] Token deselected: ${tokenPath}`);
+      debug.log(`[AppState] Token deselected: ${tokenPath}`);
     }
     /**
      * Toggle token selection
@@ -242,7 +242,7 @@
     clearTokenSelection() {
       this._selectedTokens.clear();
       this.emit("tokens-selected", []);
-      debug2.log(`[AppState] Token selection cleared`);
+      debug.log(`[AppState] Token selection cleared`);
     }
     /**
      * Set current screen and emit event
@@ -250,7 +250,7 @@
     setCurrentScreen(screen) {
       this._currentScreen = screen;
       this.emit("screen-changed", screen);
-      debug2.log(`[AppState] Screen changed to: ${screen}`);
+      debug.log(`[AppState] Screen changed to: ${screen}`);
     }
     /**
      * Set current tab and emit event
@@ -258,7 +258,7 @@
     setCurrentTab(tab) {
       this._currentTab = tab;
       this.emit("tab-changed", tab);
-      debug2.log(`[AppState] Tab changed to: ${tab}`);
+      debug.log(`[AppState] Tab changed to: ${tab}`);
     }
     /**
      * Set import mode and emit event
@@ -266,21 +266,21 @@
     setImportMode(mode) {
       this._importMode = mode;
       this.emit("import-mode-changed", mode);
-      debug2.log(`[AppState] Import mode changed to: ${mode}`);
+      debug.log(`[AppState] Import mode changed to: ${mode}`);
     }
     /**
      * Set token source
      */
     setTokenSource(source) {
       this._tokenSource = source;
-      debug2.log(`[AppState] Token source set to: ${source}`);
+      debug.log(`[AppState] Token source set to: ${source}`);
     }
     /**
      * Set GitHub configuration
      */
     setGitHubConfig(config) {
       this._githubConfig = config;
-      debug2.log(`[AppState] GitHub config updated`);
+      debug.log(`[AppState] GitHub config updated`);
     }
     /**
      * Set Figma variables and emit event
@@ -291,7 +291,7 @@
         this._figmaVariables.set(name, data);
       });
       this.emit("variables-loaded", variables);
-      debug2.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
+      debug.log(`[AppState] Figma variables updated: ${this._figmaVariables.size} variables`);
     }
     /**
      * Set scope for a token
@@ -299,7 +299,7 @@
     setTokenScopes(tokenPath, scopes) {
       this._tokenScopesMap.set(tokenPath, scopes);
       this.emit("scopes-updated", { tokenPath, scopes });
-      debug2.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(", ")}`);
+      debug.log(`[AppState] Scopes set for ${tokenPath}: ${scopes.join(", ")}`);
     }
     /**
      * Clear scope for a token
@@ -307,7 +307,7 @@
     clearTokenScopes(tokenPath) {
       this._tokenScopesMap.delete(tokenPath);
       this.emit("scopes-updated", { tokenPath, scopes: [] });
-      debug2.log(`[AppState] Scopes cleared for ${tokenPath}`);
+      debug.log(`[AppState] Scopes cleared for ${tokenPath}`);
     }
     /**
      * Get scopes for a token
@@ -376,7 +376,7 @@
       if (snapshot.lastUpdated !== void 0) {
         this._lastUpdated = snapshot.lastUpdated;
       }
-      debug2.log(`[AppState] State restored from snapshot`);
+      debug.log(`[AppState] State restored from snapshot`);
     }
     /**
      * Reset state to initial values
@@ -393,7 +393,7 @@
       this._figmaVariables.clear();
       this._tokenScopesMap.clear();
       this._lastUpdated = null;
-      debug2.log(`[AppState] State reset to initial values`);
+      debug.log(`[AppState] State reset to initial values`);
     }
   };
 

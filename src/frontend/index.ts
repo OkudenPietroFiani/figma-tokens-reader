@@ -13,6 +13,7 @@ import { DocumentationScreen } from './components/DocumentationScreen';
 import { AppLayout } from './components/AppLayout';
 import { NotificationManager } from './components/NotificationManager';
 import { ScreenType } from '../shared/types';
+import { debug } from '../shared/logger';
 
 /**
  * Frontend application class
