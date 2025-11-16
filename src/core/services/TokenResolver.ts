@@ -75,18 +75,13 @@ export class TokenResolver {
    * @param projectId - Project context for resolution
    * @returns Resolved token or null
    */
-  resolveReference(reference: string, projectId: string, debug = false): Token | null {
+  resolveReference(reference: string, projectId: string): Token | null {
     this.stats.totalResolutions++;
 
     // Clean reference (remove braces if present)
     const cleanRef = this.cleanReference(reference);
     if (!cleanRef) {
-      if (debug) console.log(`[TokenResolver] Invalid reference: "${reference}"`);
       return null;
-    }
-
-    if (debug) {
-      console.log(`[TokenResolver] Resolving "${reference}" -> "${cleanRef}" in project "${projectId}"`);
     }
 
     // Try exact cache
@@ -94,9 +89,7 @@ export class TokenResolver {
     if (this.exactCache.has(exactKey)) {
       this.stats.cacheHits++;
       this.updateCacheHitRate();
-      const cached = this.exactCache.get(exactKey)!;
-      if (debug) console.log(`[TokenResolver] ✓ Cache hit (exact): ${cached?.qualifiedName || 'null'}`);
-      return cached;
+      return this.exactCache.get(exactKey)!;
     }
 
     // Try exact match in repository
@@ -105,11 +98,8 @@ export class TokenResolver {
       this.exactCache.set(exactKey, exactMatch);
       this.stats.cacheMisses++;
       this.updateCacheHitRate();
-      if (debug) console.log(`[TokenResolver] ✓ Exact match: ${exactMatch.qualifiedName}`);
       return exactMatch;
     }
-
-    if (debug) console.log(`[TokenResolver] ✗ No exact match for "${cleanRef}"`);
 
     // Try normalized cache
     const normalized = this.normalizeReference(cleanRef);
@@ -117,44 +107,33 @@ export class TokenResolver {
     if (this.normalizedCache.has(normalizedKey)) {
       this.stats.cacheHits++;
       this.updateCacheHitRate();
-      const cached = this.normalizedCache.get(normalizedKey)!;
-      if (debug) console.log(`[TokenResolver] ✓ Cache hit (normalized): ${cached?.qualifiedName || 'null'}`);
-      return cached;
+      return this.normalizedCache.get(normalizedKey)!;
     }
 
     // Try normalized match
-    if (debug) console.log(`[TokenResolver] Trying normalized: "${normalized}"`);
     const normalizedMatch = this.repository.getByQualifiedName(projectId, normalized);
     if (normalizedMatch) {
       this.normalizedCache.set(normalizedKey, normalizedMatch);
       this.exactCache.set(exactKey, normalizedMatch); // Cache in exact too
       this.stats.cacheMisses++;
       this.updateCacheHitRate();
-      if (debug) console.log(`[TokenResolver] ✓ Normalized match: ${normalizedMatch.qualifiedName}`);
       return normalizedMatch;
     }
-
-    if (debug) console.log(`[TokenResolver] ✗ No normalized match`);
 
     // Try fuzzy cache
     if (this.fuzzyCache.has(exactKey)) {
       this.stats.cacheHits++;
       this.updateCacheHitRate();
-      const cached = this.fuzzyCache.get(exactKey)!;
-      if (debug) console.log(`[TokenResolver] ✓ Cache hit (fuzzy): ${cached?.qualifiedName || 'null'}`);
-      return cached;
+      return this.fuzzyCache.get(exactKey)!;
     }
 
     // Try fuzzy match (expensive)
-    if (debug) console.log(`[TokenResolver] Trying fuzzy match...`);
     const fuzzyMatch = this.fuzzyMatch(cleanRef, projectId);
     this.fuzzyCache.set(exactKey, fuzzyMatch);
     if (fuzzyMatch) {
       this.exactCache.set(exactKey, fuzzyMatch); // Cache in exact too
-      if (debug) console.log(`[TokenResolver] ✓ Fuzzy match: ${fuzzyMatch.qualifiedName}`);
     } else {
       this.stats.unresolvedReferences++;
-      if (debug) console.log(`[TokenResolver] ✗ No fuzzy match - reference unresolved`);
     }
     this.stats.cacheMisses++;
     this.updateCacheHitRate();
