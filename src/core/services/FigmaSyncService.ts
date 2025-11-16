@@ -350,7 +350,15 @@ export class FigmaSyncService {
       } else {
         // Direct value - use resolvedValue if available (handles embedded references)
         const valueToConvert = token.resolvedValue || token.value;
+        console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+          tokenValue: token.value,
+          resolvedValue: token.resolvedValue,
+          tokenType: token.type,
+          figmaType,
+          valueType: typeof valueToConvert,
+        });
         const value = this.convertValue(valueToConvert, figmaType);
+        console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
         variable.setValueForMode(modeId, value);
       }
 
@@ -438,27 +446,12 @@ export class FigmaSyncService {
 
   /**
    * Convert color value to Figma RGB format
-   * Handles multiple color formats:
-   * - Format 1: Direct RGB { r, g, b } (0-1 or 0-255)
-   * - Format 2: ColorValue with hex { hex: "#..." }
-   * - Format 3: ColorValue with HSL { h, s, l }
-   * - Format 4: Nested components object (recursive)
-   * - Format 5: HSL colorSpace with components array
-   * - Format 6: RGB colorSpace with components array
-   * - Format 7: W3C components array (no colorSpace)
+   * Handles: hex strings, RGB objects, HSL objects, nested components, color objects with components
    * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
    */
   private convertColorValue(value: any): RGB {
     // Handle string colors (hex format)
     if (typeof value === 'string') {
-      // Check for unresolved reference FIRST
-      if (value.startsWith('{') && value.endsWith('}')) {
-        console.error(`[FigmaSyncService] UNRESOLVED COLOR REFERENCE: ${value}`);
-        console.error(`[FigmaSyncService] This reference was not resolved - shadow/style will use BLACK as fallback`);
-        console.error(`[FigmaSyncService] Check that the referenced token exists and is in the same project`);
-        return { r: 0, g: 0, b: 0 }; // Black fallback for unresolved references
-      }
-
       if (value.startsWith('#')) {
         return this.hexToRgb(value);
       }
@@ -496,13 +489,13 @@ export class FigmaSyncService {
       // Format 3: ColorValue with HSL properties { h, s, l }
       // Convert HSL to RGB
       if ('h' in value && 's' in value && 'l' in value) {
+        console.log('[FigmaSyncService] Converting ColorValue with HSL:', { h: value.h, s: value.s, l: value.l });
         return this.hslToRgb(value.h, value.s, value.l);
       }
 
       // Format 4: Nested components object (components is an object, not an array)
       // Example: { colorSpace: 'hsl', components: { colorSpace: 'hsl', components: [60, 8, 33], alpha: 1, hex: '#54543F' }, alpha: 0.1 }
       if ('components' in value && typeof value.components === 'object' && value.components !== null && !Array.isArray(value.components)) {
-        console.log('[FigmaSyncService] Converting nested components object - extracting inner color value');
         // Recursively convert the nested components object
         return this.convertColorValue(value.components);
       }
@@ -511,9 +504,11 @@ export class FigmaSyncService {
       // Example: { colorSpace: 'hsl', components: [225, 73, 40], alpha: 0.75 }
       if ('colorSpace' in value && value.colorSpace === 'hsl' && Array.isArray(value.components)) {
         const [h, s, l] = value.components;
+        console.log('[FigmaSyncService] Converting HSL colorSpace with components:', { h, s, l });
 
         // Use hex fallback if available (more accurate)
         if ('hex' in value && value.hex && typeof value.hex === 'string') {
+          console.log('[FigmaSyncService] Using hex fallback for HSL:', value.hex);
           return this.hexToRgb(value.hex);
         }
 
@@ -545,7 +540,8 @@ export class FigmaSyncService {
       }
     }
 
-    console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
+    console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+    console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 
@@ -762,7 +758,7 @@ export class FigmaSyncService {
       }
     }
 
-    console.warn(`[FigmaSyncService] Could not convert value to number - type: ${typeof value}`);
+    console.warn('[FigmaSyncService] Could not convert value to number:', value);
     return 0;
   }
 
@@ -847,7 +843,7 @@ export class FigmaSyncService {
     }
 
     // Fallback: treat as AUTO
-    console.warn(`[FigmaSyncService] Could not convert line height (type: ${typeof value}), using AUTO`);
+    console.warn('[FigmaSyncService] Could not convert line height, using AUTO:', value);
     return { unit: 'AUTO' };
   }
 
@@ -879,8 +875,7 @@ export class FigmaSyncService {
         console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}: ${message}`);
+      console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error);
       // Non-fatal error - continue sync
     }
   }
@@ -1029,6 +1024,7 @@ export class FigmaSyncService {
         console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
         console.log(`   Collection: ${t.collection}`);
         console.log(`   Type: ${t.type}`);
+        console.log(`   Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
       });
       console.log(`\n💡 FIX: Ensure all tokens are in the same project ID`);
       console.groupEnd();
@@ -1172,8 +1168,8 @@ export class FigmaSyncService {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.group(`❌ FONT ERROR: ${token.qualifiedName}`);
-          console.log(`Family: ${typValue.fontFamily}`);
-          console.log(`Weight: ${typValue.fontWeight}`);
+          console.log(`Family: ${JSON.stringify(typValue.fontFamily)}`);
+          console.log(`Weight: ${JSON.stringify(typValue.fontWeight)}`);
           console.log(`Error: ${message}`);
           console.groupEnd();
           throw error; // Re-throw to skip this style
@@ -1212,6 +1208,7 @@ export class FigmaSyncService {
       if (stack) {
         console.error(`  Stack: ${stack}`);
       }
+      console.error(`  Token value:`, JSON.stringify(token.value, null, 2));
       stats.skipped++;
       return stats;
     }
@@ -1278,33 +1275,30 @@ export class FigmaSyncService {
         effectStyle.description = token.description;
       }
 
-      // Convert shadow values
-      const offsetX = this.convertNumericValue(shadowValue.offsetX, options.percentageBase);
-      const offsetY = this.convertNumericValue(shadowValue.offsetY, options.percentageBase);
-      const blur = this.convertNumericValue(shadowValue.blur, options.percentageBase);
-      const spread = shadowValue.spread !== undefined
-        ? this.convertNumericValue(shadowValue.spread, options.percentageBase)
-        : 0;
-      const color = this.convertColorToRGBA(shadowValue.color);
-
       // Create shadow effect (drop shadow or inner shadow)
       const shadowEffect: DropShadowEffect | InnerShadowEffect = shadowValue.inset
         ? {
             type: 'INNER_SHADOW',
             visible: true,
-            color,
-            offset: { x: offsetX, y: offsetY },
-            radius: blur,
-            spread,
+            color: this.convertColorToRGBA(shadowValue.color),
+            offset: {
+              x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+              y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase),
+            },
+            radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+            spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
             blendMode: 'NORMAL',
           }
         : {
             type: 'DROP_SHADOW',
             visible: true,
-            color,
-            offset: { x: offsetX, y: offsetY },
-            radius: blur,
-            spread,
+            color: this.convertColorToRGBA(shadowValue.color),
+            offset: {
+              x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+              y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase),
+            },
+            radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+            spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
             blendMode: 'NORMAL',
           };
 

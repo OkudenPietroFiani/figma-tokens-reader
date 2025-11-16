@@ -15046,7 +15046,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         } else {
           const valueToConvert = token.resolvedValue || token.value;
+          console.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+            tokenValue: token.value,
+            resolvedValue: token.resolvedValue,
+            tokenType: token.type,
+            figmaType,
+            valueType: typeof valueToConvert
+          });
           const value = this.convertValue(valueToConvert, figmaType);
+          console.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -15112,24 +15120,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     /**
      * Convert color value to Figma RGB format
-     * Handles multiple color formats:
-     * - Format 1: Direct RGB { r, g, b } (0-1 or 0-255)
-     * - Format 2: ColorValue with hex { hex: "#..." }
-     * - Format 3: ColorValue with HSL { h, s, l }
-     * - Format 4: Nested components object (recursive)
-     * - Format 5: HSL colorSpace with components array
-     * - Format 6: RGB colorSpace with components array
-     * - Format 7: W3C components array (no colorSpace)
+     * Handles: hex strings, RGB objects, HSL objects, nested components, color objects with components
      * Note: Figma COLOR type only accepts RGB (r, g, b), not RGBA with 'a' property
      */
     convertColorValue(value) {
       if (typeof value === "string") {
-        if (value.startsWith("{") && value.endsWith("}")) {
-          console.error(`[FigmaSyncService] UNRESOLVED COLOR REFERENCE: ${value}`);
-          console.error(`[FigmaSyncService] This reference was not resolved - shadow/style will use BLACK as fallback`);
-          console.error(`[FigmaSyncService] Check that the referenced token exists and is in the same project`);
-          return { r: 0, g: 0, b: 0 };
-        }
         if (value.startsWith("#")) {
           return this.hexToRgb(value);
         }
@@ -15154,15 +15149,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return this.hexToRgb(value.hex);
         }
         if ("h" in value && "s" in value && "l" in value) {
+          console.log("[FigmaSyncService] Converting ColorValue with HSL:", { h: value.h, s: value.s, l: value.l });
           return this.hslToRgb(value.h, value.s, value.l);
         }
         if ("components" in value && typeof value.components === "object" && value.components !== null && !Array.isArray(value.components)) {
-          console.log("[FigmaSyncService] Converting nested components object - extracting inner color value");
           return this.convertColorValue(value.components);
         }
         if ("colorSpace" in value && value.colorSpace === "hsl" && Array.isArray(value.components)) {
           const [h, s, l] = value.components;
+          console.log("[FigmaSyncService] Converting HSL colorSpace with components:", { h, s, l });
           if ("hex" in value && value.hex && typeof value.hex === "string") {
+            console.log("[FigmaSyncService] Using hex fallback for HSL:", value.hex);
             return this.hexToRgb(value.hex);
           }
           return this.hslToRgb(h, s, l);
@@ -15184,7 +15181,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           };
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert color value - type: ${typeof value}`);
+      console.warn(`[FigmaSyncService] Could not convert color value:`, value);
+      console.warn(`[FigmaSyncService] Value type: ${typeof value}, stringified:`, JSON.stringify(value));
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -15350,7 +15348,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert value to number - type: ${typeof value}`);
+      console.warn("[FigmaSyncService] Could not convert value to number:", value);
       return 0;
     }
     /**
@@ -15410,7 +15408,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
         }
       }
-      console.warn(`[FigmaSyncService] Could not convert line height (type: ${typeof value}), using AUTO`);
+      console.warn("[FigmaSyncService] Could not convert line height, using AUTO:", value);
       return { unit: "AUTO" };
     }
     /**
@@ -15431,8 +15429,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
         }
       } catch (error46) {
-        const message = error46 instanceof Error ? error46.message : String(error46);
-        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}: ${message}`);
+        console.error(`[FigmaSyncService] Failed to set code syntax for ${token.qualifiedName}:`, error46);
       }
     }
     /**
@@ -15536,6 +15533,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           console.log(`   Project: "${t.projectId}" (expected: "${projectId}")`);
           console.log(`   Collection: ${t.collection}`);
           console.log(`   Type: ${t.type}`);
+          console.log(`   Value: ${JSON.stringify(t.resolvedValue || t.value)}`);
         });
         console.log(`
 \u{1F4A1} FIX: Ensure all tokens are in the same project ID`);
@@ -15656,8 +15654,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           } catch (error46) {
             const message = error46 instanceof Error ? error46.message : String(error46);
             console.group(`\u274C FONT ERROR: ${token.qualifiedName}`);
-            console.log(`Family: ${typValue.fontFamily}`);
-            console.log(`Weight: ${typValue.fontWeight}`);
+            console.log(`Family: ${JSON.stringify(typValue.fontFamily)}`);
+            console.log(`Weight: ${JSON.stringify(typValue.fontWeight)}`);
             console.log(`Error: ${message}`);
             console.groupEnd();
             throw error46;
@@ -15687,6 +15685,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (stack) {
           console.error(`  Stack: ${stack}`);
         }
+        console.error(`  Token value:`, JSON.stringify(token.value, null, 2));
         stats.skipped++;
         return stats;
       }
@@ -15737,26 +15736,27 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (token.description) {
           effectStyle.description = token.description;
         }
-        const offsetX = this.convertNumericValue(shadowValue.offsetX, options.percentageBase);
-        const offsetY = this.convertNumericValue(shadowValue.offsetY, options.percentageBase);
-        const blur = this.convertNumericValue(shadowValue.blur, options.percentageBase);
-        const spread = shadowValue.spread !== void 0 ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0;
-        const color = this.convertColorToRGBA(shadowValue.color);
         const shadowEffect = shadowValue.inset ? {
           type: "INNER_SHADOW",
           visible: true,
-          color,
-          offset: { x: offsetX, y: offsetY },
-          radius: blur,
-          spread,
+          color: this.convertColorToRGBA(shadowValue.color),
+          offset: {
+            x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+            y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase)
+          },
+          radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+          spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
           blendMode: "NORMAL"
         } : {
           type: "DROP_SHADOW",
           visible: true,
-          color,
-          offset: { x: offsetX, y: offsetY },
-          radius: blur,
-          spread,
+          color: this.convertColorToRGBA(shadowValue.color),
+          offset: {
+            x: this.convertNumericValue(shadowValue.offsetX, options.percentageBase),
+            y: this.convertNumericValue(shadowValue.offsetY, options.percentageBase)
+          },
+          radius: this.convertNumericValue(shadowValue.blur, options.percentageBase),
+          spread: shadowValue.spread ? this.convertNumericValue(shadowValue.spread, options.percentageBase) : 0,
           blendMode: "NORMAL"
         };
         effectStyle.effects = [shadowEffect];
