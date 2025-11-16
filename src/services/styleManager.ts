@@ -3,6 +3,7 @@
 
 import { DesignToken, TokenData } from '../shared/types';
 import { Token } from '../core/models/Token';
+import { debug } from '../shared/logger';
 
 interface TypographyToken {
   fontFamily?: string;

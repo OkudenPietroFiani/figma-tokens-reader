@@ -18,6 +18,7 @@ import { DefaultVisualizer } from '../../core/visualizers/DefaultVisualizer';
 import { Token } from '../../core/models/Token';
 import { TokenDocumentationAdapter } from '../../core/adapters/TokenDocumentationAdapter';
 import { TokenRepository } from '../../core/services/TokenRepository';
+import { debug } from '../../shared/logger';
 
 /**
  * DocumentationGenerator

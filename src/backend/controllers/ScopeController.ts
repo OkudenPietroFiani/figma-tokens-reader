@@ -7,6 +7,7 @@ import { Result, Success, FigmaVariableData, ScopeAssignments } from '../../shar
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../shared/constants';
 import { Token } from '../../core/models/Token';
+import { debug } from '../../shared/logger';
 
 /**
  * Controller for Figma variable scope operations

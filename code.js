@@ -1598,7 +1598,7 @@
   }
 
   // src/shared/logger.ts
-  var debug2 = {
+  var debug = {
     log: (...args) => {
       if (isFeatureEnabled("DEBUG_MODE")) {
         console.log(...args);
@@ -2437,7 +2437,7 @@
         const byCollection = this.groupByCollection(tokens);
         const existingCollections = await figma.variables.getLocalVariableCollectionsAsync();
         for (const [collectionName, collectionTokens] of byCollection) {
-          debug2.log(`[FigmaSyncService] Processing collection: ${collectionName} (${collectionTokens.length} tokens)`);
+          debug.log(`[FigmaSyncService] Processing collection: ${collectionName} (${collectionTokens.length} tokens)`);
           const collection = this.getOrCreateCollection(existingCollections, collectionName);
           this.collectionMap.set(collectionName, collection);
           syncedCollections.add(collectionName);
@@ -2504,11 +2504,11 @@
         const uppercaseName = name.charAt(0).toUpperCase() + name.slice(1);
         const oldCollection = existingCollections.find((c) => c.name === uppercaseName);
         if (oldCollection) {
-          debug2.log(`[FigmaSyncService] Renaming collection: ${uppercaseName} \u2192 ${name}`);
+          debug.log(`[FigmaSyncService] Renaming collection: ${uppercaseName} \u2192 ${name}`);
           oldCollection.name = name;
           collection = oldCollection;
         } else {
-          debug2.log(`[FigmaSyncService] Creating collection: ${name}`);
+          debug.log(`[FigmaSyncService] Creating collection: ${name}`);
           collection = figma.variables.createVariableCollection(name);
         }
       }
@@ -2592,7 +2592,7 @@
           }
         } else {
           const valueToConvert = token.resolvedValue || token.value;
-          debug2.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
+          debug.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
             tokenValue: token.value,
             resolvedValue: token.resolvedValue,
             tokenType: token.type,
@@ -2600,7 +2600,7 @@
             valueType: typeof valueToConvert
           });
           const value = this.convertValue(valueToConvert, figmaType);
-          debug2.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
+          debug.log(`[FigmaSyncService] Converted value for ${variableName}:`, value);
           variable.setValueForMode(modeId, value);
         }
         this.setCodeSyntax(variable, token);
@@ -2708,12 +2708,12 @@
           const unit = match[2] || "";
           if (unit === "rem" || unit === "em") {
             const converted = numericValue * 16;
-            debug2.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
+            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
             return converted;
           }
           if (unit === "%") {
             const converted = numericValue / 100 * percentageBase;
-            debug2.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
+            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
             return converted;
           }
           return numericValue;
@@ -2727,12 +2727,12 @@
           const unit = value.unit || "";
           if (unit === "rem" || unit === "em") {
             const converted = numericValue * 16;
-            debug2.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
+            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
             return converted;
           }
           if (unit === "%") {
             const converted = numericValue / 100 * percentageBase;
-            debug2.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
+            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
             return converted;
           }
           return numericValue;

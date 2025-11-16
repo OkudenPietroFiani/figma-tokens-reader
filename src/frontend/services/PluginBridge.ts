@@ -4,6 +4,7 @@
 // ====================================================================================
 
 import { PluginMessageType, UIMessageType } from '../../shared/types';
+import { debug } from '../../shared/logger';
 
 /**
  * Bridge for communicating with the plugin backend

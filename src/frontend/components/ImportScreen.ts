@@ -9,6 +9,7 @@ import { PluginBridge } from '../services/PluginBridge';
 import { CSS_CLASSES } from '../../shared/constants';
 import { TokenFile } from '../../shared/types';
 import { escapeHtml, sanitizeId } from '../../utils/htmlSanitizer';
+import { debug } from '../../shared/logger';
 
 /**
  * Import screen component
