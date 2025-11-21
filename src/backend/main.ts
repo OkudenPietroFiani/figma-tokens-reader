@@ -237,16 +237,16 @@ class PluginBackend {
   private async handleLoadTokens(msg: PluginMessage): Promise<void> {
     const result = await this.tokenController.loadTokens();
 
-    if (result.success && result.data) {
-      figma.ui.postMessage({
-        type: 'tokens-loaded',
-        data: result.data,
-        requestId: msg.requestId
-      });
-    } else if (!result.success) {
+    if (!result.success) {
       throw new Error(result.error);
     }
-    // If result.data is null, just don't send anything (no saved state)
+
+    // Always send a response, even if data is null (no saved state)
+    figma.ui.postMessage({
+      type: 'tokens-loaded',
+      data: result.data || {},
+      requestId: msg.requestId
+    });
   }
 
   // ==================== GITHUB HANDLERS ====================

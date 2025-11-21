@@ -6134,15 +6134,14 @@
     }
     async handleLoadTokens(msg) {
       const result = await this.tokenController.loadTokens();
-      if (result.success && result.data) {
-        figma.ui.postMessage({
-          type: "tokens-loaded",
-          data: result.data,
-          requestId: msg.requestId
-        });
-      } else if (!result.success) {
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "tokens-loaded",
+        data: result.data || {},
+        requestId: msg.requestId
+      });
     }
     // ==================== GITHUB HANDLERS ====================
     async handleGitHubFetchFiles(msg) {
