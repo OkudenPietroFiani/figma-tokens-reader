@@ -4940,126 +4940,15 @@
     }
     /**
      * Parse color value to RGB
-     * Supports Figma RGB objects, hex, rgb, hsl formats
+     * Refactored to use ColorConverter for all color parsing
      */
     parseColor(value) {
-      if (typeof value === "object" && value !== null) {
-        if ("r" in value && "g" in value && "b" in value) {
-          if (typeof value.r === "number" && typeof value.g === "number" && typeof value.b === "number") {
-            return {
-              r: value.r,
-              g: value.g,
-              b: value.b
-            };
-          }
-        }
-        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
-          return this.parseHex(value.hex);
-        }
-        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
-        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
+      const colorResult = converters.color.toRGB(value);
+      if (colorResult.success) {
+        const { r, g, b } = colorResult.data;
+        return { r, g, b };
       }
-      if (typeof value === "string") {
-        const trimmed = value.trim();
-        if (trimmed.startsWith("#")) {
-          return this.parseHex(trimmed);
-        }
-        if (trimmed.startsWith("rgb")) {
-          return this.parseRgb(trimmed);
-        }
-        if (trimmed.startsWith("hsl")) {
-          return this.parseHsl(trimmed);
-        }
-      }
-      throw new Error(`Unable to parse color value: ${JSON.stringify(value)}`);
-    }
-    /**
-     * Parse hex color to RGB
-     */
-    parseHex(hex) {
-      const cleaned = hex.replace("#", "");
-      let r, g, b;
-      if (cleaned.length === 3) {
-        r = parseInt(cleaned[0] + cleaned[0], 16);
-        g = parseInt(cleaned[1] + cleaned[1], 16);
-        b = parseInt(cleaned[2] + cleaned[2], 16);
-      } else if (cleaned.length === 6) {
-        r = parseInt(cleaned.substring(0, 2), 16);
-        g = parseInt(cleaned.substring(2, 4), 16);
-        b = parseInt(cleaned.substring(4, 6), 16);
-      } else {
-        throw new Error("Invalid hex format");
-      }
-      return {
-        r: r / 255,
-        g: g / 255,
-        b: b / 255
-      };
-    }
-    /**
-     * Parse rgb/rgba string to RGB
-     */
-    parseRgb(rgb) {
-      const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if (!match) {
-        throw new Error("Invalid RGB format");
-      }
-      return {
-        r: parseInt(match[1]) / 255,
-        g: parseInt(match[2]) / 255,
-        b: parseInt(match[3]) / 255
-      };
-    }
-    /**
-     * Parse hsl/hsla string to RGB
-     */
-    parseHsl(hsl) {
-      const match = hsl.match(/hsla?\((\d+),\s*(\d+)%?,\s*(\d+)%?/);
-      if (!match) {
-        throw new Error("Invalid HSL format");
-      }
-      const h = parseInt(match[1]) / 360;
-      const s = parseInt(match[2]) / 100;
-      const l = parseInt(match[3]) / 100;
-      return this.hslToRgb(h, s, l);
-    }
-    /**
-     * Convert HSL to RGB
-     */
-    hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p2, q2, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
-          if (t < 1 / 2) return q2;
-          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
-          return p2;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return { r, g, b };
+      throw new Error(`Unable to parse color value: ${colorResult.error}`);
     }
   };
 
