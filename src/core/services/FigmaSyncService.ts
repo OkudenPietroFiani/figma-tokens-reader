@@ -414,12 +414,15 @@ export class FigmaSyncService {
 
     if (result.success) {
       // Return RGB without alpha (Figma COLOR type only accepts RGB)
-      const { r, g, b } = result.data!;
+      const { r, g, b } = result.data;
       return { r, g, b };
     }
 
-    // Conversion failed
-    console.warn(`[FigmaSyncService] Could not convert color value: ${result.error}`);
+    // Conversion failed - log details for debugging
+    console.error(`[FigmaSyncService] Color conversion FAILED`);
+    console.error(`  Input value:`, JSON.stringify(value));
+    console.error(`  Error:`, result.error);
+    console.error(`  Type:`, typeof value);
     return { r: 0, g: 0, b: 0 }; // Fallback to black
   }
 
@@ -432,13 +435,16 @@ export class FigmaSyncService {
     const result = converters.color.toRGB(value);
 
     if (result.success) {
-      const rgb = result.data!;
+      const rgb = result.data;
       // Convert to RGBA (includes alpha channel for shadows/effects)
+      debug.log(`[FigmaSyncService] Converted color to RGBA: r=${rgb.r}, g=${rgb.g}, b=${rgb.b}, a=${rgb.a}`);
       return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
     }
 
-    // Conversion failed
-    console.warn(`[FigmaSyncService] Could not convert color to RGBA: ${result.error}`);
+    // Conversion failed - log details
+    console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
+    console.error(`  Input value:`, JSON.stringify(value));
+    console.error(`  Error:`, result.error);
     return { r: 0, g: 0, b: 0, a: 1 }; // Fallback to opaque black
   }
 
