@@ -2597,19 +2597,25 @@
               });
             } else {
               console.warn(`[FigmaSyncService] Alias target not found: ${targetVarName}`);
-              const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+              const rawValue = token.resolvedValue || token.value;
+              const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
+              const value = this.convertValue(valueToConvert, figmaType);
               variable.setValueForMode(modeId, value);
             }
           } else {
             console.warn(`[FigmaSyncService] Alias target token not found: ${token.aliasTo}`);
-            const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+            const rawValue = token.resolvedValue || token.value;
+            const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
+            const value = this.convertValue(valueToConvert, figmaType);
             variable.setValueForMode(modeId, value);
           }
         } else {
-          const valueToConvert = token.resolvedValue || token.value;
+          const rawValue = token.resolvedValue || token.value;
+          const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
           debug.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
             tokenValue: token.value,
             resolvedValue: token.resolvedValue,
+            fullyResolvedValue: valueToConvert,
             tokenType: token.type,
             figmaType,
             valueType: typeof valueToConvert

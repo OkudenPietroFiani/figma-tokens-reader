@@ -297,21 +297,32 @@ export class FigmaSyncService {
             });
           } else {
             console.warn(`[FigmaSyncService] Alias target not found: ${targetVarName}`);
-            // Fall back to resolved value
-            const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+            // Fall back to resolved value with nested reference resolution
+            const rawValue = token.resolvedValue || token.value;
+            const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
+            const value = this.convertValue(valueToConvert, figmaType);
             variable.setValueForMode(modeId, value);
           }
         } else {
           console.warn(`[FigmaSyncService] Alias target token not found: ${token.aliasTo}`);
-          const value = this.convertValue(token.resolvedValue || token.value, figmaType);
+          // Fall back to resolved value with nested reference resolution
+          const rawValue = token.resolvedValue || token.value;
+          const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
+          const value = this.convertValue(valueToConvert, figmaType);
           variable.setValueForMode(modeId, value);
         }
       } else {
         // Direct value - use resolvedValue if available (handles embedded references)
-        const valueToConvert = token.resolvedValue || token.value;
+        const rawValue = token.resolvedValue || token.value;
+
+        // CRITICAL: Resolve nested references in composite values (same as typography/shadow tokens)
+        // This handles cases like: { colorSpace: "hsl", components: "{primitive.color.neutral.700}", alpha: "{primitive.color.transparency.15}" }
+        const valueToConvert = this.resolveNestedReferences(rawValue, token.projectId);
+
         debug.log(`[FigmaSyncService] Setting value for ${variableName}:`, {
           tokenValue: token.value,
           resolvedValue: token.resolvedValue,
+          fullyResolvedValue: valueToConvert,
           tokenType: token.type,
           figmaType,
           valueType: typeof valueToConvert,
