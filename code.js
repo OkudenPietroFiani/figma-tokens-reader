@@ -1624,6 +1624,9 @@
      */
     toRGB(input) {
       try {
+        if (input === null || input === void 0) {
+          return Failure(`Cannot convert null or undefined to color`);
+        }
         if (this.isColorValue(input)) {
           return this.colorValueToRGB(input);
         }
@@ -1639,7 +1642,7 @@
         if (this.isColorSpaceObject(input)) {
           return this.colorSpaceToRGB(input);
         }
-        if ("components" in input && Array.isArray(input.components) && !("colorSpace" in input)) {
+        if (typeof input === "object" && input !== null && "components" in input && Array.isArray(input.components) && !("colorSpace" in input)) {
           const [r, g, b] = input.components;
           const a = typeof input.alpha === "number" ? input.alpha : 1;
           return Success({
@@ -1832,33 +1835,45 @@
      * Also handles nested components: { components: { components: [...] } }
      */
     colorSpaceToRGB(obj) {
-      const { colorSpace, components, alpha } = obj;
+      const { colorSpace, components, alpha, hex } = obj;
       const a = typeof alpha === "number" ? alpha : 1;
       if (typeof components === "object" && components !== null && !Array.isArray(components)) {
         return this.toRGB(components);
       }
-      if (colorSpace === "hsl" && Array.isArray(components) && components.length === 3) {
-        const h = components[0] / 360;
-        const s = components[1] / 100;
-        const l = components[2] / 100;
-        const rgb = this.hslToRgb(h, s, l);
-        return Success(__spreadProps(__spreadValues({}, rgb), { a }));
+      if (colorSpace === "hsl" || colorSpace === "HSL") {
+        if (Array.isArray(components) && components.length >= 3) {
+          const h = components[0] / 360;
+          const s = components[1] / 100;
+          const l = components[2] / 100;
+          const rgb = this.hslToRgb(h, s, l);
+          return Success(__spreadProps(__spreadValues({}, rgb), { a }));
+        }
+        if (hex) {
+          const hexResult = this.hexToRGB(hex);
+          if (hexResult.success) {
+            return Success(__spreadProps(__spreadValues({}, hexResult.data), { a }));
+          }
+        }
+        return Failure(`HSL colorSpace has invalid components: ${JSON.stringify(components)}`);
       }
-      if (colorSpace === "rgb" && Array.isArray(components) && components.length === 3) {
-        return Success({
-          r: components[0] / 255,
-          g: components[1] / 255,
-          b: components[2] / 255,
-          a
-        });
+      if (colorSpace === "rgb" || colorSpace === "RGB") {
+        if (Array.isArray(components) && components.length >= 3) {
+          return Success({
+            r: components[0] / 255,
+            g: components[1] / 255,
+            b: components[2] / 255,
+            a
+          });
+        }
+        return Failure(`RGB colorSpace has invalid components: ${JSON.stringify(components)}`);
       }
-      if (obj.hex) {
-        const hexResult = this.hexToRGB(obj.hex);
+      if (hex) {
+        const hexResult = this.hexToRGB(hex);
         if (hexResult.success) {
           return Success(__spreadProps(__spreadValues({}, hexResult.data), { a }));
         }
       }
-      return Failure(`Unsupported colorSpace format: ${colorSpace}`);
+      return Failure(`Unsupported colorSpace: ${colorSpace} (components: ${JSON.stringify(components)})`);
     }
     /**
      * Convert HSL to RGB (normalized 0-1)

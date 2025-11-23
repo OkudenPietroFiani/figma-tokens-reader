@@ -24,6 +24,11 @@ export class ColorConverter implements IColorConverter {
    */
   toRGB(input: any): Result<RGB> {
     try {
+      // Handle null/undefined early
+      if (input === null || input === undefined) {
+        return Failure(`Cannot convert null or undefined to color`);
+      }
+
       // Handle ColorValue object
       if (this.isColorValue(input)) {
         return this.colorValueToRGB(input);
@@ -51,7 +56,7 @@ export class ColorConverter implements IColorConverter {
 
       // Handle components array without colorSpace (W3C format)
       // Example: { components: [255, 128, 0], alpha: 1 }
-      if ('components' in input && Array.isArray(input.components) && !('colorSpace' in input)) {
+      if (typeof input === 'object' && input !== null && 'components' in input && Array.isArray(input.components) && !('colorSpace' in input)) {
         const [r, g, b] = input.components;
         const a = typeof input.alpha === 'number' ? input.alpha : 1;
         return Success({
@@ -302,7 +307,7 @@ export class ColorConverter implements IColorConverter {
    * Also handles nested components: { components: { components: [...] } }
    */
   private colorSpaceToRGB(obj: any): Result<RGB> {
-    const { colorSpace, components, alpha } = obj;
+    const { colorSpace, components, alpha, hex } = obj;
     const a = typeof alpha === 'number' ? alpha : 1;
 
     // Handle nested components object (components is an object, not an array)
@@ -312,32 +317,50 @@ export class ColorConverter implements IColorConverter {
       return this.toRGB(components);
     }
 
-    if (colorSpace === 'hsl' && Array.isArray(components) && components.length === 3) {
-      const h = components[0] / 360;
-      const s = components[1] / 100;
-      const l = components[2] / 100;
-      const rgb = this.hslToRgb(h, s, l);
-      return Success({ ...rgb, a });
+    // Handle HSL colorSpace
+    if (colorSpace === 'hsl' || colorSpace === 'HSL') {
+      if (Array.isArray(components) && components.length >= 3) {
+        const h = components[0] / 360;
+        const s = components[1] / 100;
+        const l = components[2] / 100;
+        const rgb = this.hslToRgb(h, s, l);
+        return Success({ ...rgb, a });
+      }
+
+      // If components array is invalid, try hex fallback
+      if (hex) {
+        const hexResult = this.hexToRGB(hex);
+        if (hexResult.success) {
+          return Success({ ...hexResult.data, a });
+        }
+      }
+
+      return Failure(`HSL colorSpace has invalid components: ${JSON.stringify(components)}`);
     }
 
-    if (colorSpace === 'rgb' && Array.isArray(components) && components.length === 3) {
-      return Success({
-        r: components[0] / 255,
-        g: components[1] / 255,
-        b: components[2] / 255,
-        a,
-      });
+    // Handle RGB colorSpace
+    if (colorSpace === 'rgb' || colorSpace === 'RGB') {
+      if (Array.isArray(components) && components.length >= 3) {
+        return Success({
+          r: components[0] / 255,
+          g: components[1] / 255,
+          b: components[2] / 255,
+          a,
+        });
+      }
+
+      return Failure(`RGB colorSpace has invalid components: ${JSON.stringify(components)}`);
     }
 
     // Fallback to hex if available
-    if (obj.hex) {
-      const hexResult = this.hexToRGB(obj.hex);
+    if (hex) {
+      const hexResult = this.hexToRGB(hex);
       if (hexResult.success) {
-        return Success({ ...hexResult.data!, a });
+        return Success({ ...hexResult.data, a });
       }
     }
 
-    return Failure(`Unsupported colorSpace format: ${colorSpace}`);
+    return Failure(`Unsupported colorSpace: ${colorSpace} (components: ${JSON.stringify(components)})`);
   }
 
   /**
