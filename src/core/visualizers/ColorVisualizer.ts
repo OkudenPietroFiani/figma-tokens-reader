@@ -6,6 +6,8 @@
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
 import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions } from '../../shared/documentation-config';
+import { converters } from '../converters';
+import { debug } from '../../shared/logger';
 
 /**
  * ColorVisualizer - Renders color tokens as colored squares
@@ -59,10 +61,10 @@ export class ColorVisualizer implements ITokenVisualizer {
 
     // Apply color
     try {
-      console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
-      console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
-      console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
-      console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
+      debug.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+      debug.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+      debug.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+      debug.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
 
       const color = this.parseColor(token.value);
       square.fills = [{ type: 'SOLID', color }];
@@ -84,156 +86,18 @@ export class ColorVisualizer implements ITokenVisualizer {
 
   /**
    * Parse color value to RGB
-   * Supports Figma RGB objects, hex, rgb, hsl formats
+   * Refactored to use ColorConverter for all color parsing
    */
   private parseColor(value: any): RGB {
-    // Handle object formats
-    if (typeof value === 'object' && value !== null) {
-      // RGB object (Figma format: 0-1 floats)
-      if ('r' in value && 'g' in value && 'b' in value) {
-        if (typeof value.r === 'number' && typeof value.g === 'number' && typeof value.b === 'number') {
-          return {
-            r: value.r,
-            g: value.g,
-            b: value.b,
-          } as RGB;
-        }
-      }
+    // Use ColorConverter for all color format parsing
+    const colorResult = converters.color.toRGB(value);
 
-      // HSL colorSpace with hex fallback: { colorSpace: "hsl", components: [...], hex: "#..." }
-      if ('colorSpace' in value && value.colorSpace === 'hsl' && 'hex' in value && value.hex) {
-        return this.parseHex(value.hex);
-      }
-
-      // RGB colorSpace: { colorSpace: "rgb", components: [r, g, b] }
-      if ('colorSpace' in value && value.colorSpace === 'rgb' && Array.isArray(value.components)) {
-        const [r, g, b] = value.components;
-        return {
-          r: r / 255,
-          g: g / 255,
-          b: b / 255,
-        };
-      }
-
-      // W3C components format: { components: [r, g, b], alpha: ... }
-      if ('components' in value && Array.isArray(value.components) && !('colorSpace' in value)) {
-        const [r, g, b] = value.components;
-        return {
-          r: r / 255,
-          g: g / 255,
-          b: b / 255,
-        };
-      }
+    if (colorResult.success) {
+      const { r, g, b } = colorResult.data;
+      return { r, g, b };
     }
 
-    // Handle string formats
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-
-      // Hex format
-      if (trimmed.startsWith('#')) {
-        return this.parseHex(trimmed);
-      }
-
-      // RGB format
-      if (trimmed.startsWith('rgb')) {
-        return this.parseRgb(trimmed);
-      }
-
-      // HSL format
-      if (trimmed.startsWith('hsl')) {
-        return this.parseHsl(trimmed);
-      }
-    }
-
-    // If we get here, something went wrong - throw error for better debugging
-    throw new Error(`Unable to parse color value: ${JSON.stringify(value)}`);
-  }
-
-  /**
-   * Parse hex color to RGB
-   */
-  private parseHex(hex: string): RGB {
-    const cleaned = hex.replace('#', '');
-    let r: number, g: number, b: number;
-
-    if (cleaned.length === 3) {
-      r = parseInt(cleaned[0] + cleaned[0], 16);
-      g = parseInt(cleaned[1] + cleaned[1], 16);
-      b = parseInt(cleaned[2] + cleaned[2], 16);
-    } else if (cleaned.length === 6) {
-      r = parseInt(cleaned.substring(0, 2), 16);
-      g = parseInt(cleaned.substring(2, 4), 16);
-      b = parseInt(cleaned.substring(4, 6), 16);
-    } else {
-      throw new Error('Invalid hex format');
-    }
-
-    return {
-      r: r / 255,
-      g: g / 255,
-      b: b / 255,
-    };
-  }
-
-  /**
-   * Parse rgb/rgba string to RGB
-   */
-  private parseRgb(rgb: string): RGB {
-    const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (!match) {
-      throw new Error('Invalid RGB format');
-    }
-
-    return {
-      r: parseInt(match[1]) / 255,
-      g: parseInt(match[2]) / 255,
-      b: parseInt(match[3]) / 255,
-    };
-  }
-
-  /**
-   * Parse hsl/hsla string to RGB
-   */
-  private parseHsl(hsl: string): RGB {
-    const match = hsl.match(/hsla?\((\d+),\s*(\d+)%?,\s*(\d+)%?/);
-    if (!match) {
-      throw new Error('Invalid HSL format');
-    }
-
-    const h = parseInt(match[1]) / 360;
-    const s = parseInt(match[2]) / 100;
-    const l = parseInt(match[3]) / 100;
-
-    return this.hslToRgb(h, s, l);
-  }
-
-  /**
-   * Convert HSL to RGB
-   */
-  private hslToRgb(h: number, s: number, l: number): RGB {
-    let r: number, g: number, b: number;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p: number, q: number, t: number) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-
-      r = hue2rgb(p, q, h + 1 / 3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1 / 3);
-    }
-
-    return { r, g, b };
+    // If conversion failed, throw error for better debugging
+    throw new Error(`Unable to parse color value: ${colorResult.error}`);
   }
 }

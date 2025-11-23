@@ -2696,59 +2696,32 @@
      * Supports: numbers, strings with units, DimensionValue objects
      * Note: Converts rem/em to px using 16px base size (standard browser default)
      * Note: Converts percentage to px using percentageBase option (default 16px)
+     * Refactored to use DimensionConverter for unit conversions
      */
     convertNumericValue(value, percentageBase = 16) {
-      if (typeof value === "number") {
-        return value;
+      if (typeof value === "object" && value !== null && "components" in value && Array.isArray(value.components) && value.components.length > 0) {
+        const firstComponent = value.components[0];
+        if (typeof firstComponent === "number") {
+          return firstComponent;
+        }
+        if (typeof firstComponent === "string") {
+          const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ""));
+          return isNaN(numeric) ? 0 : numeric;
+        }
+      }
+      const result = converters.dimension.toPixels(value, percentageBase);
+      if (result.success) {
+        const pixels = result.data;
+        debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
+        return pixels;
       }
       if (typeof value === "string") {
-        const match = value.match(/^([\d.-]+)(px|rem|em|%)?$/);
-        if (match) {
-          const numericValue = parseFloat(match[1]);
-          const unit = match[2] || "";
-          if (unit === "rem" || unit === "em") {
-            const converted = numericValue * 16;
-            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
-            return converted;
-          }
-          if (unit === "%") {
-            const converted = numericValue / 100 * percentageBase;
-            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
-            return converted;
-          }
-          return numericValue;
-        }
         const numeric = parseFloat(value.replace(/[^\d.-]/g, ""));
-        return isNaN(numeric) ? 0 : numeric;
-      }
-      if (typeof value === "object" && value !== null) {
-        if ("value" in value && typeof value.value === "number") {
-          const numericValue = value.value;
-          const unit = value.unit || "";
-          if (unit === "rem" || unit === "em") {
-            const converted = numericValue * 16;
-            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
-            return converted;
-          }
-          if (unit === "%") {
-            const converted = numericValue / 100 * percentageBase;
-            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
-            return converted;
-          }
-          return numericValue;
-        }
-        if ("components" in value && Array.isArray(value.components) && value.components.length > 0) {
-          const firstComponent = value.components[0];
-          if (typeof firstComponent === "number") {
-            return firstComponent;
-          }
-          if (typeof firstComponent === "string") {
-            const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ""));
-            return isNaN(numeric) ? 0 : numeric;
-          }
+        if (!isNaN(numeric)) {
+          return numeric;
         }
       }
-      console.warn("[FigmaSyncService] Could not convert value to number:", value);
+      console.warn("[FigmaSyncService] Could not convert value to number:", result.error);
       return 0;
     }
     /**
@@ -2818,13 +2791,13 @@
     setCodeSyntax(variable, token) {
       try {
         const cssVarName = `--${token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-        console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+        debug.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
         if (typeof variable.setVariableCodeSyntax === "function") {
           variable.setVariableCodeSyntax("WEB", cssVarName);
           const androidPath = token.path.join("_").toLowerCase().replace(/[^a-z0-9_]/g, "_");
           variable.setVariableCodeSyntax("ANDROID", `@dimen/${androidPath}`);
           variable.setVariableCodeSyntax("iOS", token.path.join("."));
-          console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+          debug.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
         } else {
           console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
         }
@@ -4712,7 +4685,7 @@
     static register(visualizer) {
       const type = visualizer.getType();
       this.visualizers.set(type, visualizer);
-      console.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
+      debug.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
     }
     /**
      * Get visualizer by token type
@@ -4949,10 +4922,10 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
-        console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
-        console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
-        console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
-        console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
+        debug.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+        debug.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+        debug.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+        debug.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
         const color = this.parseColor(token.value);
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {
@@ -4967,126 +4940,15 @@
     }
     /**
      * Parse color value to RGB
-     * Supports Figma RGB objects, hex, rgb, hsl formats
+     * Refactored to use ColorConverter for all color parsing
      */
     parseColor(value) {
-      if (typeof value === "object" && value !== null) {
-        if ("r" in value && "g" in value && "b" in value) {
-          if (typeof value.r === "number" && typeof value.g === "number" && typeof value.b === "number") {
-            return {
-              r: value.r,
-              g: value.g,
-              b: value.b
-            };
-          }
-        }
-        if ("colorSpace" in value && value.colorSpace === "hsl" && "hex" in value && value.hex) {
-          return this.parseHex(value.hex);
-        }
-        if ("colorSpace" in value && value.colorSpace === "rgb" && Array.isArray(value.components)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
-        if ("components" in value && Array.isArray(value.components) && !("colorSpace" in value)) {
-          const [r, g, b] = value.components;
-          return {
-            r: r / 255,
-            g: g / 255,
-            b: b / 255
-          };
-        }
+      const colorResult = converters.color.toRGB(value);
+      if (colorResult.success) {
+        const { r, g, b } = colorResult.data;
+        return { r, g, b };
       }
-      if (typeof value === "string") {
-        const trimmed = value.trim();
-        if (trimmed.startsWith("#")) {
-          return this.parseHex(trimmed);
-        }
-        if (trimmed.startsWith("rgb")) {
-          return this.parseRgb(trimmed);
-        }
-        if (trimmed.startsWith("hsl")) {
-          return this.parseHsl(trimmed);
-        }
-      }
-      throw new Error(`Unable to parse color value: ${JSON.stringify(value)}`);
-    }
-    /**
-     * Parse hex color to RGB
-     */
-    parseHex(hex) {
-      const cleaned = hex.replace("#", "");
-      let r, g, b;
-      if (cleaned.length === 3) {
-        r = parseInt(cleaned[0] + cleaned[0], 16);
-        g = parseInt(cleaned[1] + cleaned[1], 16);
-        b = parseInt(cleaned[2] + cleaned[2], 16);
-      } else if (cleaned.length === 6) {
-        r = parseInt(cleaned.substring(0, 2), 16);
-        g = parseInt(cleaned.substring(2, 4), 16);
-        b = parseInt(cleaned.substring(4, 6), 16);
-      } else {
-        throw new Error("Invalid hex format");
-      }
-      return {
-        r: r / 255,
-        g: g / 255,
-        b: b / 255
-      };
-    }
-    /**
-     * Parse rgb/rgba string to RGB
-     */
-    parseRgb(rgb) {
-      const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if (!match) {
-        throw new Error("Invalid RGB format");
-      }
-      return {
-        r: parseInt(match[1]) / 255,
-        g: parseInt(match[2]) / 255,
-        b: parseInt(match[3]) / 255
-      };
-    }
-    /**
-     * Parse hsl/hsla string to RGB
-     */
-    parseHsl(hsl) {
-      const match = hsl.match(/hsla?\((\d+),\s*(\d+)%?,\s*(\d+)%?/);
-      if (!match) {
-        throw new Error("Invalid HSL format");
-      }
-      const h = parseInt(match[1]) / 360;
-      const s = parseInt(match[2]) / 100;
-      const l = parseInt(match[3]) / 100;
-      return this.hslToRgb(h, s, l);
-    }
-    /**
-     * Convert HSL to RGB
-     */
-    hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p2, q2, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p2 + (q2 - p2) * 6 * t;
-          if (t < 1 / 2) return q2;
-          if (t < 2 / 3) return p2 + (q2 - p2) * (2 / 3 - t) * 6;
-          return p2;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return { r, g, b };
+      throw new Error(`Unable to parse color value: ${colorResult.error}`);
     }
   };
 

@@ -5,6 +5,7 @@
 
 import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
+import { debug } from '../../shared/logger';
 
 /**
  * Registry for token visualizers
@@ -37,7 +38,7 @@ export class TokenVisualizerRegistry {
   static register(visualizer: ITokenVisualizer): void {
     const type = visualizer.getType();
     this.visualizers.set(type, visualizer);
-    console.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
+    debug.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
   }
 
   /**

@@ -95,7 +95,7 @@ export class WelcomeScreen extends BaseComponent {
    * Navigates to import screen with GitHub mode
    */
   private handleGitHubConnect(): void {
-    console.log('[WelcomeScreen] GitHub connect clicked');
+    debug.log('[WelcomeScreen] GitHub connect clicked');
 
     // Update state
     this.state.setImportMode('github');
@@ -107,7 +107,7 @@ export class WelcomeScreen extends BaseComponent {
    * Navigates to import screen with local mode
    */
   private handleLocalImport(): void {
-    console.log('[WelcomeScreen] Local import clicked');
+    debug.log('[WelcomeScreen] Local import clicked');
 
     // Update state
     this.state.setImportMode('local');
@@ -119,7 +119,7 @@ export class WelcomeScreen extends BaseComponent {
    * Returns to token screen
    */
   private handleBackToTokens(): void {
-    console.log('[WelcomeScreen] Back to tokens clicked');
+    debug.log('[WelcomeScreen] Back to tokens clicked');
 
     this.state.setCurrentScreen('token');
   }
@@ -145,6 +145,6 @@ export class WelcomeScreen extends BaseComponent {
   show(): void {
     super.show();
     this.updateBackButton();
-    console.log('[WelcomeScreen] Screen shown');
+    debug.log('[WelcomeScreen] Screen shown');
   }
 }

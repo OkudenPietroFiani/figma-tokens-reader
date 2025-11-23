@@ -448,79 +448,39 @@ export class FigmaSyncService {
    * Supports: numbers, strings with units, DimensionValue objects
    * Note: Converts rem/em to px using 16px base size (standard browser default)
    * Note: Converts percentage to px using percentageBase option (default 16px)
+   * Refactored to use DimensionConverter for unit conversions
    */
   private convertNumericValue(value: any, percentageBase: number = 16): number {
-    // Handle direct numbers
-    if (typeof value === 'number') {
-      return value;
+    // Handle { components: [number] } format (special case)
+    if (typeof value === 'object' && value !== null && 'components' in value && Array.isArray(value.components) && value.components.length > 0) {
+      const firstComponent = value.components[0];
+      if (typeof firstComponent === 'number') {
+        return firstComponent;
+      }
+      if (typeof firstComponent === 'string') {
+        const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ''));
+        return isNaN(numeric) ? 0 : numeric;
+      }
     }
 
-    // Handle string values with units (e.g., "16px", "2.5rem", "1.5em", "50%")
+    // Use DimensionConverter for all standard conversions
+    const result = converters.dimension.toPixels(value, percentageBase);
+
+    if (result.success) {
+      const pixels = result.data;
+      debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
+      return pixels;
+    }
+
+    // Fallback: try to extract numeric value
     if (typeof value === 'string') {
-      const match = value.match(/^([\d.-]+)(px|rem|em|%)?$/);
-      if (match) {
-        const numericValue = parseFloat(match[1]);
-        const unit = match[2] || '';
-
-        // Convert rem/em to px (16px base)
-        if (unit === 'rem' || unit === 'em') {
-          const converted = numericValue * 16;
-          debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
-          return converted;
-        }
-
-        // Convert percentage to px
-        if (unit === '%') {
-          const converted = (numericValue / 100) * percentageBase;
-          debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
-          return converted;
-        }
-
-        return numericValue;
-      }
-
-      // Fallback: strip non-numeric
       const numeric = parseFloat(value.replace(/[^\d.-]/g, ''));
-      return isNaN(numeric) ? 0 : numeric;
-    }
-
-    // Handle DimensionValue objects { value: number, unit: string }
-    if (typeof value === 'object' && value !== null) {
-      if ('value' in value && typeof value.value === 'number') {
-        const numericValue = value.value;
-        const unit = value.unit || '';
-
-        // Convert rem/em to px (16px base)
-        if (unit === 'rem' || unit === 'em') {
-          const converted = numericValue * 16;
-          debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
-          return converted;
-        }
-
-        // Convert percentage to px
-        if (unit === '%') {
-          const converted = (numericValue / 100) * percentageBase;
-          debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
-          return converted;
-        }
-
-        return numericValue;
-      }
-
-      // Handle { components: [number] } format
-      if ('components' in value && Array.isArray(value.components) && value.components.length > 0) {
-        const firstComponent = value.components[0];
-        if (typeof firstComponent === 'number') {
-          return firstComponent;
-        }
-        if (typeof firstComponent === 'string') {
-          const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ''));
-          return isNaN(numeric) ? 0 : numeric;
-        }
+      if (!isNaN(numeric)) {
+        return numeric;
       }
     }
 
-    console.warn('[FigmaSyncService] Could not convert value to number:', value);
+    console.warn('[FigmaSyncService] Could not convert value to number:', result.error);
     return 0;
   }
 
@@ -618,7 +578,7 @@ export class FigmaSyncService {
       // Build CSS variable name from token path
       const cssVarName = `--${token.path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
 
-      console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+      debug.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
 
       // Check if method exists (plugin API version check)
       if (typeof variable.setVariableCodeSyntax === 'function') {
@@ -632,7 +592,7 @@ export class FigmaSyncService {
         // iOS: dot notation
         variable.setVariableCodeSyntax('iOS', token.path.join('.'));
 
-        console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+        debug.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
       } else {
         console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
       }

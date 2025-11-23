@@ -4,6 +4,7 @@
 import { DesignToken, TokenData } from '../shared/types';
 import { Token } from '../core/models/Token';
 import { debug } from '../shared/logger';
+import { converters } from '../core/converters';
 
 interface TypographyToken {
   fontFamily?: string;
@@ -674,12 +675,12 @@ export class StyleManager {
   /**
    * Parse color value to RGBA format
    * Handles hex, rgb/rgba strings, references, and colorSpace object format
+   * Refactored to use ColorConverter for actual color parsing
    */
   private parseColorValue(value: any): RGBA {
     // Handle colorSpace object format with references (components and/or alpha)
     if (typeof value === 'object' && value !== null && ('components' in value || 'alpha' in value)) {
       let resolvedValue = { ...value };
-      let needsResolution = false;
 
       // Resolve components reference if present
       if (typeof value.components === 'string' && value.components.includes('{') && value.components.includes('}')) {
@@ -722,7 +723,6 @@ export class StyleManager {
             const resolvedAlpha = alphaVariable.valuesByMode[modeId];
 
             resolvedValue.alpha = typeof resolvedAlpha === 'number' ? resolvedAlpha : 1;
-            needsResolution = true;
           } else {
             console.error(`[SHADOW COLOR ALPHA FAILED] Cannot resolve: ${value.alpha}`);
             resolvedValue.alpha = 1;
@@ -730,28 +730,16 @@ export class StyleManager {
         }
       }
 
-      // If we have colorSpace format with arrays, parse it
-      if (value.colorSpace && Array.isArray(resolvedValue.components)) {
-        const { colorSpace, components } = resolvedValue;
-        const alpha = typeof resolvedValue.alpha === 'number' ? resolvedValue.alpha : 1;
-
-        if (colorSpace === 'rgb' && components.length === 3) {
-          return {
-            r: components[0] / 255,
-            g: components[1] / 255,
-            b: components[2] / 255,
-            a: alpha
-          };
-        }
-
-        if (colorSpace === 'hsl' && components.length === 3) {
-          // Convert HSL to RGB
-          const h = components[0] / 360;
-          const s = components[1] / 100;
-          const l = components[2] / 100;
-          const rgb = this.hslToRgb(h, s, l);
-          return { ...rgb, a: alpha };
-        }
+      // Use ColorConverter for parsing colorSpace formats
+      const colorResult = converters.color.toRGB(resolvedValue);
+      if (colorResult.success) {
+        const rgb = colorResult.data;
+        return {
+          r: rgb.r,
+          g: rgb.g,
+          b: rgb.b,
+          a: rgb.a
+        };
       }
     }
 
@@ -763,111 +751,23 @@ export class StyleManager {
       }
     }
 
-    // Parse hex color
-    if (typeof value === 'string' && value.startsWith('#')) {
-      return this.hexToRgba(value);
+    // Use ColorConverter for all color parsing (hex, rgb/rgba, hsl/hsla)
+    const colorResult = converters.color.toRGB(value);
+    if (colorResult.success) {
+      const rgb = colorResult.data;
+      return {
+        r: rgb.r,
+        g: rgb.g,
+        b: rgb.b,
+        a: rgb.a
+      };
     }
 
-    // Parse rgba/rgb string
-    if (typeof value === 'string' && (value.startsWith('rgb') || value.startsWith('hsl'))) {
-      // For now, use a simple rgba parser
-      const rgbaMatch = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-      if (rgbaMatch) {
-        return {
-          r: parseInt(rgbaMatch[1]) / 255,
-          g: parseInt(rgbaMatch[2]) / 255,
-          b: parseInt(rgbaMatch[3]) / 255,
-          a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1
-        };
-      }
-    }
-
-    // Default to black
+    // Fallback to black
+    console.warn('[styleManager] Failed to parse color:', colorResult.error);
     return { r: 0, g: 0, b: 0, a: 1 };
   }
 
-  /**
-   * Convert HSL to RGB (without alpha)
-   * Alpha is handled separately in parseColorValue
-   */
-  private hslToRgb(h: number, s: number, l: number): Pick<RGBA, 'r' | 'g' | 'b'> {
-    let r, g, b;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p: number, q: number, t: number) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1/3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1/3);
-    }
-
-    return { r, g, b };
-  }
-
-  /**
-   * Convert hex color to RGBA
-   * Supports #RGB, #RRGGBB, #RGBA, #RRGGBBAA
-   */
-  private hexToRgba(hex: string): RGBA {
-    const cleaned = hex.replace('#', '');
-
-    // 8-digit hex: #RRGGBBAA
-    if (cleaned.length === 8) {
-      const bigint = parseInt(cleaned.substring(0, 6), 16);
-      const alpha = parseInt(cleaned.substring(6, 8), 16) / 255;
-      return {
-        r: ((bigint >> 16) & 255) / 255,
-        g: ((bigint >> 8) & 255) / 255,
-        b: (bigint & 255) / 255,
-        a: alpha
-      };
-    }
-
-    // 6-digit hex: #RRGGBB
-    if (cleaned.length === 6) {
-      const bigint = parseInt(cleaned, 16);
-      return {
-        r: ((bigint >> 16) & 255) / 255,
-        g: ((bigint >> 8) & 255) / 255,
-        b: (bigint & 255) / 255,
-        a: 1
-      };
-    }
-
-    // 4-digit hex: #RGBA
-    if (cleaned.length === 4) {
-      return {
-        r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
-        g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
-        b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
-        a: parseInt(cleaned[3] + cleaned[3], 16) / 255
-      };
-    }
-
-    // 3-digit hex: #RGB
-    if (cleaned.length === 3) {
-      return {
-        r: parseInt(cleaned[0] + cleaned[0], 16) / 255,
-        g: parseInt(cleaned[1] + cleaned[1], 16) / 255,
-        b: parseInt(cleaned[2] + cleaned[2], 16) / 255,
-        a: 1
-      };
-    }
-
-    // Default to black
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
 
   getStats(): StyleStats {
     return this.styleStats;
