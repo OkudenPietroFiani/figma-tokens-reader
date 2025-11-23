@@ -7,6 +7,7 @@ import { ITokenVisualizer } from '../interfaces/ITokenVisualizer';
 import { TokenMetadata } from '../../shared/types';
 import { DOCUMENTATION_LAYOUT_CONFIG, validateVisualizationDimensions } from '../../shared/documentation-config';
 import { converters } from '../converters';
+import { debug } from '../../shared/logger';
 
 /**
  * ColorVisualizer - Renders color tokens as colored squares
@@ -60,10 +61,10 @@ export class ColorVisualizer implements ITokenVisualizer {
 
     // Apply color
     try {
-      console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
-      console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
-      console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
-      console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
+      debug.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+      debug.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+      debug.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+      debug.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
 
       const color = this.parseColor(token.value);
       square.fills = [{ type: 'SOLID', color }];

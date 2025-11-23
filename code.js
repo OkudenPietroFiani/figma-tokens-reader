@@ -2791,13 +2791,13 @@
     setCodeSyntax(variable, token) {
       try {
         const cssVarName = `--${token.path.join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
-        console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+        debug.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
         if (typeof variable.setVariableCodeSyntax === "function") {
           variable.setVariableCodeSyntax("WEB", cssVarName);
           const androidPath = token.path.join("_").toLowerCase().replace(/[^a-z0-9_]/g, "_");
           variable.setVariableCodeSyntax("ANDROID", `@dimen/${androidPath}`);
           variable.setVariableCodeSyntax("iOS", token.path.join("."));
-          console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+          debug.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
         } else {
           console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
         }
@@ -4685,7 +4685,7 @@
     static register(visualizer) {
       const type = visualizer.getType();
       this.visualizers.set(type, visualizer);
-      console.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
+      debug.log(`[TokenVisualizerRegistry] Registered visualizer for type: ${type}`);
     }
     /**
      * Get visualizer by token type
@@ -4922,10 +4922,10 @@
       square.resize(size, size);
       square.cornerRadius = 4;
       try {
-        console.log(`[ColorVisualizer] Rendering color for ${token.name}`);
-        console.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
-        console.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
-        console.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
+        debug.log(`[ColorVisualizer] Rendering color for ${token.name}`);
+        debug.log(`[ColorVisualizer] Token value type: ${typeof token.value}`);
+        debug.log(`[ColorVisualizer] Token value:`, JSON.stringify(token.value));
+        debug.log(`[ColorVisualizer] Token originalValue:`, JSON.stringify(token.originalValue));
         const color = this.parseColor(token.value);
         square.fills = [{ type: "SOLID", color }];
       } catch (error) {

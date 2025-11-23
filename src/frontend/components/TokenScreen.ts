@@ -388,7 +388,7 @@ export class TokenScreen extends BaseComponent {
    * Handle files imported from GitHub
    */
   private handleFilesImported(data: any, oldFiles?: any[]): void {
-    console.log('[TokenScreen] Files imported from GitHub:', data);
+    debug.log('[TokenScreen] Files imported from GitHub:', data);
 
     const tokenFiles = [];
     const githubConfig = this.state.githubConfig;
@@ -539,6 +539,6 @@ export class TokenScreen extends BaseComponent {
     this.renderFileList();
     this.updatePullButton();
     this.updateLastUpdatedText();
-    console.log('[TokenScreen] Screen shown');
+    debug.log('[TokenScreen] Screen shown');
   }
 }

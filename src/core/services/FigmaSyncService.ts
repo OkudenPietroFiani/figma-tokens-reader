@@ -578,7 +578,7 @@ export class FigmaSyncService {
       // Build CSS variable name from token path
       const cssVarName = `--${token.path.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
 
-      console.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
+      debug.log(`[FigmaSyncService] Setting code syntax for ${token.qualifiedName}: ${cssVarName}`);
 
       // Check if method exists (plugin API version check)
       if (typeof variable.setVariableCodeSyntax === 'function') {
@@ -592,7 +592,7 @@ export class FigmaSyncService {
         // iOS: dot notation
         variable.setVariableCodeSyntax('iOS', token.path.join('.'));
 
-        console.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
+        debug.log(`[FigmaSyncService] Code syntax set successfully for ${token.qualifiedName}`);
       } else {
         console.warn(`[FigmaSyncService] setVariableCodeSyntax method not available (old Figma version?)`);
       }
