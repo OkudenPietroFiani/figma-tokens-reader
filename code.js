@@ -2675,7 +2675,10 @@
         const { r, g, b } = result.data;
         return { r, g, b };
       }
-      console.warn(`[FigmaSyncService] Could not convert color value: ${result.error}`);
+      console.error(`[FigmaSyncService] Color conversion FAILED`);
+      console.error(`  Input value:`, JSON.stringify(value));
+      console.error(`  Error:`, result.error);
+      console.error(`  Type:`, typeof value);
       return { r: 0, g: 0, b: 0 };
     }
     /**
@@ -2686,9 +2689,12 @@
       const result = converters.color.toRGB(value);
       if (result.success) {
         const rgb = result.data;
+        debug.log(`[FigmaSyncService] Converted color to RGBA: r=${rgb.r}, g=${rgb.g}, b=${rgb.b}, a=${rgb.a}`);
         return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
       }
-      console.warn(`[FigmaSyncService] Could not convert color to RGBA: ${result.error}`);
+      console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
+      console.error(`  Input value:`, JSON.stringify(value));
+      console.error(`  Error:`, result.error);
       return { r: 0, g: 0, b: 0, a: 1 };
     }
     /**
