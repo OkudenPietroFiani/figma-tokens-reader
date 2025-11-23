@@ -2696,59 +2696,32 @@
      * Supports: numbers, strings with units, DimensionValue objects
      * Note: Converts rem/em to px using 16px base size (standard browser default)
      * Note: Converts percentage to px using percentageBase option (default 16px)
+     * Refactored to use DimensionConverter for unit conversions
      */
     convertNumericValue(value, percentageBase = 16) {
-      if (typeof value === "number") {
-        return value;
+      if (typeof value === "object" && value !== null && "components" in value && Array.isArray(value.components) && value.components.length > 0) {
+        const firstComponent = value.components[0];
+        if (typeof firstComponent === "number") {
+          return firstComponent;
+        }
+        if (typeof firstComponent === "string") {
+          const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ""));
+          return isNaN(numeric) ? 0 : numeric;
+        }
+      }
+      const result = converters.dimension.toPixels(value, percentageBase);
+      if (result.success) {
+        const pixels = result.data;
+        debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
+        return pixels;
       }
       if (typeof value === "string") {
-        const match = value.match(/^([\d.-]+)(px|rem|em|%)?$/);
-        if (match) {
-          const numericValue = parseFloat(match[1]);
-          const unit = match[2] || "";
-          if (unit === "rem" || unit === "em") {
-            const converted = numericValue * 16;
-            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px`);
-            return converted;
-          }
-          if (unit === "%") {
-            const converted = numericValue / 100 * percentageBase;
-            debug.log(`[FigmaSyncService] Converted ${value} to ${converted}px (base: ${percentageBase}px)`);
-            return converted;
-          }
-          return numericValue;
-        }
         const numeric = parseFloat(value.replace(/[^\d.-]/g, ""));
-        return isNaN(numeric) ? 0 : numeric;
-      }
-      if (typeof value === "object" && value !== null) {
-        if ("value" in value && typeof value.value === "number") {
-          const numericValue = value.value;
-          const unit = value.unit || "";
-          if (unit === "rem" || unit === "em") {
-            const converted = numericValue * 16;
-            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px`);
-            return converted;
-          }
-          if (unit === "%") {
-            const converted = numericValue / 100 * percentageBase;
-            debug.log(`[FigmaSyncService] Converted ${numericValue}${unit} to ${converted}px (base: ${percentageBase}px)`);
-            return converted;
-          }
-          return numericValue;
-        }
-        if ("components" in value && Array.isArray(value.components) && value.components.length > 0) {
-          const firstComponent = value.components[0];
-          if (typeof firstComponent === "number") {
-            return firstComponent;
-          }
-          if (typeof firstComponent === "string") {
-            const numeric = parseFloat(firstComponent.replace(/[^\d.-]/g, ""));
-            return isNaN(numeric) ? 0 : numeric;
-          }
+        if (!isNaN(numeric)) {
+          return numeric;
         }
       }
-      console.warn("[FigmaSyncService] Could not convert value to number:", value);
+      console.warn("[FigmaSyncService] Could not convert value to number:", result.error);
       return 0;
     }
     /**
