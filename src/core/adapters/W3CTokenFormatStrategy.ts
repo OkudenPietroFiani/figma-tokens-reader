@@ -3,8 +3,9 @@
 // Implements parsing for W3C Design Tokens format
 // ====================================================================================
 
-import { ITokenFormatStrategy, TokenFormatInfo } from '../interfaces/ITokenFormatStrategy';
+import { ITokenFormatStrategy, TokenFormatInfo, ParseContext } from '../interfaces/ITokenFormatStrategy';
 import { Result, Success, Failure, TokenData, ProcessedToken } from '../../shared/types';
+import { TokenLevelAnalyzer, TokenLevelAnalysis } from '../services/TokenLevelAnalyzer';
 
 /**
  * Strategy for parsing W3C Design Tokens format
@@ -84,9 +85,17 @@ export class W3CTokenFormatStrategy implements ITokenFormatStrategy {
    * Parse tokens from W3C format
    * Traverses nested structure and extracts token definitions
    */
-  parseTokens(data: TokenData): Result<ProcessedToken[]> {
+  parseTokens(data: TokenData, context?: ParseContext): Result<ProcessedToken[]> {
     try {
       const tokens: ProcessedToken[] = [];
+
+      // Analyze structure to detect levels and redundancy
+      const analyzer = new TokenLevelAnalyzer();
+      const analysis = analyzer.analyze(
+        data,
+        context?.filePath,
+        context?.collection
+      );
 
       const traverse = (obj: any, path: string[] = []) => {
         for (const key in obj) {
@@ -98,14 +107,20 @@ export class W3CTokenFormatStrategy implements ITokenFormatStrategy {
 
           // Check if this is a token (has $value)
           if (typeof value === 'object' && value !== null && '$value' in value) {
-            const type = value.$type || this.inferType(value.$value, currentPath);
+            // Normalize path to remove redundant levels
+            const normalizedPath = analyzer.normalizePath(currentPath, analysis);
 
-            tokens.push({
-              path: currentPath,
-              value: value.$value,
-              type: type,
-              originalValue: value.$value
-            });
+            // Only add token if path is not empty after normalization
+            if (normalizedPath.length > 0) {
+              const type = value.$type || this.inferType(value.$value, normalizedPath);
+
+              tokens.push({
+                path: normalizedPath,
+                value: value.$value,
+                type: type,
+                originalValue: value.$value
+              });
+            }
           }
           // Otherwise, recurse into nested groups
           else if (typeof value === 'object' && value !== null) {

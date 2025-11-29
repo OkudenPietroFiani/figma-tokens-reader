@@ -340,4 +340,131 @@ describe('W3CTokenFormatStrategy', () => {
       expect(result.data![0].type).toBe('shadow');
     });
   });
+
+  describe('parseTokens() with context (level normalization)', () => {
+    test('should remove redundant semantic level from paths', () => {
+      const data: TokenData = {
+        semantic: {
+          color: {
+            background: {
+              primary: {
+                $value: '#000000',
+                $type: 'color'
+              }
+            }
+          }
+        }
+      };
+
+      const result = strategy.parseTokens(data, { filePath: 'semantic.json' });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+
+      // Path should be normalized to remove redundant 'semantic' level
+      expect(result.data![0].path).toEqual(['color', 'background', 'primary']);
+    });
+
+    test('should remove redundant primitive level from paths', () => {
+      const data: TokenData = {
+        primitive: {
+          color: {
+            primary: {
+              '600': {
+                $value: '#0000ff',
+                $type: 'color'
+              }
+            }
+          }
+        }
+      };
+
+      const result = strategy.parseTokens(data, { filePath: 'primitives.json' });
+
+      expect(result.success).toBe(true);
+      expect(result.data![0].path).toEqual(['color', 'primary', '600']);
+    });
+
+    test('should not remove non-redundant top-level keys', () => {
+      const data: TokenData = {
+        color: {
+          primary: {
+            $value: '#000000',
+            $type: 'color'
+          }
+        }
+      };
+
+      const result = strategy.parseTokens(data, { filePath: 'semantic.json' });
+
+      expect(result.success).toBe(true);
+      // 'color' is not a level keyword matching the filename, so keep it
+      expect(result.data![0].path).toEqual(['color', 'primary']);
+    });
+
+    test('should handle explicit collection context', () => {
+      const data: TokenData = {
+        component: {
+          button: {
+            background: {
+              $value: '#000000',
+              $type: 'color'
+            }
+          }
+        }
+      };
+
+      const result = strategy.parseTokens(data, { collection: 'component' });
+
+      expect(result.success).toBe(true);
+      // Redundant 'component' should be removed
+      expect(result.data![0].path).toEqual(['button', 'background']);
+    });
+
+    test('should preserve multiple top-level keys without normalization', () => {
+      const data: TokenData = {
+        color: {
+          primary: {
+            $value: '#000000',
+            $type: 'color'
+          }
+        },
+        spacing: {
+          small: {
+            $value: 4,
+            $type: 'spacing'
+          }
+        }
+      };
+
+      const result = strategy.parseTokens(data, { filePath: 'semantic.json' });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+
+      // Multiple top-level keys should not be normalized
+      expect(result.data![0].path).toEqual(['color', 'primary']);
+      expect(result.data![1].path).toEqual(['spacing', 'small']);
+    });
+
+    test('should work without context (backward compatibility)', () => {
+      const data: TokenData = {
+        semantic: {
+          color: {
+            primary: {
+              $value: '#000000',
+              $type: 'color'
+            }
+          }
+        }
+      };
+
+      // Call without context
+      const result = strategy.parseTokens(data);
+
+      expect(result.success).toBe(true);
+      // Without context, no normalization - path includes 'semantic'
+      expect(result.data![0].path).toEqual(['semantic', 'color', 'primary']);
+    });
+  });
 });
