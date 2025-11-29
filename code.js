@@ -3327,7 +3327,11 @@
         if (!strategy) {
           return Failure("Could not detect token format");
         }
-        const parseResult = strategy.parseTokens(data);
+        const parseContext = {
+          filePath: options.filePath,
+          collection: options.collection
+        };
+        const parseResult = strategy.parseTokens(data, parseContext);
         if (!parseResult.success) {
           return Failure(`Failed to parse tokens: ${parseResult.error}`);
         }
@@ -3356,7 +3360,9 @@
         for (const file of files) {
           const collection = file.collection || this.inferCollectionFromPath(file.filePath);
           const result = await this.processTokenData(file.data, __spreadProps(__spreadValues({}, options), {
-            collection
+            collection,
+            filePath: file.filePath
+            // Pass filePath for level analysis
           }));
           if (result.success && result.data) {
             allTokens.push(...result.data);
@@ -4407,6 +4413,184 @@
     }
   };
 
+  // src/core/services/TokenLevelAnalyzer.ts
+  var TokenLevelAnalyzer = class {
+    constructor() {
+      this.levels = [
+        {
+          name: "primitive",
+          order: 0,
+          keywords: ["primitive", "primitives", "base", "foundation", "core", "global"]
+        },
+        {
+          name: "semantic",
+          order: 1,
+          keywords: ["semantic", "semantics", "alias", "theme-agnostic"]
+        },
+        {
+          name: "component",
+          order: 2,
+          keywords: ["component", "components", "comp", "widget", "widgets"]
+        },
+        {
+          name: "theme",
+          order: 3,
+          keywords: ["theme", "themes", "brand", "brands", "variant", "variants"]
+        }
+      ];
+    }
+    /**
+     * Analyze token data structure to detect levels and redundancy
+     *
+     * @param data - Token data (JSON structure)
+     * @param filePath - Optional file path for additional context
+     * @param explicitCollection - Explicitly provided collection name
+     * @returns Analysis result with level detection and redundancy info
+     */
+    analyze(data, filePath, explicitCollection) {
+      const pathLevel = this.detectLevelFromPath(filePath);
+      const topLevelKeys = this.getTopLevelKeys(data);
+      const foundLevels = this.detectLevelsInKeys(topLevelKeys);
+      const redundancyCheck = this.checkRedundancy(
+        topLevelKeys,
+        pathLevel,
+        explicitCollection,
+        foundLevels
+      );
+      return {
+        detectedLevel: redundancyCheck.detectedLevel,
+        hasRedundantTopLevel: redundancyCheck.hasRedundantTopLevel,
+        redundantKey: redundancyCheck.redundantKey,
+        foundLevels
+      };
+    }
+    /**
+     * Normalize token path by removing redundant level keys
+     *
+     * @param path - Original token path
+     * @param analysis - Analysis result from analyze()
+     * @returns Normalized path with redundancy removed
+     */
+    normalizePath(path, analysis) {
+      if (!analysis.hasRedundantTopLevel || !analysis.redundantKey) {
+        return path;
+      }
+      if (path[0] === analysis.redundantKey) {
+        return path.slice(1);
+      }
+      return path;
+    }
+    /**
+     * Get all defined levels with their order
+     */
+    getLevels() {
+      return [...this.levels];
+    }
+    /**
+     * Add custom level definition
+     */
+    addLevel(level) {
+      this.levels = this.levels.filter((l) => l.name !== level.name);
+      this.levels.push(level);
+      this.levels.sort((a, b) => a.order - b.order);
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Detect level from file path
+     */
+    detectLevelFromPath(filePath) {
+      if (!filePath) return void 0;
+      const normalized = filePath.toLowerCase();
+      for (const level of this.levels) {
+        for (const keyword of level.keywords) {
+          if (normalized.includes(keyword)) {
+            return level.name;
+          }
+        }
+      }
+      return void 0;
+    }
+    /**
+     * Get top-level keys from token data (excluding metadata)
+     */
+    getTopLevelKeys(data) {
+      if (typeof data !== "object" || data === null) return [];
+      return Object.keys(data).filter((key) => !key.startsWith("$"));
+    }
+    /**
+     * Detect level keywords in a list of keys
+     */
+    detectLevelsInKeys(keys) {
+      const found = /* @__PURE__ */ new Set();
+      for (const key of keys) {
+        const normalized = key.toLowerCase();
+        for (const level of this.levels) {
+          for (const keyword of level.keywords) {
+            if (normalized === keyword || normalized.includes(keyword)) {
+              found.add(level.name);
+            }
+          }
+        }
+      }
+      return Array.from(found);
+    }
+    /**
+     * Check for redundancy between top-level keys and collection/path
+     */
+    checkRedundancy(topLevelKeys, pathLevel, explicitCollection, foundLevels) {
+      if (topLevelKeys.length === 0) {
+        return {
+          detectedLevel: pathLevel || explicitCollection,
+          hasRedundantTopLevel: false
+        };
+      }
+      if (topLevelKeys.length === 1 && foundLevels.length > 0) {
+        const topKey = topLevelKeys[0];
+        const topKeyNormalized = topKey.toLowerCase();
+        const matchesPath = pathLevel && this.keyMatchesLevel(topKeyNormalized, pathLevel);
+        const matchesCollection = explicitCollection && this.keyMatchesLevel(topKeyNormalized, explicitCollection);
+        if (matchesPath || matchesCollection) {
+          return {
+            detectedLevel: pathLevel || this.detectLevelFromKey(topKeyNormalized),
+            hasRedundantTopLevel: true,
+            redundantKey: topKey
+          };
+        }
+        return {
+          detectedLevel: this.detectLevelFromKey(topKeyNormalized),
+          hasRedundantTopLevel: false
+        };
+      }
+      return {
+        detectedLevel: pathLevel || explicitCollection,
+        hasRedundantTopLevel: false
+      };
+    }
+    /**
+     * Check if a key matches a level
+     */
+    keyMatchesLevel(key, level) {
+      const levelDef = this.levels.find((l) => l.name === level);
+      if (!levelDef) return false;
+      return levelDef.keywords.some(
+        (keyword) => key === keyword || key.includes(keyword)
+      );
+    }
+    /**
+     * Detect level from a single key
+     */
+    detectLevelFromKey(key) {
+      for (const level of this.levels) {
+        for (const keyword of level.keywords) {
+          if (key === keyword || key.includes(keyword)) {
+            return level.name;
+          }
+        }
+      }
+      return void 0;
+    }
+  };
+
   // src/core/adapters/W3CTokenFormatStrategy.ts
   var W3CTokenFormatStrategy = class {
     /**
@@ -4454,22 +4638,31 @@
      * Parse tokens from W3C format
      * Traverses nested structure and extracts token definitions
      */
-    parseTokens(data) {
+    parseTokens(data, context) {
       try {
         const tokens = [];
+        const analyzer = new TokenLevelAnalyzer();
+        const analysis = analyzer.analyze(
+          data,
+          context == null ? void 0 : context.filePath,
+          context == null ? void 0 : context.collection
+        );
         const traverse = (obj, path = []) => {
           for (const key in obj) {
             const value = obj[key];
             const currentPath = [...path, key];
             if (key.startsWith("$")) continue;
             if (typeof value === "object" && value !== null && "$value" in value) {
-              const type = value.$type || this.inferType(value.$value, currentPath);
-              tokens.push({
-                path: currentPath,
-                value: value.$value,
-                type,
-                originalValue: value.$value
-              });
+              const normalizedPath = analyzer.normalizePath(currentPath, analysis);
+              if (normalizedPath.length > 0) {
+                const type = value.$type || this.inferType(value.$value, normalizedPath);
+                tokens.push({
+                  path: normalizedPath,
+                  value: value.$value,
+                  type,
+                  originalValue: value.$value
+                });
+              }
             } else if (typeof value === "object" && value !== null) {
               traverse(value, currentPath);
             }

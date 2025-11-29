@@ -15,6 +15,16 @@ export interface TokenFormatInfo {
 }
 
 /**
+ * Optional context for token parsing
+ */
+export interface ParseContext {
+  /** File path for collection/level inference */
+  filePath?: string;
+  /** Explicitly provided collection name */
+  collection?: string;
+}
+
+/**
  * Interface for token format parsing strategies
  *
  * SOLID Principles:
@@ -47,9 +57,10 @@ export interface ITokenFormatStrategy {
    * Extracts tokens from nested structure
    *
    * @param data - Raw token data
+   * @param context - Optional parsing context (file path, collection)
    * @returns Array of processed tokens
    */
-  parseTokens(data: TokenData): Result<ProcessedToken[]>;
+  parseTokens(data: TokenData, context?: ParseContext): Result<ProcessedToken[]>;
 
   /**
    * Normalize a token value according to this format's conventions

@@ -5,7 +5,7 @@
 
 import { Token, TokenType, TokenStatus, TokenSource } from '../models/Token';
 import { ProcessedToken, TokenData } from '../../shared/types';
-import { ITokenFormatStrategy } from '../interfaces/ITokenFormatStrategy';
+import { ITokenFormatStrategy, ParseContext } from '../interfaces/ITokenFormatStrategy';
 import { TokenFormatRegistry } from '../registries/TokenFormatRegistry';
 import { Result, Success, Failure } from '../../shared/types';
 import { deepClone } from '../../shared/utils';
@@ -17,6 +17,7 @@ import { isFeatureEnabled } from '../config/FeatureFlags';
 export interface ProcessingOptions {
   projectId: string;
   collection?: string; // Default collection name if not specified
+  filePath?: string; // File path for level analysis and collection inference
   theme?: string;
   brand?: string;
   sourceType: 'github' | 'gitlab' | 'local' | 'api' | 'figma';
@@ -64,8 +65,14 @@ export class TokenProcessor {
         return Failure('Could not detect token format');
       }
 
-      // Parse using format strategy
-      const parseResult = strategy.parseTokens(data);
+      // Create parse context for level analysis
+      const parseContext: ParseContext = {
+        filePath: options.filePath,
+        collection: options.collection
+      };
+
+      // Parse using format strategy with context
+      const parseResult = strategy.parseTokens(data, parseContext);
       if (!parseResult.success) {
         return Failure(`Failed to parse tokens: ${parseResult.error}`);
       }
@@ -106,6 +113,7 @@ export class TokenProcessor {
         const result = await this.processTokenData(file.data, {
           ...options,
           collection,
+          filePath: file.filePath, // Pass filePath for level analysis
         });
 
         if (result.success && result.data) {
