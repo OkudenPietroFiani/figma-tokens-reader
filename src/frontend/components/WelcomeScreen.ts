@@ -6,6 +6,7 @@
 import { BaseComponent } from './BaseComponent';
 import { AppState } from '../state/AppState';
 import { SCREEN_IDS, CSS_CLASSES } from '../../shared/constants';
+import { debug } from '../../shared/logger';
 
 /**
  * Welcome screen component

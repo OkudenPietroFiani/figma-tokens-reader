@@ -6,6 +6,7 @@
 import { BaseComponent } from './BaseComponent';
 import { AppState } from '../state/AppState';
 import { PluginBridge } from '../services/PluginBridge';
+import { debug } from '../../shared/logger';
 
 export class TokenScreen extends BaseComponent {
   private bridge: PluginBridge;
