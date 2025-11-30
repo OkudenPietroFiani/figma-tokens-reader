@@ -103,28 +103,19 @@ export class ImportFromGitHubUseCase extends UseCase<
       console.log(`[ImportFromGitHubUseCase] Fetching ${fileSpec.path}...`);
 
       // Fetch file content from GitHub
-      const fileContent = await this.githubService.fetchFileContent(
-        config,
-        fileSpec.path
-      );
-
-      if (!fileContent.success) {
-        console.warn(
-          `[ImportFromGitHubUseCase] Failed to fetch ${fileSpec.path}: ${fileContent.error}`
-        );
-        continue; // Skip this file, continue with others
-      }
-
-      // Parse JSON content
       let tokenData;
       try {
-        tokenData = JSON.parse(fileContent.data!);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Invalid JSON';
-        console.warn(
-          `[ImportFromGitHubUseCase] Failed to parse ${fileSpec.path}: ${message}`
+        // fetchFileContent returns the parsed JSON directly, not a Result object
+        tokenData = await this.githubService.fetchFileContent(
+          config,
+          fileSpec.path
         );
-        continue;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(
+          `[ImportFromGitHubUseCase] Failed to fetch ${fileSpec.path}: ${message}`
+        );
+        continue; // Skip this file, continue with others
       }
 
       // Import tokens using ImportTokensUseCase
