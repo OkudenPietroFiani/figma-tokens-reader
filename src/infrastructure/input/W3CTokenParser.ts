@@ -44,7 +44,7 @@ export class W3CTokenParser implements ITokenParser {
     try {
       // Use TokenProcessor to convert from format-specific to Token model
       const result = await this.processor.processTokenData(data, {
-        projectId: context?.collection || 'default',
+        projectId: context?.projectId || 'default',
         collection: context?.collection,
         filePath: context?.filePath,
         sourceType: 'local',

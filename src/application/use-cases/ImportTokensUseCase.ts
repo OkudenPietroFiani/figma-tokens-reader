@@ -88,7 +88,8 @@ export class ImportTokensUseCase extends UseCase<ImportTokensInput, ImportTokens
     // 2. Parse tokens
     const parseContext: ParseContext = {
       filePath: input.filePath,
-      collection: input.collection
+      collection: input.collection,
+      projectId: input.projectId
     };
 
     const parseResult = await parser.parse(input.data, parseContext);
