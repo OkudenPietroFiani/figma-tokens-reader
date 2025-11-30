@@ -4588,11 +4588,15 @@
         console.log(
           `[ImportFromGitHubUseCase] Imported ${importResult.data.count} tokens from ${fileSpec.path}`
         );
+        console.log(
+          `[ImportFromGitHubUseCase] Token details - projectId: 'default', collection: '${fileSpec.collection || this.inferCollection(fileSpec.path)}', status: 'active'`
+        );
       }
       if (filesImported === 0) {
         return Failure("No files were successfully imported");
       }
       console.log(`[ImportFromGitHubUseCase] Syncing ${tokensImported} tokens to Figma...`);
+      console.log(`[ImportFromGitHubUseCase] Attempting sync with criteria: { projectId: 'default', status: 'active' }`);
       const syncResult = await this.useCaseRegistry.execute("sync-to-figma", {
         projectId: "default",
         options: { overwrite: true }
