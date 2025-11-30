@@ -49,7 +49,14 @@ export class GitHubService {
    */
   async fetchRepositoryFiles(config: GitHubConfig): Promise<GitHubFile[]> {
     try {
+      // Validate config to prevent malformed URLs
+      if (!config.owner || !config.repo || !config.branch) {
+        throw new Error(`Invalid GitHub config: owner="${config.owner}", repo="${config.repo}", branch="${config.branch}"`);
+      }
+
       const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
+
+      console.log(`[GitHubService] Fetching repository files from: ${config.owner}/${config.repo}@${config.branch}`);
 
       const response = await fetch(url, {
         headers: {
@@ -61,6 +68,8 @@ export class GitHubService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[GitHubService] API request failed for ${config.owner}/${config.repo}@${config.branch}`);
+        console.error(`[GitHubService] Status: ${response.status} ${response.statusText}`);
         throw new Error(`GitHub API error (${response.status}): ${errorText || response.statusText}`);
       }
 
@@ -89,6 +98,8 @@ export class GitHubService {
     try {
       const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`;
 
+      console.log(`[GitHubService] Fetching file: ${config.owner}/${config.repo}/${filePath}@${config.branch}`);
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `token ${config.token}`,
@@ -99,7 +110,8 @@ export class GitHubService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`GitHub API error for ${filePath}:`, response.status, errorText);
+        console.error(`[GitHubService] Failed to fetch ${filePath}: ${response.status} ${response.statusText}`);
+        console.error(`[GitHubService] URL: ${config.owner}/${config.repo}/contents/${filePath}?ref=${config.branch}`);
         throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
       }
 
@@ -209,8 +221,15 @@ export class GitHubService {
    */
   async fetchFiles(config: FetchFilesConfig): Promise<Result<GitHubFile[]>> {
     try {
+      // Validate required fields
+      if (!config.owner || !config.repo) {
+        return Failure(`Invalid GitHub config: owner="${config.owner}", repo="${config.repo}"`);
+      }
+
       const branch = config.branch || 'main';
       const token = config.token || '';
+
+      console.log(`[GitHubService] fetchFiles: ${config.owner}/${config.repo}@${branch}${config.path ? ` (path: ${config.path})` : ''}`);
 
       const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${branch}?recursive=1`;
 
