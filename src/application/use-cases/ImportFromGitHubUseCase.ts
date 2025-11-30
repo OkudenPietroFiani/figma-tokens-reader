@@ -25,6 +25,8 @@ export interface ImportFromGitHubInput {
   }>;
   /** Optional: GitHub personal access token */
   token?: string;
+  /** Optional: Branch name (defaults to 'main') */
+  branch?: string;
 }
 
 /**
@@ -88,12 +90,12 @@ export class ImportFromGitHubUseCase extends UseCase<
     let filesImported = 0;
     let tokensImported = 0;
 
-    // Build config for GitHubService
+    // Build config for GitHubService (matching GitHubConfig interface)
     const config = {
-      type: 'github' as const,
       owner: input.owner,
       repo: input.repo,
-      token: input.token
+      token: input.token || '',
+      branch: input.branch || 'main'
     };
 
     // Step 1: Import each file

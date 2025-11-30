@@ -4545,10 +4545,10 @@
       let filesImported = 0;
       let tokensImported = 0;
       const config = {
-        type: "github",
         owner: input.owner,
         repo: input.repo,
-        token: input.token
+        token: input.token || "",
+        branch: input.branch || "main"
       };
       for (const fileSpec of input.files) {
         console.log(`[ImportFromGitHubUseCase] Fetching ${fileSpec.path}...`);
@@ -6800,7 +6800,8 @@
         owner: msg.data.owner,
         repo: msg.data.repo,
         files,
-        token: msg.data.token
+        token: msg.data.token,
+        branch: msg.data.branch || "main"
       });
       if (!result.success) {
         throw new Error(result.error);
