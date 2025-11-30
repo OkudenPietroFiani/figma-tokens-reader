@@ -2964,13 +2964,22 @@
      * Resolve nested references in a composite value
      * Example: { fontFamily: "{primitive.typography.font-family.primary}" }
      * Becomes: { fontFamily: "Inter" }
+     *
+     * @param value - Value to resolve (can contain references)
+     * @param projectId - Project context for resolution
+     * @param depth - Current recursion depth (prevents infinite loops)
+     * @param maxDepth - Maximum recursion depth allowed (default: 10)
      */
-    resolveNestedReferences(value, projectId) {
+    resolveNestedReferences(value, projectId, depth = 0, maxDepth = 10) {
+      if (depth >= maxDepth) {
+        console.warn(`[FigmaSyncService] Max recursion depth (${maxDepth}) reached resolving value:`, value);
+        return value;
+      }
       if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
         const referencedToken = this.resolver.resolveReference(value, projectId);
         if (referencedToken) {
           const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
-          return this.resolveNestedReferences(resolvedValue, projectId);
+          return this.resolveNestedReferences(resolvedValue, projectId, depth + 1, maxDepth);
         } else {
           this.logUnresolvedReference(value, projectId);
           return value;
@@ -2979,7 +2988,7 @@
       if (typeof value === "object" && value !== null) {
         const resolved = Array.isArray(value) ? [] : {};
         for (const key in value) {
-          resolved[key] = this.resolveNestedReferences(value[key], projectId);
+          resolved[key] = this.resolveNestedReferences(value[key], projectId, depth + 1, maxDepth);
         }
         return resolved;
       }

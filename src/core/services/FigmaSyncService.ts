@@ -685,8 +685,19 @@ export class FigmaSyncService {
    * Resolve nested references in a composite value
    * Example: { fontFamily: "{primitive.typography.font-family.primary}" }
    * Becomes: { fontFamily: "Inter" }
+   *
+   * @param value - Value to resolve (can contain references)
+   * @param projectId - Project context for resolution
+   * @param depth - Current recursion depth (prevents infinite loops)
+   * @param maxDepth - Maximum recursion depth allowed (default: 10)
    */
-  private resolveNestedReferences(value: any, projectId: string): any {
+  private resolveNestedReferences(value: any, projectId: string, depth: number = 0, maxDepth: number = 10): any {
+    // Prevent infinite recursion from circular references
+    if (depth >= maxDepth) {
+      console.warn(`[FigmaSyncService] Max recursion depth (${maxDepth}) reached resolving value:`, value);
+      return value; // Stop recursing, return as-is
+    }
+
     if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
       // It's a reference - use TokenResolver for sophisticated resolution
       const referencedToken = this.resolver.resolveReference(value, projectId);
@@ -694,7 +705,7 @@ export class FigmaSyncService {
       if (referencedToken) {
         const resolvedValue = referencedToken.resolvedValue || referencedToken.value;
         // If the resolved value is also a reference, resolve it recursively
-        return this.resolveNestedReferences(resolvedValue, projectId);
+        return this.resolveNestedReferences(resolvedValue, projectId, depth + 1, maxDepth);
       } else {
         // Reference failed - log detailed diagnostics
         this.logUnresolvedReference(value, projectId);
@@ -706,7 +717,7 @@ export class FigmaSyncService {
       // Recursively resolve all properties in the object
       const resolved: any = Array.isArray(value) ? [] : {};
       for (const key in value) {
-        resolved[key] = this.resolveNestedReferences(value[key], projectId);
+        resolved[key] = this.resolveNestedReferences(value[key], projectId, depth + 1, maxDepth);
       }
       return resolved;
     }
