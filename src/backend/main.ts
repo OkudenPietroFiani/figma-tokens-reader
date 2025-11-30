@@ -14,11 +14,9 @@ import { TokenRepository } from '../core/services/TokenRepository';
 import { TokenResolver } from '../core/services/TokenResolver';
 import { FigmaSyncService } from '../core/services/FigmaSyncService';
 
-// Controllers
-import { TokenController } from './controllers/TokenController';
-import { GitHubController } from './controllers/GitHubController';
-import { ScopeController } from './controllers/ScopeController';
-import { DocumentationController } from './controllers/DocumentationController';
+// Controllers (v2.0 - TODO: Migrate remaining operations)
+import { TokenController } from './controllers/TokenController'; // Used for: saveTokens, loadTokens
+import { GitHubController } from './controllers/GitHubController'; // Used for: GitHub operations
 
 // New Architecture (Phases 1-4)
 // import { FileSourceRegistry } from '../core/registries/FileSourceRegistry'; // DEPRECATED: Never queried
@@ -27,11 +25,14 @@ import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
 import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
 
-// Layered Architecture (Sprint 3)
+// Layered Architecture (Sprint 3 + Migration)
 import { UseCaseRegistry } from '../application/UseCaseRegistry';
 import { ImportTokensUseCase } from '../application/use-cases/ImportTokensUseCase';
 import { SyncToFigmaVariablesUseCase } from '../application/use-cases/SyncToFigmaVariablesUseCase';
 import { GetTokensUseCase } from '../application/use-cases/GetTokensUseCase';
+import { GenerateDocumentationUseCase } from '../application/use-cases/GenerateDocumentationUseCase';
+import { GetFigmaVariablesUseCase } from '../application/use-cases/GetFigmaVariablesUseCase';
+import { ApplyScopesUseCase } from '../application/use-cases/ApplyScopesUseCase';
 import { TokenParserRegistry } from '../infrastructure/input/TokenParserRegistry';
 import { W3CTokenParser } from '../infrastructure/input/W3CTokenParser';
 import { TokenExporterRegistry } from '../infrastructure/output/TokenExporterRegistry';
@@ -71,11 +72,9 @@ class PluginBackend {
   private exporterRegistry: TokenExporterRegistry;
   private repositoryAdapter: InMemoryTokenRepository;
 
-  // Controllers
-  private tokenController: TokenController;
-  private githubController: GitHubController;
-  private scopeController: ScopeController;
-  private documentationController: DocumentationController;
+  // Controllers (v2.0 - being phased out)
+  private tokenController: TokenController; // TODO: Migrate saveTokens/loadTokens to use cases
+  private githubController: GitHubController; // TODO: Migrate GitHub operations to use cases
 
   constructor() {
     // Register new architecture components (Phases 1-4)
@@ -91,18 +90,9 @@ class PluginBackend {
     // Initialize layered architecture (Sprint 3)
     this.initializeLayeredArchitecture();
 
-    // Initialize controllers with dependency injection
+    // Initialize remaining controllers (v2.0 - TODO: migrate)
     this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
     this.githubController = new GitHubController(this.githubService, this.storage);
-    this.scopeController = new ScopeController();
-
-    // Initialize documentation controller
-    const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
-    this.documentationController = new DocumentationController(
-      documentationGenerator,
-      this.storage,
-      this.tokenRepository
-    );
 
     ErrorHandler.info('Plugin backend initialized (v3.0 Layered Architecture)', 'PluginBackend');
   }
@@ -133,8 +123,9 @@ class PluginBackend {
     this.exporterRegistry.register(figmaExporter);
     // TODO: Add FigmaStylesExporter, JSONExporter, CSSExporter when implemented
 
-    // Storage adapter (repository)
-    this.repositoryAdapter = new InMemoryTokenRepository();
+    // Storage adapter (repository) - CRITICAL: Share the same repository instance!
+    // This ensures tokens imported via new architecture are visible to old architecture
+    this.repositoryAdapter = new InMemoryTokenRepository(this.tokenRepository);
 
     // 2. Create application layer (use cases)
     this.useCaseRegistry = new UseCaseRegistry();
@@ -164,6 +155,31 @@ class PluginBackend {
     this.useCaseRegistry.register('get-tokens', getTokensUseCase, {
       description: 'Query and retrieve tokens',
       category: 'query'
+    });
+
+    // Documentation use case
+    const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
+    const generateDocsUseCase = new GenerateDocumentationUseCase(
+      this.repositoryAdapter,
+      documentationGenerator,
+      this.storage
+    );
+    this.useCaseRegistry.register('generate-documentation', generateDocsUseCase, {
+      description: 'Generate visual token documentation in Figma',
+      category: 'documentation'
+    });
+
+    // Scopes use cases
+    const getFigmaVariablesUseCase = new GetFigmaVariablesUseCase();
+    this.useCaseRegistry.register('get-figma-variables', getFigmaVariablesUseCase, {
+      description: 'Get all Figma variables with scope information',
+      category: 'scopes'
+    });
+
+    const applyScopesUseCase = new ApplyScopesUseCase();
+    this.useCaseRegistry.register('apply-scopes', applyScopesUseCase, {
+      description: 'Apply scope assignments to Figma variables',
+      category: 'scopes'
     });
 
     ErrorHandler.info(
@@ -296,21 +312,72 @@ class PluginBackend {
   // ==================== TOKEN HANDLERS ====================
 
   private async handleImportTokens(msg: PluginMessage): Promise<void> {
-    const result = await this.tokenController.importTokens({
-      primitives: msg.data.primitives,
-      semantics: msg.data.semantics,
-      source: msg.data.source || 'local'
+    const { primitives, semantics, source } = msg.data;
+
+    // Validate at least one token set is provided
+    if (!primitives && !semantics) {
+      throw new Error('No token data provided. Expected primitives or semantics.');
+    }
+
+    let totalTokens = 0;
+
+    // Step 1: Import primitives (if provided)
+    if (primitives) {
+      const primResult = await this.useCaseRegistry.execute('import-tokens', {
+        data: primitives,
+        projectId: 'default',
+        collection: 'primitive',
+        filePath: 'primitives.json'
+      });
+
+      if (!primResult.success) {
+        throw new Error(`Failed to import primitives: ${primResult.error}`);
+      }
+
+      totalTokens += primResult.data!.count;
+      ErrorHandler.info(`Imported ${primResult.data!.count} primitive tokens`, 'PluginBackend');
+    }
+
+    // Step 2: Import semantics (if provided)
+    if (semantics) {
+      const semResult = await this.useCaseRegistry.execute('import-tokens', {
+        data: semantics,
+        projectId: 'default',
+        collection: 'semantic',
+        filePath: 'semantic.json'
+      });
+
+      if (!semResult.success) {
+        throw new Error(`Failed to import semantics: ${semResult.error}`);
+      }
+
+      totalTokens += semResult.data!.count;
+      ErrorHandler.info(`Imported ${semResult.data!.count} semantic tokens`, 'PluginBackend');
+    }
+
+    // Step 3: Sync all tokens to Figma Variables
+    const syncResult = await this.useCaseRegistry.execute('sync-to-figma', {
+      projectId: 'default',
+      options: { overwrite: true }
     });
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'import-success',
-        message: ` Tokens imported: ${result.data!.added} added, ${result.data!.updated} updated, ${result.data!.skipped} skipped`,
-        requestId: msg.requestId
-      });
-    } else {
-      throw new Error(result.error);
+    if (!syncResult.success) {
+      throw new Error(`Failed to sync to Figma: ${syncResult.error}`);
     }
+
+    const { created, updated, failed } = syncResult.data!;
+
+    ErrorHandler.info(
+      `Sync completed: ${created} created, ${updated} updated, ${failed} failed`,
+      'PluginBackend'
+    );
+
+    // Step 4: Send success message to UI
+    figma.ui.postMessage({
+      type: 'import-success',
+      message: ` Tokens imported: ${created} added, ${updated} updated, ${failed} skipped`,
+      requestId: msg.requestId
+    });
   }
 
   private async handleSaveTokens(msg: PluginMessage): Promise<void> {
@@ -392,48 +459,55 @@ class PluginBackend {
   // ==================== SCOPE HANDLERS ====================
 
   private async handleGetFigmaVariables(msg: PluginMessage): Promise<void> {
-    const result = await this.scopeController.getFigmaVariables();
+    const result = await this.useCaseRegistry.execute('get-figma-variables', {});
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'figma-variables-loaded',
-        data: { variables: result.data },
-        requestId: msg.requestId
-      });
-    } else {
+    if (!result.success) {
       throw new Error(result.error);
     }
+
+    figma.ui.postMessage({
+      type: 'figma-variables-loaded',
+      data: { variables: result.data!.variables },
+      requestId: msg.requestId
+    });
   }
 
   private async handleApplyVariableScopes(msg: PluginMessage): Promise<void> {
-    const result = await this.scopeController.applyScopes(msg.data.variableScopes);
+    const result = await this.useCaseRegistry.execute('apply-scopes', {
+      scopeAssignments: msg.data.variableScopes
+    });
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'scopes-applied',
-        message: `Scopes updated for ${result.data} variable(s)`,
-        requestId: msg.requestId
-      });
-    } else {
+    if (!result.success) {
       throw new Error(result.error);
     }
+
+    figma.ui.postMessage({
+      type: 'scopes-applied',
+      message: `Scopes updated for ${result.data!.updatedCount} variable(s)`,
+      requestId: msg.requestId
+    });
   }
 
   // ==================== DOCUMENTATION HANDLERS ====================
 
   private async handleGenerateDocumentation(msg: PluginMessage): Promise<void> {
-    const result = await this.documentationController.generateDocumentation(msg.data);
+    const result = await this.useCaseRegistry.execute('generate-documentation', {
+      fileNames: msg.data.fileNames,
+      pageName: msg.data.pageName,
+      includeVisuals: msg.data.includeVisuals,
+      organization: msg.data.organization
+    });
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'documentation-generated',
-        data: result.data,
-        message: `Documentation generated: ${result.data!.tokenCount} tokens in ${result.data!.categoryCount} categories`,
-        requestId: msg.requestId
-      });
-    } else {
+    if (!result.success) {
       throw new Error(result.error);
     }
+
+    figma.ui.postMessage({
+      type: 'documentation-generated',
+      data: result.data,
+      message: `Documentation generated: ${result.data!.tokenCount} tokens in ${result.data!.categoryCount} categories`,
+      requestId: msg.requestId
+    });
   }
 }
 

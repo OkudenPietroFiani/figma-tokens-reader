@@ -20,12 +20,15 @@ import { TokenRepository as CoreTokenRepository, TokenQuery } from '../../core/s
  * Storage Strategy: In-memory (data lost on plugin reload)
  * Performance: O(1) indexed lookups, very fast
  * Limitations: No persistence, limited by memory
+ *
+ * IMPORTANT: Accepts a shared CoreTokenRepository instance to ensure
+ * both old and new architecture use the same data store.
  */
 export class InMemoryTokenRepository implements ITokenRepository {
   private repository: CoreTokenRepository;
 
-  constructor() {
-    this.repository = new CoreTokenRepository();
+  constructor(sharedRepository?: CoreTokenRepository) {
+    this.repository = sharedRepository || new CoreTokenRepository();
   }
 
   // ==================== QUERIES ====================

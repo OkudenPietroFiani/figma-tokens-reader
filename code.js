@@ -3866,394 +3866,6 @@
     }
   };
 
-  // src/backend/controllers/ScopeController.ts
-  var ScopeController = class {
-    /**
-     * Get all Figma variables with their current scopes
-     * Useful for UI display and scope management
-     *
-     * @returns Map of variable names to variable data
-     */
-    async getFigmaVariables() {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.info("Fetching all Figma variables...", "ScopeController");
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        debug.log("[ScopeController] Found collections:", collections.length);
-        debug.log("[ScopeController] Collection details:", collections.map((c) => ({
-          name: c.name,
-          id: c.id,
-          variableCount: c.variableIds.length
-        })));
-        const variables = {};
-        for (const collection of collections) {
-          ErrorHandler.info(`Processing collection: ${collection.name}`, "ScopeController");
-          debug.log(`[ScopeController] Collection "${collection.name}" has ${collection.variableIds.length} variables`);
-          const variablePromises = collection.variableIds.map(
-            (id) => figma.variables.getVariableByIdAsync(id)
-          );
-          const collectionVariables = await Promise.all(variablePromises);
-          debug.log(`[ScopeController] Loaded ${collectionVariables.length} variables for collection "${collection.name}"`);
-          for (const variable of collectionVariables) {
-            if (variable) {
-              debug.log(`[ScopeController] Variable: ${variable.name}, type: ${variable.resolvedType}, scopes: ${variable.scopes.length}`);
-              variables[variable.name] = {
-                id: variable.id,
-                name: variable.name,
-                scopes: variable.scopes,
-                type: variable.resolvedType,
-                collection: collection.name,
-                collectionId: collection.id
-              };
-            }
-          }
-        }
-        const count = Object.keys(variables).length;
-        debug.log("[ScopeController] Total variables collected:", count);
-        debug.log("[ScopeController] Variable names:", Object.keys(variables));
-        ErrorHandler.info(`Found ${count} variables across ${collections.length} collections`, "ScopeController");
-        if (count === 0) {
-          ErrorHandler.warn("No Figma variables found. Import tokens first.", "ScopeController");
-        }
-        return variables;
-      }, "Get Figma Variables");
-    }
-    /**
-     * Apply scope assignments to variables (legacy method using variable names)
-     * Updates the scopes property of selected variables
-     *
-     * @param scopeAssignments - Map of variable names to scope arrays
-     * @returns Number of variables updated
-     * @deprecated Use applyScopesFromTokens() for O(1) Token ID-based lookups
-     */
-    async applyScopes(scopeAssignments) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.assert(
-          scopeAssignments && Object.keys(scopeAssignments).length > 0,
-          "No scope assignments provided",
-          "Apply Scopes"
-        );
-        const variableNames = Object.keys(scopeAssignments);
-        ErrorHandler.info(
-          `Applying scopes to ${variableNames.length} variable(s)`,
-          "ScopeController"
-        );
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        let updatedCount = 0;
-        for (const collection of collections) {
-          const variablePromises = collection.variableIds.map(
-            (id) => figma.variables.getVariableByIdAsync(id)
-          );
-          const collectionVariables = await Promise.all(variablePromises);
-          for (const variable of collectionVariables) {
-            if (variable && scopeAssignments[variable.name] !== void 0) {
-              const newScopes = scopeAssignments[variable.name];
-              this.validateScopes(newScopes, variable.name);
-              variable.scopes = newScopes;
-              updatedCount++;
-              ErrorHandler.info(
-                `Updated scopes for ${variable.name}: ${newScopes.join(", ")}`,
-                "ScopeController"
-              );
-            }
-          }
-        }
-        ErrorHandler.info(`Scopes updated for ${updatedCount} variable(s)`, "ScopeController");
-        if (updatedCount === 0) {
-          ErrorHandler.warn("No variables were updated. Check variable names.", "ScopeController");
-        }
-        ErrorHandler.notifyUser(
-          `${SUCCESS_MESSAGES.SCOPE_APPLIED}: ${updatedCount} variable(s)`,
-          "success"
-        );
-        return updatedCount;
-      }, "Apply Scopes");
-    }
-    /**
-     * Apply scope assignments to variables using Token ID-based lookups (NEW)
-     * 80% faster than name-based lookups - O(1) vs O(n) per token
-     *
-     * IMPORTANT: This operates on EXISTING Figma variables only.
-     * Variables must have been created by FigmaSyncService first, which
-     * populates token.extensions.figma.variableId
-     *
-     * @param tokens - Array of tokens with Figma variable IDs in extensions
-     * @param scopeAssignments - Map of token IDs to scope arrays
-     * @returns Number of variables updated
-     */
-    async applyScopesFromTokens(tokens, scopeAssignments) {
-      return ErrorHandler.handle(async () => {
-        var _a, _b;
-        ErrorHandler.assert(
-          tokens && tokens.length > 0,
-          "No tokens provided",
-          "Apply Scopes From Tokens"
-        );
-        ErrorHandler.assert(
-          scopeAssignments && scopeAssignments.size > 0,
-          "No scope assignments provided",
-          "Apply Scopes From Tokens"
-        );
-        ErrorHandler.info(
-          `Applying scopes to ${tokens.length} token(s) using Token ID lookup`,
-          "ScopeController"
-        );
-        let updatedCount = 0;
-        let skippedCount = 0;
-        for (const token of tokens) {
-          const variableId = (_b = (_a = token.extensions) == null ? void 0 : _a.figma) == null ? void 0 : _b.variableId;
-          if (!variableId) {
-            console.warn(`[ScopeController] Token ${token.id} (${token.qualifiedName}) has no Figma variable ID`);
-            skippedCount++;
-            continue;
-          }
-          const newScopes = scopeAssignments.get(token.id);
-          if (!newScopes) {
-            continue;
-          }
-          const variable = figma.variables.getVariableByIdAsync ? await figma.variables.getVariableByIdAsync(variableId) : figma.variables.getVariableById(variableId);
-          if (!variable) {
-            console.warn(`[ScopeController] Figma variable not found for token ${token.id} (variableId: ${variableId})`);
-            skippedCount++;
-            continue;
-          }
-          this.validateScopes(newScopes, token.qualifiedName);
-          variable.scopes = newScopes;
-          updatedCount++;
-          ErrorHandler.info(
-            `Updated scopes for ${token.qualifiedName} (ID: ${token.id}): ${newScopes.join(", ")}`,
-            "ScopeController"
-          );
-        }
-        ErrorHandler.info(
-          `Scopes updated for ${updatedCount} variable(s), ${skippedCount} skipped (no variable ID)`,
-          "ScopeController"
-        );
-        if (updatedCount === 0 && skippedCount === 0) {
-          ErrorHandler.warn("No variables were updated. Check token IDs and scope assignments.", "ScopeController");
-        }
-        ErrorHandler.notifyUser(
-          `${SUCCESS_MESSAGES.SCOPE_APPLIED}: ${updatedCount} variable(s)`,
-          "success"
-        );
-        return updatedCount;
-      }, "Apply Scopes From Tokens");
-    }
-    /**
-     * Get variable by Token (NEW - O(1) lookup)
-     * Uses token.extensions.figma.variableId for direct access
-     *
-     * @param token - Token with Figma variable ID in extensions
-     * @returns Variable or null if not found
-     */
-    async getVariableByToken(token) {
-      return ErrorHandler.handle(async () => {
-        var _a, _b;
-        const variableId = (_b = (_a = token.extensions) == null ? void 0 : _a.figma) == null ? void 0 : _b.variableId;
-        if (!variableId) {
-          ErrorHandler.info(`Token ${token.id} (${token.qualifiedName}) has no Figma variable ID`, "ScopeController");
-          return null;
-        }
-        ErrorHandler.info(`Looking up variable for token: ${token.qualifiedName} (ID: ${variableId})`, "ScopeController");
-        const variable = figma.variables.getVariableByIdAsync ? await figma.variables.getVariableByIdAsync(variableId) : figma.variables.getVariableById(variableId);
-        if (variable) {
-          ErrorHandler.info(`Found variable: ${variable.name}`, "ScopeController");
-        } else {
-          ErrorHandler.info(`Variable not found for ID: ${variableId}`, "ScopeController");
-        }
-        return variable;
-      }, "Get Variable By Token");
-    }
-    /**
-     * Get variable by name across all collections (legacy method)
-     * Useful for finding a specific variable
-     *
-     * @param variableName - Name of the variable to find
-     * @returns Variable or null if not found
-     * @deprecated Use getVariableByToken() for O(1) lookups
-     */
-    async getVariableByName(variableName) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.info(`Searching for variable: ${variableName}`, "ScopeController");
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        for (const collection of collections) {
-          const variablePromises = collection.variableIds.map(
-            (id) => figma.variables.getVariableByIdAsync(id)
-          );
-          const collectionVariables = await Promise.all(variablePromises);
-          const variable = collectionVariables.find((v) => v && v.name === variableName);
-          if (variable) {
-            ErrorHandler.info(`Found variable: ${variableName}`, "ScopeController");
-            return variable;
-          }
-        }
-        ErrorHandler.info(`Variable not found: ${variableName}`, "ScopeController");
-        return null;
-      }, "Get Variable By Name");
-    }
-    /**
-     * Get variables by collection name
-     * Useful for filtering variables
-     *
-     * @param collectionName - Name of the collection
-     * @returns Array of variables in the collection
-     */
-    async getVariablesByCollection(collectionName) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.info(`Fetching variables from collection: ${collectionName}`, "ScopeController");
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        const targetCollection = collections.find((c) => c.name === collectionName);
-        if (!targetCollection) {
-          ErrorHandler.warn(`Collection not found: ${collectionName}`, "ScopeController");
-          return [];
-        }
-        const variablePromises = targetCollection.variableIds.map(
-          (id) => figma.variables.getVariableByIdAsync(id)
-        );
-        const variables = await Promise.all(variablePromises);
-        const validVariables = variables.filter((v) => v !== null);
-        ErrorHandler.info(
-          `Found ${validVariables.length} variables in collection: ${collectionName}`,
-          "ScopeController"
-        );
-        return validVariables;
-      }, "Get Variables By Collection");
-    }
-    /**
-     * Validate scope array
-     * Ensures scopes are valid Figma VariableScope values
-     *
-     * @param scopes - Array of scope strings
-     * @param variableName - Variable name for error messages
-     */
-    validateScopes(scopes, variableName) {
-      ErrorHandler.assert(
-        Array.isArray(scopes),
-        `Scopes for ${variableName} must be an array`,
-        "Validate Scopes"
-      );
-    }
-    /**
-     * Reset all scopes for a variable (set to empty)
-     * Useful for clearing scope assignments
-     *
-     * @param variableName - Name of the variable to reset
-     */
-    async resetScopes(variableName) {
-      return ErrorHandler.handle(async () => {
-        const result = await this.getVariableByName(variableName);
-        if (!result.success) {
-          throw new Error(result.error || "Failed to find variable");
-        }
-        if (!result.data) {
-          throw new Error(`Variable not found: ${variableName}`);
-        }
-        const variable = result.data;
-        variable.scopes = [];
-        ErrorHandler.info(`Scopes reset for ${variableName}`, "ScopeController");
-        ErrorHandler.notifyUser(`Scopes reset for ${variableName}`, "success");
-      }, "Reset Scopes");
-    }
-    /**
-     * Get scope statistics
-     * Useful for debugging and UI display
-     *
-     * @returns Statistics about scope usage
-     */
-    async getScopeStats() {
-      return ErrorHandler.handle(async () => {
-        const result = await this.getFigmaVariables();
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch variables");
-        }
-        const variables = Object.values(result.data);
-        const totalVariables = variables.length;
-        const variablesWithScopes = variables.filter((v) => v.scopes.length > 0).length;
-        const variablesWithoutScopes = totalVariables - variablesWithScopes;
-        const stats = {
-          totalVariables,
-          variablesWithScopes,
-          variablesWithoutScopes
-        };
-        ErrorHandler.info(
-          `Scope stats: ${totalVariables} total, ${variablesWithScopes} with scopes, ${variablesWithoutScopes} without scopes`,
-          "ScopeController"
-        );
-        return stats;
-      }, "Get Scope Stats");
-    }
-  };
-
-  // src/backend/controllers/DocumentationController.ts
-  var DocumentationController = class {
-    constructor(generator, storage, tokenRepository) {
-      this.generator = generator;
-      this.storage = storage;
-      this.tokenRepository = tokenRepository;
-    }
-    /**
-     * Generate documentation for selected token files
-     *
-     * @param options - Documentation generation options
-     * @returns Result with generation statistics
-     */
-    async generateDocumentation(options) {
-      return ErrorHandler.handle(async () => {
-        var _a;
-        const fileCount = ((_a = options.fileNames) == null ? void 0 : _a.length) || 0;
-        ErrorHandler.info(
-          fileCount > 0 ? `Generating documentation for ${fileCount} file(s)` : "Generating documentation for all Figma variable collections",
-          "DocumentationController"
-        );
-        const tokenStateResult = await this.storage.getTokenState();
-        let tokenFilesMap = /* @__PURE__ */ new Map();
-        if (tokenStateResult.success && tokenStateResult.data) {
-          const tokenState = tokenStateResult.data;
-          for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
-            tokenFilesMap.set(fileName, file);
-          }
-          ErrorHandler.info(
-            `Loaded ${tokenFilesMap.size} token files from storage`,
-            "DocumentationController"
-          );
-        } else {
-          ErrorHandler.info(
-            "No token state found in storage, will use Figma variables directly",
-            "DocumentationController"
-          );
-        }
-        const tokens = this.tokenRepository.getAll();
-        if (tokens && tokens.length > 0) {
-          ErrorHandler.info(
-            `Found ${tokens.length} tokens in repository`,
-            "DocumentationController"
-          );
-        } else {
-          ErrorHandler.info(
-            "No tokens in repository, generator will read from Figma variables",
-            "DocumentationController"
-          );
-        }
-        const result = await this.generator.generate(
-          tokenFilesMap,
-          tokens,
-          options
-        );
-        if (!result.success) {
-          throw new Error(result.error || "Documentation generation failed");
-        }
-        ErrorHandler.info(
-          `Documentation generated: ${result.data.tokenCount} tokens in ${result.data.categoryCount} categories`,
-          "DocumentationController"
-        );
-        ErrorHandler.notifyUser(
-          `\u2713 Documentation generated: ${result.data.tokenCount} tokens`,
-          "success"
-        );
-        return result.data;
-      }, "Generate Documentation");
-    }
-  };
-
   // src/core/services/TokenLevelAnalyzer.ts
   var TokenLevelAnalyzer = class {
     constructor() {
@@ -5056,6 +4668,212 @@
     }
   };
 
+  // src/application/use-cases/GenerateDocumentationUseCase.ts
+  var GenerateDocumentationUseCase = class extends UseCase {
+    constructor(repository, generator, storage) {
+      super();
+      this.repository = repository;
+      this.generator = generator;
+      this.storage = storage;
+    }
+    async executeImpl(input) {
+      var _a;
+      console.log(
+        `[GenerateDocumentationUseCase] Generating documentation${input.fileNames ? ` for ${input.fileNames.length} file(s)` : " for all collections"}`
+      );
+      const tokenStateResult = await this.storage.getTokenState();
+      const tokenFilesMap = /* @__PURE__ */ new Map();
+      if (tokenStateResult.success && tokenStateResult.data) {
+        const tokenState = tokenStateResult.data;
+        for (const [fileName, file] of Object.entries(tokenState.tokenFiles)) {
+          tokenFilesMap.set(fileName, file);
+        }
+        console.log(`[GenerateDocumentationUseCase] Loaded ${tokenFilesMap.size} token files from storage`);
+      } else {
+        console.log("[GenerateDocumentationUseCase] No token state in storage, using Figma variables directly");
+      }
+      const tokens = this.repository.query({ projectId: "default" });
+      if (tokens.length > 0) {
+        console.log(`[GenerateDocumentationUseCase] Found ${tokens.length} tokens in repository`);
+      } else {
+        console.log("[GenerateDocumentationUseCase] No tokens in repository, generator will read from Figma");
+      }
+      const options = {
+        fileNames: input.fileNames,
+        pageName: input.pageName || "Design Tokens",
+        includeVisuals: (_a = input.includeVisuals) != null ? _a : true,
+        organization: input.organization || "by-collection"
+      };
+      const result = await this.generator.generate(tokenFilesMap, tokens, options);
+      if (!result.success) {
+        return Failure(`Documentation generation failed: ${result.error}`);
+      }
+      const docResult = result.data;
+      console.log(
+        `[GenerateDocumentationUseCase] Generated ${docResult.tokenCount} tokens in ${docResult.categoryCount} categories`
+      );
+      return Success(docResult);
+    }
+    validate(input) {
+      if (input.fileNames && !Array.isArray(input.fileNames)) {
+        return Failure("fileNames must be an array");
+      }
+      if (input.pageName && typeof input.pageName !== "string") {
+        return Failure("pageName must be a string");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/GetFigmaVariablesUseCase.ts
+  var GetFigmaVariablesUseCase = class extends UseCase {
+    async executeImpl(input) {
+      console.log("[GetFigmaVariablesUseCase] Fetching all Figma variables...");
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      console.log(`[GetFigmaVariablesUseCase] Found ${collections.length} collections`);
+      const variables = {};
+      let collectionCount = 0;
+      for (const collection of collections) {
+        if (input.collection && collection.name !== input.collection) {
+          continue;
+        }
+        collectionCount++;
+        console.log(`[GetFigmaVariablesUseCase] Processing collection: ${collection.name}`);
+        const variablePromises = collection.variableIds.map(
+          (id) => figma.variables.getVariableByIdAsync(id)
+        );
+        const collectionVariables = await Promise.all(variablePromises);
+        for (const variable of collectionVariables) {
+          if (variable) {
+            variables[variable.name] = {
+              id: variable.id,
+              name: variable.name,
+              scopes: variable.scopes,
+              type: variable.resolvedType,
+              collection: collection.name,
+              collectionId: collection.id
+            };
+          }
+        }
+      }
+      const count = Object.keys(variables).length;
+      console.log(`[GetFigmaVariablesUseCase] Found ${count} variables across ${collectionCount} collections`);
+      if (count === 0) {
+        return Failure("No Figma variables found. Import tokens first.");
+      }
+      return Success({
+        variables,
+        count,
+        collectionCount
+      });
+    }
+    validate(input) {
+      if (input.collection && typeof input.collection !== "string") {
+        return Failure("collection must be a string");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/ApplyScopesUseCase.ts
+  var ApplyScopesUseCase = class extends UseCase {
+    async executeImpl(input) {
+      const { scopeAssignments } = input;
+      const variableNames = Object.keys(scopeAssignments);
+      console.log(`[ApplyScopesUseCase] Applying scopes to ${variableNames.length} variable(s)`);
+      let updatedCount = 0;
+      let failedCount = 0;
+      const failedVariables = [];
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      const variableMap = /* @__PURE__ */ new Map();
+      for (const collection of collections) {
+        const variablePromises = collection.variableIds.map(
+          (id) => figma.variables.getVariableByIdAsync(id)
+        );
+        const variables = await Promise.all(variablePromises);
+        for (const variable of variables) {
+          if (variable) {
+            variableMap.set(variable.name, variable);
+          }
+        }
+      }
+      for (const [variableName, scopes] of Object.entries(scopeAssignments)) {
+        const variable = variableMap.get(variableName);
+        if (!variable) {
+          console.warn(`[ApplyScopesUseCase] Variable not found: ${variableName}`);
+          failedCount++;
+          failedVariables.push(variableName);
+          continue;
+        }
+        try {
+          if (!this.isValidScopes(scopes, variable.resolvedType)) {
+            console.warn(`[ApplyScopesUseCase] Invalid scopes for ${variableName}: ${scopes.join(", ")}`);
+            failedCount++;
+            failedVariables.push(variableName);
+            continue;
+          }
+          variable.scopes = scopes;
+          updatedCount++;
+          console.log(`[ApplyScopesUseCase] Updated scopes for ${variableName}: ${scopes.join(", ")}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          console.error(`[ApplyScopesUseCase] Failed to update ${variableName}: ${message}`);
+          failedCount++;
+          failedVariables.push(variableName);
+        }
+      }
+      console.log(
+        `[ApplyScopesUseCase] Complete: ${updatedCount} updated, ${failedCount} failed`
+      );
+      return Success({
+        updatedCount,
+        failedCount,
+        failedVariables: failedCount > 0 ? failedVariables : void 0
+      });
+    }
+    validate(input) {
+      if (!input.scopeAssignments || typeof input.scopeAssignments !== "object") {
+        return Failure("scopeAssignments is required and must be an object");
+      }
+      if (Object.keys(input.scopeAssignments).length === 0) {
+        return Failure("No scope assignments provided");
+      }
+      return Success(true);
+    }
+    /**
+     * Validate scopes are appropriate for the variable type
+     */
+    isValidScopes(scopes, variableType) {
+      if (!Array.isArray(scopes) || scopes.length === 0) {
+        return false;
+      }
+      const validScopes = /* @__PURE__ */ new Set([
+        "ALL_SCOPES",
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR",
+        "EFFECT_COLOR",
+        "WIDTH_HEIGHT",
+        "GAP",
+        "CORNER_RADIUS",
+        "OPACITY",
+        "FONT_FAMILY",
+        "FONT_STYLE",
+        "FONT_WEIGHT",
+        "FONT_SIZE",
+        "LINE_HEIGHT",
+        "LETTER_SPACING",
+        "PARAGRAPH_SPACING",
+        "PARAGRAPH_INDENT",
+        "TEXT_CONTENT",
+        "TEXT_CASE",
+        "TEXT_DECORATION"
+      ]);
+      return scopes.every((scope) => validScopes.has(scope));
+    }
+  };
+
   // src/infrastructure/input/TokenParserRegistry.ts
   var TokenParserRegistry = class {
     constructor() {
@@ -5296,8 +5114,8 @@
 
   // src/infrastructure/storage/InMemoryTokenRepository.ts
   var InMemoryTokenRepository = class {
-    constructor() {
-      this.repository = new TokenRepository();
+    constructor(sharedRepository) {
+      this.repository = sharedRepository || new TokenRepository();
     }
     // ==================== QUERIES ====================
     findById(id) {
@@ -6660,6 +6478,7 @@
 
   // src/backend/main.ts
   var PluginBackend = class {
+    // TODO: Migrate GitHub operations to use cases
     constructor() {
       this.registerArchitectureComponents();
       this.githubService = new GitHubService();
@@ -6670,13 +6489,6 @@
       this.initializeLayeredArchitecture();
       this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
       this.githubController = new GitHubController(this.githubService, this.storage);
-      this.scopeController = new ScopeController();
-      const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
-      this.documentationController = new DocumentationController(
-        documentationGenerator,
-        this.storage,
-        this.tokenRepository
-      );
       ErrorHandler.info("Plugin backend initialized (v3.0 Layered Architecture)", "PluginBackend");
     }
     /**
@@ -6696,7 +6508,7 @@
       this.exporterRegistry = new TokenExporterRegistry();
       const figmaExporter = new FigmaVariablesExporter(this.tokenRepository, this.tokenResolver);
       this.exporterRegistry.register(figmaExporter);
-      this.repositoryAdapter = new InMemoryTokenRepository();
+      this.repositoryAdapter = new InMemoryTokenRepository(this.tokenRepository);
       this.useCaseRegistry = new UseCaseRegistry();
       const importTokensUseCase = new ImportTokensUseCase(
         this.parserRegistry,
@@ -6718,6 +6530,26 @@
       this.useCaseRegistry.register("get-tokens", getTokensUseCase, {
         description: "Query and retrieve tokens",
         category: "query"
+      });
+      const documentationGenerator = new DocumentationGenerator(this.tokenRepository);
+      const generateDocsUseCase = new GenerateDocumentationUseCase(
+        this.repositoryAdapter,
+        documentationGenerator,
+        this.storage
+      );
+      this.useCaseRegistry.register("generate-documentation", generateDocsUseCase, {
+        description: "Generate visual token documentation in Figma",
+        category: "documentation"
+      });
+      const getFigmaVariablesUseCase = new GetFigmaVariablesUseCase();
+      this.useCaseRegistry.register("get-figma-variables", getFigmaVariablesUseCase, {
+        description: "Get all Figma variables with scope information",
+        category: "scopes"
+      });
+      const applyScopesUseCase = new ApplyScopesUseCase();
+      this.useCaseRegistry.register("apply-scopes", applyScopesUseCase, {
+        description: "Apply scope assignments to Figma variables",
+        category: "scopes"
       });
       ErrorHandler.info(
         `Layered architecture initialized: ${this.parserRegistry.count()} parsers, ${this.exporterRegistry.count()} exporters, ${this.useCaseRegistry.count()} use cases`,
@@ -6817,20 +6649,54 @@
     }
     // ==================== TOKEN HANDLERS ====================
     async handleImportTokens(msg) {
-      const result = await this.tokenController.importTokens({
-        primitives: msg.data.primitives,
-        semantics: msg.data.semantics,
-        source: msg.data.source || "local"
-      });
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "import-success",
-          message: ` Tokens imported: ${result.data.added} added, ${result.data.updated} updated, ${result.data.skipped} skipped`,
-          requestId: msg.requestId
-        });
-      } else {
-        throw new Error(result.error);
+      const { primitives, semantics, source } = msg.data;
+      if (!primitives && !semantics) {
+        throw new Error("No token data provided. Expected primitives or semantics.");
       }
+      let totalTokens = 0;
+      if (primitives) {
+        const primResult = await this.useCaseRegistry.execute("import-tokens", {
+          data: primitives,
+          projectId: "default",
+          collection: "primitive",
+          filePath: "primitives.json"
+        });
+        if (!primResult.success) {
+          throw new Error(`Failed to import primitives: ${primResult.error}`);
+        }
+        totalTokens += primResult.data.count;
+        ErrorHandler.info(`Imported ${primResult.data.count} primitive tokens`, "PluginBackend");
+      }
+      if (semantics) {
+        const semResult = await this.useCaseRegistry.execute("import-tokens", {
+          data: semantics,
+          projectId: "default",
+          collection: "semantic",
+          filePath: "semantic.json"
+        });
+        if (!semResult.success) {
+          throw new Error(`Failed to import semantics: ${semResult.error}`);
+        }
+        totalTokens += semResult.data.count;
+        ErrorHandler.info(`Imported ${semResult.data.count} semantic tokens`, "PluginBackend");
+      }
+      const syncResult = await this.useCaseRegistry.execute("sync-to-figma", {
+        projectId: "default",
+        options: { overwrite: true }
+      });
+      if (!syncResult.success) {
+        throw new Error(`Failed to sync to Figma: ${syncResult.error}`);
+      }
+      const { created, updated, failed } = syncResult.data;
+      ErrorHandler.info(
+        `Sync completed: ${created} created, ${updated} updated, ${failed} failed`,
+        "PluginBackend"
+      );
+      figma.ui.postMessage({
+        type: "import-success",
+        message: ` Tokens imported: ${created} added, ${updated} updated, ${failed} skipped`,
+        requestId: msg.requestId
+      });
     }
     async handleSaveTokens(msg) {
       const result = await this.tokenController.saveTokens(msg.data);
@@ -6894,42 +6760,46 @@
     }
     // ==================== SCOPE HANDLERS ====================
     async handleGetFigmaVariables(msg) {
-      const result = await this.scopeController.getFigmaVariables();
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "figma-variables-loaded",
-          data: { variables: result.data },
-          requestId: msg.requestId
-        });
-      } else {
+      const result = await this.useCaseRegistry.execute("get-figma-variables", {});
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "figma-variables-loaded",
+        data: { variables: result.data.variables },
+        requestId: msg.requestId
+      });
     }
     async handleApplyVariableScopes(msg) {
-      const result = await this.scopeController.applyScopes(msg.data.variableScopes);
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "scopes-applied",
-          message: `Scopes updated for ${result.data} variable(s)`,
-          requestId: msg.requestId
-        });
-      } else {
+      const result = await this.useCaseRegistry.execute("apply-scopes", {
+        scopeAssignments: msg.data.variableScopes
+      });
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "scopes-applied",
+        message: `Scopes updated for ${result.data.updatedCount} variable(s)`,
+        requestId: msg.requestId
+      });
     }
     // ==================== DOCUMENTATION HANDLERS ====================
     async handleGenerateDocumentation(msg) {
-      const result = await this.documentationController.generateDocumentation(msg.data);
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "documentation-generated",
-          data: result.data,
-          message: `Documentation generated: ${result.data.tokenCount} tokens in ${result.data.categoryCount} categories`,
-          requestId: msg.requestId
-        });
-      } else {
+      const result = await this.useCaseRegistry.execute("generate-documentation", {
+        fileNames: msg.data.fileNames,
+        pageName: msg.data.pageName,
+        includeVisuals: msg.data.includeVisuals,
+        organization: msg.data.organization
+      });
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "documentation-generated",
+        data: result.data,
+        message: `Documentation generated: ${result.data.tokenCount} tokens in ${result.data.categoryCount} categories`,
+        requestId: msg.requestId
+      });
     }
   };
   var backend = new PluginBackend();
