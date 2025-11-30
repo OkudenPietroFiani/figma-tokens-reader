@@ -4017,7 +4017,8 @@
       console.log(`[ImportTokensUseCase] Detected format: ${parser.name}`);
       const parseContext = {
         filePath: input.filePath,
-        collection: input.collection
+        collection: input.collection,
+        projectId: input.projectId
       };
       const parseResult = await parser.parse(input.data, parseContext);
       if (!parseResult.success) {
@@ -4992,7 +4993,7 @@
     async parse(data, context) {
       try {
         const result = await this.processor.processTokenData(data, {
-          projectId: (context == null ? void 0 : context.collection) || "default",
+          projectId: (context == null ? void 0 : context.projectId) || "default",
           collection: context == null ? void 0 : context.collection,
           filePath: context == null ? void 0 : context.filePath,
           sourceType: "local",

@@ -22,6 +22,8 @@ export interface ParseContext {
   filePath?: string;
   /** Explicitly provided collection name */
   collection?: string;
+  /** Project ID for token organization */
+  projectId?: string;
 }
 
 /**
