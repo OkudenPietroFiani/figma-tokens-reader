@@ -2692,9 +2692,9 @@
      */
     convertColorValue(value) {
       const result = converters.color.toRGB(value);
-      if (result.success) {
-        const { r, g, b } = result.data;
-        return { r, g, b };
+      if (result.success && result.data) {
+        const rgb = result.data;
+        return { r: rgb.r, g: rgb.g, b: rgb.b };
       }
       console.error(`[FigmaSyncService] Color conversion FAILED`);
       console.error(`  Input value:`, JSON.stringify(value));
@@ -2708,10 +2708,14 @@
      */
     convertColorToRGBA(value) {
       const result = converters.color.toRGB(value);
-      if (result.success) {
+      if (result.success && result.data) {
         const rgb = result.data;
-        debug.log(`[FigmaSyncService] Converted color to RGBA: r=${rgb.r}, g=${rgb.g}, b=${rgb.b}, a=${rgb.a}`);
-        return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+        const r = rgb.r;
+        const g = rgb.g;
+        const b = rgb.b;
+        const a = rgb.a;
+        debug.log(`[FigmaSyncService] Converted color to RGBA: r=${r}, g=${g}, b=${b}, a=${a}`);
+        return { r, g, b, a };
       }
       console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
       console.error(`  Input value:`, JSON.stringify(value));
@@ -2737,7 +2741,7 @@
         }
       }
       const result = converters.dimension.toPixels(value, percentageBase);
-      if (result.success) {
+      if (result.success && result.data !== void 0) {
         const pixels = result.data;
         debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
         return pixels;
@@ -4250,169 +4254,6 @@
     }
   };
 
-  // src/core/registries/FileSourceRegistry.ts
-  var FileSourceRegistry = class {
-    /**
-     * Register a file source implementation
-     *
-     * @param source - File source implementation
-     * @throws Error if source with same type already registered
-     */
-    static register(source) {
-      const sourceType = source.getSourceType();
-      if (this.sources.has(sourceType)) {
-        console.error(`[FileSourceRegistry] Source '${sourceType}' is already registered`);
-        throw new Error(`File source '${sourceType}' is already registered`);
-      }
-      this.sources.set(sourceType, source);
-    }
-    /**
-     * Get a file source by type
-     *
-     * @param sourceType - Source identifier (e.g., 'github', 'gitlab')
-     * @returns File source implementation or undefined
-     */
-    static get(sourceType) {
-      const source = this.sources.get(sourceType);
-      if (!source) {
-        console.error(`[FileSourceRegistry] No source registered for type: ${sourceType}`);
-      }
-      return source;
-    }
-    /**
-     * Check if a source type is registered
-     *
-     * @param sourceType - Source identifier
-     * @returns True if registered
-     */
-    static has(sourceType) {
-      return this.sources.has(sourceType);
-    }
-    /**
-     * Get all registered source types
-     *
-     * @returns Array of source type identifiers
-     */
-    static getRegisteredTypes() {
-      return Array.from(this.sources.keys());
-    }
-    /**
-     * Clear all registered sources
-     * Useful for testing
-     */
-    static clear() {
-      this.sources.clear();
-    }
-    /**
-     * Get count of registered sources
-     *
-     * @returns Number of registered sources
-     */
-    static count() {
-      return this.sources.size;
-    }
-  };
-  FileSourceRegistry.sources = /* @__PURE__ */ new Map();
-
-  // src/core/adapters/GitHubFileSource.ts
-  var GitHubFileSource = class {
-    constructor(githubService) {
-      this.githubService = githubService || new GitHubService();
-    }
-    /**
-     * Fetch list of JSON files from GitHub repository
-     */
-    async fetchFileList(config) {
-      try {
-        const ghConfig = this.toGitHubConfig(config);
-        const files = await this.githubService.fetchRepositoryFiles(ghConfig);
-        const metadata = files.map((file) => ({
-          path: file.path,
-          type: file.type,
-          sha: file.sha
-        }));
-        return Success(metadata);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[GitHubFileSource] Failed to fetch file list: ${message}`);
-        return Failure(message);
-      }
-    }
-    /**
-     * Fetch content of a single file from GitHub
-     */
-    async fetchFileContent(config, filePath) {
-      try {
-        const ghConfig = this.toGitHubConfig(config);
-        const content = await this.githubService.fetchFileContent(ghConfig, filePath);
-        return Success(content);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[GitHubFileSource] Failed to fetch file '${filePath}': ${message}`);
-        return Failure(message);
-      }
-    }
-    /**
-     * Fetch content of multiple files from GitHub
-     */
-    async fetchMultipleFiles(config, filePaths) {
-      try {
-        const ghConfig = this.toGitHubConfig(config);
-        const result = await this.githubService.fetchMultipleFiles(ghConfig, filePaths);
-        const files = [];
-        if (result.primitives) {
-          for (const [fileName, content] of Object.entries(result.primitives)) {
-            files.push(content);
-          }
-        }
-        if (result.semantics) {
-          for (const [fileName, content] of Object.entries(result.semantics)) {
-            files.push(content);
-          }
-        }
-        return Success(files);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[GitHubFileSource] Failed to fetch multiple files: ${message}`);
-        return Failure(message);
-      }
-    }
-    /**
-     * Validate GitHub configuration
-     */
-    async validateConfig(config) {
-      try {
-        const ghConfig = this.toGitHubConfig(config);
-        await this.githubService.fetchRepositoryFiles(ghConfig);
-        return Success(true);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[GitHubFileSource] Config validation failed: ${message}`);
-        return Success(false);
-      }
-    }
-    /**
-     * Get source type identifier
-     */
-    getSourceType() {
-      return "github";
-    }
-    /**
-     * Convert FileSourceConfig to GitHubConfig
-     * Private helper to maintain type safety
-     */
-    toGitHubConfig(config) {
-      const ghConfig = config;
-      return {
-        token: ghConfig.token,
-        owner: ghConfig.owner,
-        repo: ghConfig.repo,
-        branch: ghConfig.branch,
-        files: ghConfig.files
-      };
-    }
-  };
-
   // src/core/services/TokenLevelAnalyzer.ts
   var TokenLevelAnalyzer = class {
     constructor() {
@@ -5415,11 +5256,11 @@
         }
         const stats = syncResult.data.stats;
         const result = {
-          exported: stats.created + stats.updated,
-          created: stats.created,
+          exported: stats.added + stats.updated,
+          created: stats.added,
           updated: stats.updated,
-          failed: stats.failed,
-          errors: stats.failed > 0 ? [{ token: "various", error: `${stats.failed} tokens failed` }] : [],
+          failed: stats.skipped,
+          errors: stats.skipped > 0 ? [{ token: "various", error: `${stats.skipped} tokens skipped` }] : [],
           metadata: {
             collections: syncResult.data.collections,
             variableCount: syncResult.data.variables.size
@@ -5491,19 +5332,23 @@
       return this.repository.query({ collection, projectId });
     }
     exists(id) {
-      return this.repository.has(id);
+      return this.repository.get(id) !== void 0;
     }
     count(criteria) {
       if (!criteria) {
-        return this.repository.size();
+        return this.repository.getAll().length;
       }
       return this.query(criteria).length;
     }
     // ==================== COMMANDS ====================
     save(token) {
       try {
-        this.repository.set(token);
-        return Success(token);
+        const result = this.repository.add([token]);
+        if (result.success) {
+          return Success(token);
+        } else {
+          return Failure(result.error || "Failed to save token");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to save token: ${message}`);
@@ -5511,8 +5356,12 @@
     }
     saveMany(tokens) {
       try {
-        this.repository.bulkSet(tokens);
-        return Success(tokens);
+        const result = this.repository.add(tokens);
+        if (result.success) {
+          return Success(tokens);
+        } else {
+          return Failure(result.error || "Failed to save tokens");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to save tokens: ${message}`);
@@ -5520,9 +5369,9 @@
     }
     delete(id) {
       try {
-        const existed = this.repository.has(id);
+        const existed = this.repository.get(id) !== void 0;
         if (existed) {
-          this.repository.delete(id);
+          this.repository.remove([id]);
         }
         return Success(existed);
       } catch (error) {
@@ -5532,14 +5381,12 @@
     }
     deleteMany(ids) {
       try {
-        let deleted = 0;
-        for (const id of ids) {
-          if (this.repository.has(id)) {
-            this.repository.delete(id);
-            deleted++;
-          }
+        const result = this.repository.remove(ids);
+        if (result.success) {
+          return Success(result.data || 0);
+        } else {
+          return Failure(result.error || "Failed to delete tokens");
         }
-        return Success(deleted);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to delete tokens: ${message}`);
@@ -5568,10 +5415,14 @@
     replaceProject(projectId, tokens) {
       try {
         const existing = this.findByProject(projectId);
-        for (const token of existing) {
-          this.repository.delete(token.id);
+        const existingIds = existing.map((t) => t.id);
+        if (existingIds.length > 0) {
+          this.repository.remove(existingIds);
         }
-        this.repository.bulkSet(tokens);
+        const addResult = this.repository.add(tokens);
+        if (!addResult.success) {
+          return Failure(addResult.error || "Failed to replace project");
+        }
         return Success(tokens);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -5581,10 +5432,14 @@
     replaceCollection(collection, projectId, tokens) {
       try {
         const existing = this.findByCollection(collection, projectId);
-        for (const token of existing) {
-          this.repository.delete(token.id);
+        const existingIds = existing.map((t) => t.id);
+        if (existingIds.length > 0) {
+          this.repository.remove(existingIds);
         }
-        this.repository.bulkSet(tokens);
+        const addResult = this.repository.add(tokens);
+        if (!addResult.success) {
+          return Failure(addResult.error || "Failed to replace collection");
+        }
         return Success(tokens);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -5601,9 +5456,6 @@
       const tokens = this.repository.getAll();
       const projects = new Set(tokens.map((t) => t.projectId));
       return Array.from(projects);
-    }
-    rebuildIndexes() {
-      this.repository.rebuildIndexes();
     }
     // ==================== ADDITIONAL METHODS (not in port) ====================
     /**
@@ -6881,7 +6733,6 @@
      * @private
      */
     registerArchitectureComponents() {
-      FileSourceRegistry.register(new GitHubFileSource());
       TokenFormatRegistry.register(new W3CTokenFormatStrategy());
       TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
       TokenVisualizerRegistry.register(new ColorVisualizer());

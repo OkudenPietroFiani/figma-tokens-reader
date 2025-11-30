@@ -423,10 +423,10 @@ export class FigmaSyncService {
     // Use ColorConverter (handles all formats including nested components)
     const result = converters.color.toRGB(value);
 
-    if (result.success) {
+    if (result.success && result.data) {
       // Return RGB without alpha (Figma COLOR type only accepts RGB)
-      const { r, g, b } = result.data;
-      return { r, g, b };
+      const rgb = result.data;
+      return { r: rgb.r, g: rgb.g, b: rgb.b };
     }
 
     // Conversion failed - log details for debugging
@@ -445,11 +445,15 @@ export class FigmaSyncService {
     // Use ColorConverter (handles all formats including alpha extraction)
     const result = converters.color.toRGB(value);
 
-    if (result.success) {
+    if (result.success && result.data) {
       const rgb = result.data;
+      const r = rgb.r;
+      const g = rgb.g;
+      const b = rgb.b;
+      const a = rgb.a;
       // Convert to RGBA (includes alpha channel for shadows/effects)
-      debug.log(`[FigmaSyncService] Converted color to RGBA: r=${rgb.r}, g=${rgb.g}, b=${rgb.b}, a=${rgb.a}`);
-      return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+      debug.log(`[FigmaSyncService] Converted color to RGBA: r=${r}, g=${g}, b=${b}, a=${a}`);
+      return { r, g, b, a };
     }
 
     // Conversion failed - log details
@@ -483,8 +487,8 @@ export class FigmaSyncService {
     // Use DimensionConverter for all standard conversions
     const result = converters.dimension.toPixels(value, percentageBase);
 
-    if (result.success) {
-      const pixels = result.data;
+    if (result.success && result.data !== undefined) {
+      const pixels: number = result.data;
       debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
       return pixels;
     }
@@ -853,7 +857,7 @@ export class FigmaSyncService {
           if (typeof typValue.fontFamily === 'string') {
             // Handle comma-separated font stacks: "Inter,system-ui,sans-serif" → "Inter"
             if (typValue.fontFamily.includes(',')) {
-              const fontStack = typValue.fontFamily.split(',').map(f => f.trim());
+              const fontStack = typValue.fontFamily.split(',').map((f: string) => f.trim());
               fontFamily = fontStack[0];
             } else {
               fontFamily = typValue.fontFamily;

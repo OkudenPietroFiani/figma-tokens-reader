@@ -131,7 +131,7 @@ export class SyncToFigmaVariablesUseCase extends UseCase<
     });
   }
 
-  protected validate(input: SyncToFigmaVariablesInput): Result<boolean> {
+  validate(input: SyncToFigmaVariablesInput): Result<boolean> {
     if (!input.projectId || typeof input.projectId !== 'string') {
       return Failure('Project ID is required and must be a string');
     }

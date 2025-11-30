@@ -69,11 +69,11 @@ export class FigmaVariablesExporter implements ITokenExporter {
 
       // Map sync stats to export result
       const result: ExportResult = {
-        exported: stats.created + stats.updated,
-        created: stats.created,
+        exported: stats.added + stats.updated,
+        created: stats.added,
         updated: stats.updated,
-        failed: stats.failed,
-        errors: stats.failed > 0 ? [{ token: 'various', error: `${stats.failed} tokens failed` }] : [],
+        failed: stats.skipped,
+        errors: stats.skipped > 0 ? [{ token: 'various', error: `${stats.skipped} tokens skipped` }] : [],
         metadata: {
           collections: syncResult.data!.collections,
           variableCount: syncResult.data!.variables.size

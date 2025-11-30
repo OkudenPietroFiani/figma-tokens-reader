@@ -21,9 +21,9 @@ import { ScopeController } from './controllers/ScopeController';
 import { DocumentationController } from './controllers/DocumentationController';
 
 // New Architecture (Phases 1-4)
-import { FileSourceRegistry } from '../core/registries/FileSourceRegistry';
+// import { FileSourceRegistry } from '../core/registries/FileSourceRegistry'; // DEPRECATED: Never queried
 import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
-import { GitHubFileSource } from '../core/adapters/GitHubFileSource';
+// import { GitHubFileSource } from '../core/adapters/GitHubFileSource'; // DEPRECATED: Only used with FileSourceRegistry
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
 import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
 
@@ -183,7 +183,8 @@ class PluginBackend {
    */
   private registerArchitectureComponents(): void {
     // Register file sources (GitHub, GitLab, etc.)
-    FileSourceRegistry.register(new GitHubFileSource());
+    // NOTE: FileSourceRegistry is never queried - keeping registration commented out
+    // FileSourceRegistry.register(new GitHubFileSource());
 
     // Register token format strategies (W3C, Style Dictionary, etc.)
     TokenFormatRegistry.register(new W3CTokenFormatStrategy());
