@@ -2796,6 +2796,18 @@
      * Similar to convertColorValue but includes alpha channel
      */
     convertColorToRGBA(value) {
+      if (typeof value === "number") {
+        console.warn(
+          `[FigmaSyncService] Invalid color value: ${value} (plain number). This might be a font weight or an unresolved reference like {color.blue.${value}}. Falling back to black.`
+        );
+        return { r: 0, g: 0, b: 0, a: 1 };
+      }
+      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
+        console.warn(
+          `[FigmaSyncService] Unresolved color reference: ${value}. Token may not exist or circular reference detected. Falling back to black.`
+        );
+        return { r: 0, g: 0, b: 0, a: 1 };
+      }
       const result = converters.color.toRGB(value);
       if (result.success && result.data) {
         const rgb = result.data;
@@ -2809,6 +2821,7 @@
       console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
       console.error(`  Input value:`, JSON.stringify(value));
       console.error(`  Error:`, result.error);
+      console.error(`  Hint: Check if this is a valid color format (hex, rgb, hsl) or a token reference.`);
       return { r: 0, g: 0, b: 0, a: 1 };
     }
     /**

@@ -442,6 +442,25 @@ export class FigmaSyncService {
    * Similar to convertColorValue but includes alpha channel
    */
   private convertColorToRGBA(value: any): RGBA {
+    // Validate input - plain numbers are likely incorrect token references
+    if (typeof value === 'number') {
+      console.warn(
+        `[FigmaSyncService] Invalid color value: ${value} (plain number). ` +
+        `This might be a font weight or an unresolved reference like {color.blue.${value}}. ` +
+        `Falling back to black.`
+      );
+      return { r: 0, g: 0, b: 0, a: 1 };
+    }
+
+    // Validate unresolved references
+    if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
+      console.warn(
+        `[FigmaSyncService] Unresolved color reference: ${value}. ` +
+        `Token may not exist or circular reference detected. Falling back to black.`
+      );
+      return { r: 0, g: 0, b: 0, a: 1 };
+    }
+
     // Use ColorConverter (handles all formats including alpha extraction)
     const result = converters.color.toRGB(value);
 
@@ -460,6 +479,7 @@ export class FigmaSyncService {
     console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
     console.error(`  Input value:`, JSON.stringify(value));
     console.error(`  Error:`, result.error);
+    console.error(`  Hint: Check if this is a valid color format (hex, rgb, hsl) or a token reference.`);
     return { r: 0, g: 0, b: 0, a: 1 }; // Fallback to opaque black
   }
 
