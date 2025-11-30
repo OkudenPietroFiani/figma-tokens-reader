@@ -3,7 +3,7 @@
 // Wrapper around figma.clientStorage for type-safe persistence
 // ====================================================================================
 
-import { Result, Success, Failure, TokenState, GitHubConfig } from '../../shared/types';
+import { Result, Success, Failure, TokenState, GitHubConfig, FileSourceConfig } from '../../shared/types';
 import { STORAGE_KEYS } from '../../shared/constants';
 import { ErrorHandler } from '../utils/ErrorHandler';
 
@@ -148,5 +148,65 @@ export class StorageService {
       ErrorHandler.info(`Storage stats: tokenState=${stats.tokenStateSize} bytes, githubConfig=${stats.githubConfigSize} bytes`, 'StorageService');
       return stats;
     }, 'Get Storage Stats');
+  }
+
+  /**
+   * Save file source configuration to storage
+   * Converts FileSourceConfig to GitHubConfig format for storage
+   * Used by use cases that work with FileSourceConfig abstraction
+   */
+  async saveFileSourceConfig(config: FileSourceConfig): Promise<Result<void>> {
+    return ErrorHandler.handle(async () => {
+      // Convert FileSourceConfig to GitHubConfig
+      // FileSourceConfig uses 'location' but GitHubConfig needs 'owner/repo'
+      const parts = config.location?.split('/') || [];
+      const githubConfig: GitHubConfig = {
+        owner: parts[0] || '',
+        repo: parts[1] || '',
+        branch: config.branch || 'main',
+        token: (config as any).token || '',
+        files: (config as any).files || []
+      };
+
+      const serialized = JSON.stringify(githubConfig);
+      await figma.clientStorage.setAsync(STORAGE_KEYS.GITHUB_CONFIG, serialized);
+      ErrorHandler.info(`File source config saved (${config.location})`, 'StorageService');
+    }, 'Save File Source Config');
+  }
+
+  /**
+   * Load file source configuration from storage
+   * Converts stored GitHubConfig to FileSourceConfig format
+   * Returns null if no config exists
+   * Used by use cases that work with FileSourceConfig abstraction
+   */
+  async getFileSourceConfig(): Promise<Result<FileSourceConfig | null>> {
+    return ErrorHandler.handle(async () => {
+      const serialized = await figma.clientStorage.getAsync(STORAGE_KEYS.GITHUB_CONFIG);
+
+      if (!serialized) {
+        ErrorHandler.info('No file source config found in storage', 'StorageService');
+        return null;
+      }
+
+      const githubConfig = JSON.parse(serialized as string) as GitHubConfig;
+
+      // Convert GitHubConfig to FileSourceConfig
+      const fileSourceConfig: FileSourceConfig = {
+        type: 'github',
+        location: `${githubConfig.owner}/${githubConfig.repo}`,
+        branch: githubConfig.branch,
+        commit: undefined
+      };
+
+      // Attach additional fields that may be needed
+      (fileSourceConfig as any).token = githubConfig.token;
+      (fileSourceConfig as any).owner = githubConfig.owner;
+      (fileSourceConfig as any).repo = githubConfig.repo;
+      (fileSourceConfig as any).path = githubConfig.files?.[0] || '';
+
+      ErrorHandler.info(`File source config loaded (${fileSourceConfig.location})`, 'StorageService');
+      return fileSourceConfig;
+    }, 'Load File Source Config');
   }
 }

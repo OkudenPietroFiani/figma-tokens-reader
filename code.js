@@ -715,6 +715,51 @@
       return { primitives: primitivesData, semantics: semanticsData };
     }
     /**
+     * Fetch files from GitHub repository (use case compatible)
+     * Returns Result type for use case pattern compatibility
+     */
+    async fetchFiles(config) {
+      try {
+        const branch = config.branch || "main";
+        const token = config.token || "";
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${branch}?recursive=1`;
+        const headers = {
+          "Accept": "application/vnd.github.v3+json",
+          "User-Agent": "Figma-W3C-Tokens-Plugin"
+        };
+        if (token) {
+          headers["Authorization"] = `token ${token}`;
+        }
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          const errorText = await response.text();
+          return Failure(`GitHub API error (${response.status}): ${errorText || response.statusText}`);
+        }
+        const data = await response.json();
+        let jsonFiles = data.tree.filter(
+          (item) => item.type === "blob" && item.path.endsWith(".json")
+        );
+        if (config.path) {
+          const normalizedPath = config.path.endsWith("/") ? config.path : config.path + "/";
+          jsonFiles = jsonFiles.filter(
+            (item) => item.path.startsWith(normalizedPath) || item.path.startsWith(config.path)
+          );
+        }
+        const files = jsonFiles.map((file) => ({
+          path: file.path,
+          type: file.type,
+          sha: file.sha,
+          size: file.size
+        }));
+        console.log(`[GitHubService] Found ${files.length} JSON files${config.path ? ` in ${config.path}` : ""}`);
+        return Success(files);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error("[GitHubService] Error fetching files:", message);
+        return Failure(`Failed to fetch repository files: ${message}`);
+      }
+    }
+    /**
      * Parse GitHub repository URL
      */
     parseRepoUrl(url) {
@@ -843,6 +888,56 @@
         ErrorHandler.info(`Storage stats: tokenState=${stats.tokenStateSize} bytes, githubConfig=${stats.githubConfigSize} bytes`, "StorageService");
         return stats;
       }, "Get Storage Stats");
+    }
+    /**
+     * Save file source configuration to storage
+     * Converts FileSourceConfig to GitHubConfig format for storage
+     * Used by use cases that work with FileSourceConfig abstraction
+     */
+    async saveFileSourceConfig(config) {
+      return ErrorHandler.handle(async () => {
+        var _a;
+        const parts = ((_a = config.location) == null ? void 0 : _a.split("/")) || [];
+        const githubConfig = {
+          owner: parts[0] || "",
+          repo: parts[1] || "",
+          branch: config.branch || "main",
+          token: config.token || "",
+          files: config.files || []
+        };
+        const serialized = JSON.stringify(githubConfig);
+        await figma.clientStorage.setAsync(STORAGE_KEYS.GITHUB_CONFIG, serialized);
+        ErrorHandler.info(`File source config saved (${config.location})`, "StorageService");
+      }, "Save File Source Config");
+    }
+    /**
+     * Load file source configuration from storage
+     * Converts stored GitHubConfig to FileSourceConfig format
+     * Returns null if no config exists
+     * Used by use cases that work with FileSourceConfig abstraction
+     */
+    async getFileSourceConfig() {
+      return ErrorHandler.handle(async () => {
+        var _a;
+        const serialized = await figma.clientStorage.getAsync(STORAGE_KEYS.GITHUB_CONFIG);
+        if (!serialized) {
+          ErrorHandler.info("No file source config found in storage", "StorageService");
+          return null;
+        }
+        const githubConfig = JSON.parse(serialized);
+        const fileSourceConfig = {
+          type: "github",
+          location: `${githubConfig.owner}/${githubConfig.repo}`,
+          branch: githubConfig.branch,
+          commit: void 0
+        };
+        fileSourceConfig.token = githubConfig.token;
+        fileSourceConfig.owner = githubConfig.owner;
+        fileSourceConfig.repo = githubConfig.repo;
+        fileSourceConfig.path = ((_a = githubConfig.files) == null ? void 0 : _a[0]) || "";
+        ErrorHandler.info(`File source config loaded (${fileSourceConfig.location})`, "StorageService");
+        return fileSourceConfig;
+      }, "Load File Source Config");
     }
   };
 
