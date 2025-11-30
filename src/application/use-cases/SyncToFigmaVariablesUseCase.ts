@@ -71,12 +71,16 @@ export class SyncToFigmaVariablesUseCase extends UseCase<
   protected async executeImpl(
     input: SyncToFigmaVariablesInput
   ): Promise<Result<SyncToFigmaVariablesOutput>> {
-    // 1. Build query criteria
+    // 1. Build query criteria (only include collection if specified)
     const criteria: TokenQueryCriteria = {
       projectId: input.projectId,
-      collection: input.collection,
       status: 'active' // Only sync active tokens
     };
+
+    // Only filter by collection if explicitly provided
+    if (input.collection) {
+      criteria.collection = input.collection;
+    }
 
     // 2. Query tokens
     let tokens = input.tokenIds
