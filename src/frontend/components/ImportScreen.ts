@@ -7,7 +7,7 @@ import { BaseComponent } from './BaseComponent';
 import { AppState } from '../state/AppState';
 import { PluginBridge } from '../services/PluginBridge';
 import { CSS_CLASSES } from '../../shared/constants';
-import { TokenFile } from '../../shared/types';
+import { TokenFile, GitHubFile } from '../../shared/types';
 import { escapeHtml, sanitizeId } from '../../utils/htmlSanitizer';
 import { debug } from '../../shared/logger';
 
@@ -251,7 +251,7 @@ export class ImportScreen extends BaseComponent {
   /**
    * Handle files fetched from GitHub
    */
-  private handleFilesFetched(files: string[]): void {
+  private handleFilesFetched(files: GitHubFile[]): void {
     this.githubLoading.classList.add(CSS_CLASSES.HIDDEN);
     this.setEnabled(this.fetchFilesBtn, true);
 
@@ -275,11 +275,13 @@ export class ImportScreen extends BaseComponent {
       const fileItem = document.createElement('div');
       fileItem.className = 'file-item';
 
+      const filePath = file.path || file;
+
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'file-checkbox';
-      checkbox.value = file;
-      checkbox.id = `file-${sanitizeId(file)}`;
+      checkbox.value = filePath;
+      checkbox.id = `file-${sanitizeId(filePath)}`;
       checkbox.checked = true;
 
       const label = document.createElement('label');
@@ -287,14 +289,14 @@ export class ImportScreen extends BaseComponent {
 
       const fileName = document.createElement('div');
       fileName.className = 'file-name';
-      fileName.textContent = file.split('/').pop() || file;
+      fileName.textContent = filePath.split('/').pop() || filePath;
 
-      const filePath = document.createElement('div');
-      filePath.className = 'file-path';
-      filePath.textContent = file;
+      const filePathDiv = document.createElement('div');
+      filePathDiv.className = 'file-path';
+      filePathDiv.textContent = filePath;
 
       label.appendChild(fileName);
-      label.appendChild(filePath);
+      label.appendChild(filePathDiv);
       fileItem.appendChild(checkbox);
       fileItem.appendChild(label);
       fileList.appendChild(fileItem);
