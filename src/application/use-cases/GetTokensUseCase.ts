@@ -121,7 +121,7 @@ export class GetTokensUseCase extends UseCase<GetTokensInput, GetTokensOutput> {
     });
   }
 
-  protected validate(input: GetTokensInput): Result<boolean> {
+  validate(input: GetTokensInput): Result<boolean> {
     // Validation is lenient for queries - empty input is valid (returns all tokens)
 
     if (input.pagination) {

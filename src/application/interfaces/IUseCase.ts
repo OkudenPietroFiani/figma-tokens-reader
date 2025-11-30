@@ -83,5 +83,5 @@ export abstract class UseCase<TInput, TOutput> implements IUseCase<TInput, TOutp
   /**
    * Optional validation (override in subclass if needed)
    */
-  protected validate?(input: TInput): Result<boolean>;
+  validate?(input: TInput): Result<boolean>;
 }

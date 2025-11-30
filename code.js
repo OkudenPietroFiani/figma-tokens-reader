@@ -5415,11 +5415,11 @@
         }
         const stats = syncResult.data.stats;
         const result = {
-          exported: stats.created + stats.updated,
-          created: stats.created,
+          exported: stats.added + stats.updated,
+          created: stats.added,
           updated: stats.updated,
-          failed: stats.failed,
-          errors: stats.failed > 0 ? [{ token: "various", error: `${stats.failed} tokens failed` }] : [],
+          failed: stats.skipped,
+          errors: stats.skipped > 0 ? [{ token: "various", error: `${stats.skipped} tokens skipped` }] : [],
           metadata: {
             collections: syncResult.data.collections,
             variableCount: syncResult.data.variables.size
@@ -5491,19 +5491,23 @@
       return this.repository.query({ collection, projectId });
     }
     exists(id) {
-      return this.repository.has(id);
+      return this.repository.get(id) !== void 0;
     }
     count(criteria) {
       if (!criteria) {
-        return this.repository.size();
+        return this.repository.getAll().length;
       }
       return this.query(criteria).length;
     }
     // ==================== COMMANDS ====================
     save(token) {
       try {
-        this.repository.set(token);
-        return Success(token);
+        const result = this.repository.add([token]);
+        if (result.success) {
+          return Success(token);
+        } else {
+          return Failure(result.error || "Failed to save token");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to save token: ${message}`);
@@ -5511,8 +5515,12 @@
     }
     saveMany(tokens) {
       try {
-        this.repository.bulkSet(tokens);
-        return Success(tokens);
+        const result = this.repository.add(tokens);
+        if (result.success) {
+          return Success(tokens);
+        } else {
+          return Failure(result.error || "Failed to save tokens");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to save tokens: ${message}`);
@@ -5520,9 +5528,9 @@
     }
     delete(id) {
       try {
-        const existed = this.repository.has(id);
+        const existed = this.repository.get(id) !== void 0;
         if (existed) {
-          this.repository.delete(id);
+          this.repository.remove([id]);
         }
         return Success(existed);
       } catch (error) {
@@ -5532,14 +5540,12 @@
     }
     deleteMany(ids) {
       try {
-        let deleted = 0;
-        for (const id of ids) {
-          if (this.repository.has(id)) {
-            this.repository.delete(id);
-            deleted++;
-          }
+        const result = this.repository.remove(ids);
+        if (result.success) {
+          return Success(result.data || 0);
+        } else {
+          return Failure(result.error || "Failed to delete tokens");
         }
-        return Success(deleted);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         return Failure(`Failed to delete tokens: ${message}`);
@@ -5568,10 +5574,14 @@
     replaceProject(projectId, tokens) {
       try {
         const existing = this.findByProject(projectId);
-        for (const token of existing) {
-          this.repository.delete(token.id);
+        const existingIds = existing.map((t) => t.id);
+        if (existingIds.length > 0) {
+          this.repository.remove(existingIds);
         }
-        this.repository.bulkSet(tokens);
+        const addResult = this.repository.add(tokens);
+        if (!addResult.success) {
+          return Failure(addResult.error || "Failed to replace project");
+        }
         return Success(tokens);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -5581,10 +5591,14 @@
     replaceCollection(collection, projectId, tokens) {
       try {
         const existing = this.findByCollection(collection, projectId);
-        for (const token of existing) {
-          this.repository.delete(token.id);
+        const existingIds = existing.map((t) => t.id);
+        if (existingIds.length > 0) {
+          this.repository.remove(existingIds);
         }
-        this.repository.bulkSet(tokens);
+        const addResult = this.repository.add(tokens);
+        if (!addResult.success) {
+          return Failure(addResult.error || "Failed to replace collection");
+        }
         return Success(tokens);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -5601,9 +5615,6 @@
       const tokens = this.repository.getAll();
       const projects = new Set(tokens.map((t) => t.projectId));
       return Array.from(projects);
-    }
-    rebuildIndexes() {
-      this.repository.rebuildIndexes();
     }
     // ==================== ADDITIONAL METHODS (not in port) ====================
     /**

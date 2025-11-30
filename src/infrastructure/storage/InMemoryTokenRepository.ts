@@ -74,12 +74,12 @@ export class InMemoryTokenRepository implements ITokenRepository {
   }
 
   exists(id: string): boolean {
-    return this.repository.has(id);
+    return this.repository.get(id) !== undefined;
   }
 
   count(criteria?: TokenQueryCriteria): number {
     if (!criteria) {
-      return this.repository.size();
+      return this.repository.getAll().length;
     }
     return this.query(criteria).length;
   }
@@ -88,8 +88,12 @@ export class InMemoryTokenRepository implements ITokenRepository {
 
   save(token: Token): Result<Token> {
     try {
-      this.repository.set(token);
-      return Success(token);
+      const result = this.repository.add([token]);
+      if (result.success) {
+        return Success(token);
+      } else {
+        return Failure(result.error || 'Failed to save token');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return Failure(`Failed to save token: ${message}`);
@@ -98,8 +102,12 @@ export class InMemoryTokenRepository implements ITokenRepository {
 
   saveMany(tokens: Token[]): Result<Token[]> {
     try {
-      this.repository.bulkSet(tokens);
-      return Success(tokens);
+      const result = this.repository.add(tokens);
+      if (result.success) {
+        return Success(tokens);
+      } else {
+        return Failure(result.error || 'Failed to save tokens');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return Failure(`Failed to save tokens: ${message}`);
@@ -108,9 +116,9 @@ export class InMemoryTokenRepository implements ITokenRepository {
 
   delete(id: string): Result<boolean> {
     try {
-      const existed = this.repository.has(id);
+      const existed = this.repository.get(id) !== undefined;
       if (existed) {
-        this.repository.delete(id);
+        this.repository.remove([id]);
       }
       return Success(existed);
     } catch (error) {
@@ -121,14 +129,12 @@ export class InMemoryTokenRepository implements ITokenRepository {
 
   deleteMany(ids: string[]): Result<number> {
     try {
-      let deleted = 0;
-      for (const id of ids) {
-        if (this.repository.has(id)) {
-          this.repository.delete(id);
-          deleted++;
-        }
+      const result = this.repository.remove(ids);
+      if (result.success) {
+        return Success(result.data || 0);
+      } else {
+        return Failure(result.error || 'Failed to delete tokens');
       }
-      return Success(deleted);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return Failure(`Failed to delete tokens: ${message}`);
@@ -162,12 +168,16 @@ export class InMemoryTokenRepository implements ITokenRepository {
     try {
       // Delete all tokens in project
       const existing = this.findByProject(projectId);
-      for (const token of existing) {
-        this.repository.delete(token.id);
+      const existingIds = existing.map(t => t.id);
+      if (existingIds.length > 0) {
+        this.repository.remove(existingIds);
       }
 
       // Insert new tokens
-      this.repository.bulkSet(tokens);
+      const addResult = this.repository.add(tokens);
+      if (!addResult.success) {
+        return Failure(addResult.error || 'Failed to replace project');
+      }
 
       return Success(tokens);
     } catch (error) {
@@ -180,12 +190,16 @@ export class InMemoryTokenRepository implements ITokenRepository {
     try {
       // Delete all tokens in collection
       const existing = this.findByCollection(collection, projectId);
-      for (const token of existing) {
-        this.repository.delete(token.id);
+      const existingIds = existing.map(t => t.id);
+      if (existingIds.length > 0) {
+        this.repository.remove(existingIds);
       }
 
       // Insert new tokens
-      this.repository.bulkSet(tokens);
+      const addResult = this.repository.add(tokens);
+      if (!addResult.success) {
+        return Failure(addResult.error || 'Failed to replace collection');
+      }
 
       return Success(tokens);
     } catch (error) {
@@ -206,10 +220,6 @@ export class InMemoryTokenRepository implements ITokenRepository {
     const tokens = this.repository.getAll();
     const projects = new Set(tokens.map(t => t.projectId));
     return Array.from(projects);
-  }
-
-  rebuildIndexes(): void {
-    this.repository.rebuildIndexes();
   }
 
   // ==================== ADDITIONAL METHODS (not in port) ====================

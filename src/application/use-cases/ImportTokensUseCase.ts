@@ -140,7 +140,7 @@ export class ImportTokensUseCase extends UseCase<ImportTokensInput, ImportTokens
     });
   }
 
-  protected validate(input: ImportTokensInput): Result<boolean> {
+  validate(input: ImportTokensInput): Result<boolean> {
     if (!input.data || typeof input.data !== 'object') {
       return Failure('Input data must be a valid object');
     }
