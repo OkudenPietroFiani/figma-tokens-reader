@@ -467,7 +467,8 @@ class PluginBackend {
       owner: msg.data.owner,
       repo: msg.data.repo,
       files: files,
-      token: msg.data.token
+      token: msg.data.token,
+      branch: msg.data.branch || 'main'
     });
 
     if (!result.success) {
