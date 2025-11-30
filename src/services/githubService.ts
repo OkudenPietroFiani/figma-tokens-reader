@@ -7,6 +7,7 @@ import { Base64Decoder } from '../utils/Base64Decoder';
 import { FileClassifier } from '../utils/FileClassifier';
 import { BatchProcessor } from '../utils/BatchProcessor';
 import { FEATURE_FLAGS } from '../shared/constants';
+import { Result, Success, Failure, GitHubFile } from '../shared/types';
 
 interface GitHubConfig {
   token: string;
@@ -15,10 +16,13 @@ interface GitHubConfig {
   branch: string;
 }
 
-interface GitHubFile {
-  path: string;
-  type: string;
-  sha: string;
+interface FetchFilesConfig {
+  type: 'github';
+  owner: string;
+  repo: string;
+  path?: string;
+  token?: string;
+  branch?: string;
 }
 
 /**
@@ -197,6 +201,65 @@ export class GitHubService {
     }
 
     return { primitives: primitivesData, semantics: semanticsData };
+  }
+
+  /**
+   * Fetch files from GitHub repository (use case compatible)
+   * Returns Result type for use case pattern compatibility
+   */
+  async fetchFiles(config: FetchFilesConfig): Promise<Result<GitHubFile[]>> {
+    try {
+      const branch = config.branch || 'main';
+      const token = config.token || '';
+
+      const url = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${branch}?recursive=1`;
+
+      const headers: HeadersInit = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Figma-W3C-Tokens-Plugin'
+      };
+
+      if (token) {
+        headers['Authorization'] = `token ${token}`;
+      }
+
+      const response = await fetch(url, { headers });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return Failure(`GitHub API error (${response.status}): ${errorText || response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Filter for JSON files only
+      let jsonFiles = data.tree.filter((item: any) =>
+        item.type === 'blob' && item.path.endsWith('.json')
+      );
+
+      // If path is specified, filter files that start with that path
+      if (config.path) {
+        const normalizedPath = config.path.endsWith('/') ? config.path : config.path + '/';
+        jsonFiles = jsonFiles.filter((item: any) =>
+          item.path.startsWith(normalizedPath) || item.path.startsWith(config.path!)
+        );
+      }
+
+      const files: GitHubFile[] = jsonFiles.map((file: any) => ({
+        path: file.path,
+        type: file.type,
+        sha: file.sha,
+        size: file.size
+      }));
+
+      console.log(`[GitHubService] Found ${files.length} JSON files${config.path ? ` in ${config.path}` : ''}`);
+
+      return Success(files);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[GitHubService] Error fetching files:', message);
+      return Failure(`Failed to fetch repository files: ${message}`);
+    }
   }
 
   /**

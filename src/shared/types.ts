@@ -80,6 +80,13 @@ export interface GitHubFileObject {
   size?: number;
 }
 
+export interface GitHubFile {
+  path: string;
+  type: string;
+  sha?: string;
+  size?: number;
+}
+
 // ==================== SCOPE TYPES ====================
 export interface ScopeAssignments {
   [tokenPath: string]: string[]; // Maps token path to array of scope strings
