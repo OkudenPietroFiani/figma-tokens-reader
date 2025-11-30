@@ -14,14 +14,10 @@ import { TokenRepository } from '../core/services/TokenRepository';
 import { TokenResolver } from '../core/services/TokenResolver';
 import { FigmaSyncService } from '../core/services/FigmaSyncService';
 
-// Controllers (v2.0 - TODO: Migrate remaining operations)
-import { TokenController } from './controllers/TokenController'; // Used for: saveTokens, loadTokens
-import { GitHubController } from './controllers/GitHubController'; // Used for: GitHub operations
+// Controllers - ALL MIGRATED TO USE CASES (v3.0 - 100% Adoption)
 
-// New Architecture (Phases 1-4)
-// import { FileSourceRegistry } from '../core/registries/FileSourceRegistry'; // DEPRECATED: Never queried
+// Token Format Registry (shared by v2 and v3 architectures)
 import { TokenFormatRegistry } from '../core/registries/TokenFormatRegistry';
-// import { GitHubFileSource } from '../core/adapters/GitHubFileSource'; // DEPRECATED: Only used with FileSourceRegistry
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
 import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
 
@@ -33,6 +29,12 @@ import { GetTokensUseCase } from '../application/use-cases/GetTokensUseCase';
 import { GenerateDocumentationUseCase } from '../application/use-cases/GenerateDocumentationUseCase';
 import { GetFigmaVariablesUseCase } from '../application/use-cases/GetFigmaVariablesUseCase';
 import { ApplyScopesUseCase } from '../application/use-cases/ApplyScopesUseCase';
+import { SaveTokenStateUseCase } from '../application/use-cases/SaveTokenStateUseCase';
+import { LoadTokenStateUseCase } from '../application/use-cases/LoadTokenStateUseCase';
+import { SaveGitHubConfigUseCase } from '../application/use-cases/SaveGitHubConfigUseCase';
+import { LoadGitHubConfigUseCase } from '../application/use-cases/LoadGitHubConfigUseCase';
+import { FetchGitHubFilesUseCase } from '../application/use-cases/FetchGitHubFilesUseCase';
+import { ImportFromGitHubUseCase } from '../application/use-cases/ImportFromGitHubUseCase';
 import { TokenParserRegistry } from '../infrastructure/input/TokenParserRegistry';
 import { W3CTokenParser } from '../infrastructure/input/W3CTokenParser';
 import { TokenExporterRegistry } from '../infrastructure/output/TokenExporterRegistry';
@@ -66,15 +68,11 @@ class PluginBackend {
   private tokenResolver: TokenResolver;
   private figmaSyncService: FigmaSyncService;
 
-  // Layered Architecture (Sprint 3)
+  // Layered Architecture (v3.0 - 100% Adoption)
   private useCaseRegistry: UseCaseRegistry;
   private parserRegistry: TokenParserRegistry;
   private exporterRegistry: TokenExporterRegistry;
   private repositoryAdapter: InMemoryTokenRepository;
-
-  // Controllers (v2.0 - being phased out)
-  private tokenController: TokenController; // TODO: Migrate saveTokens/loadTokens to use cases
-  private githubController: GitHubController; // TODO: Migrate GitHub operations to use cases
 
   constructor() {
     // Register new architecture components (Phases 1-4)
@@ -87,14 +85,10 @@ class PluginBackend {
     this.tokenResolver = new TokenResolver(this.tokenRepository);
     this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
 
-    // Initialize layered architecture (Sprint 3)
+    // Initialize layered architecture (v3.0 - 100% adoption)
     this.initializeLayeredArchitecture();
 
-    // Initialize remaining controllers (v2.0 - TODO: migrate)
-    this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
-    this.githubController = new GitHubController(this.githubService, this.storage);
-
-    ErrorHandler.info('Plugin backend initialized (v3.0 Layered Architecture)', 'PluginBackend');
+    ErrorHandler.info('Plugin backend initialized (v3.0 Layered Architecture - 100% Adoption)', 'PluginBackend');
   }
 
   /**
@@ -182,6 +176,45 @@ class PluginBackend {
       category: 'scopes'
     });
 
+    // Storage use cases
+    const saveTokenStateUseCase = new SaveTokenStateUseCase(this.storage);
+    this.useCaseRegistry.register('save-token-state', saveTokenStateUseCase, {
+      description: 'Save token state to plugin storage',
+      category: 'storage'
+    });
+
+    const loadTokenStateUseCase = new LoadTokenStateUseCase(this.storage);
+    this.useCaseRegistry.register('load-token-state', loadTokenStateUseCase, {
+      description: 'Load token state from plugin storage',
+      category: 'storage'
+    });
+
+    // GitHub configuration use cases
+    const saveGitHubConfigUseCase = new SaveGitHubConfigUseCase(this.storage);
+    this.useCaseRegistry.register('save-github-config', saveGitHubConfigUseCase, {
+      description: 'Save GitHub configuration to plugin storage',
+      category: 'github'
+    });
+
+    const loadGitHubConfigUseCase = new LoadGitHubConfigUseCase(this.storage);
+    this.useCaseRegistry.register('load-github-config', loadGitHubConfigUseCase, {
+      description: 'Load GitHub configuration from plugin storage',
+      category: 'github'
+    });
+
+    // GitHub import use cases
+    const fetchGitHubFilesUseCase = new FetchGitHubFilesUseCase(this.githubService);
+    this.useCaseRegistry.register('fetch-github-files', fetchGitHubFilesUseCase, {
+      description: 'Fetch list of token files from GitHub repository',
+      category: 'github'
+    });
+
+    const importFromGitHubUseCase = new ImportFromGitHubUseCase(this.githubService, this.useCaseRegistry);
+    this.useCaseRegistry.register('import-from-github', importFromGitHubUseCase, {
+      description: 'Import and sync tokens from GitHub repository',
+      category: 'github'
+    });
+
     ErrorHandler.info(
       `Layered architecture initialized: ${this.parserRegistry.count()} parsers, ` +
       `${this.exporterRegistry.count()} exporters, ${this.useCaseRegistry.count()} use cases`,
@@ -198,10 +231,6 @@ class PluginBackend {
    * @private
    */
   private registerArchitectureComponents(): void {
-    // Register file sources (GitHub, GitLab, etc.)
-    // NOTE: FileSourceRegistry is never queried - keeping registration commented out
-    // FileSourceRegistry.register(new GitHubFileSource());
-
     // Register token format strategies (W3C, Style Dictionary, etc.)
     TokenFormatRegistry.register(new W3CTokenFormatStrategy());
     TokenFormatRegistry.register(new StyleDictionaryFormatStrategy());
@@ -381,7 +410,9 @@ class PluginBackend {
   }
 
   private async handleSaveTokens(msg: PluginMessage): Promise<void> {
-    const result = await this.tokenController.saveTokens(msg.data);
+    const result = await this.useCaseRegistry.execute('save-token-state', {
+      tokenState: msg.data
+    });
 
     if (!result.success) {
       throw new Error(result.error);
@@ -389,7 +420,7 @@ class PluginBackend {
   }
 
   private async handleLoadTokens(msg: PluginMessage): Promise<void> {
-    const result = await this.tokenController.loadTokens();
+    const result = await this.useCaseRegistry.execute('load-token-state', {});
 
     if (!result.success) {
       throw new Error(result.error);
@@ -398,7 +429,7 @@ class PluginBackend {
     // Always send a response, even if data is null (no saved state)
     figma.ui.postMessage({
       type: 'tokens-loaded',
-      data: result.data || {},
+      data: result.data!.tokenState || {},
       requestId: msg.requestId
     });
   }
@@ -406,50 +437,68 @@ class PluginBackend {
   // ==================== GITHUB HANDLERS ====================
 
   private async handleGitHubFetchFiles(msg: PluginMessage): Promise<void> {
-    const result = await this.githubController.fetchFiles(msg.data);
+    const result = await this.useCaseRegistry.execute('fetch-github-files', {
+      owner: msg.data.owner,
+      repo: msg.data.repo,
+      path: msg.data.path,
+      token: msg.data.token
+    });
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'github-files-fetched',
-        data: { files: result.data },
-        requestId: msg.requestId
-      });
-    } else {
+    if (!result.success) {
       throw new Error(result.error);
     }
+
+    figma.ui.postMessage({
+      type: 'github-files-fetched',
+      data: { files: result.data!.files },
+      requestId: msg.requestId
+    });
   }
 
   private async handleGitHubImportFiles(msg: PluginMessage): Promise<void> {
-    const result = await this.githubController.importFiles(msg.data);
+    const result = await this.useCaseRegistry.execute('import-from-github', {
+      owner: msg.data.owner,
+      repo: msg.data.repo,
+      files: msg.data.files,
+      token: msg.data.token
+    });
 
-    if (result.success) {
-      figma.ui.postMessage({
-        type: 'github-files-imported',
-        data: result.data,
-        requestId: msg.requestId
-      });
-    } else {
+    if (!result.success) {
       throw new Error(result.error);
     }
+
+    figma.ui.postMessage({
+      type: 'github-files-imported',
+      data: {
+        filesImported: result.data!.filesImported,
+        tokensImported: result.data!.tokensImported,
+        stats: result.data!.stats
+      },
+      requestId: msg.requestId
+    });
   }
 
   private async handleLoadGitHubConfig(msg: PluginMessage): Promise<void> {
-    const result = await this.githubController.loadConfig();
+    const result = await this.useCaseRegistry.execute('load-github-config', {});
 
-    if (result.success && result.data) {
-      figma.ui.postMessage({
-        type: 'github-config-loaded',
-        data: result.data,
-        requestId: msg.requestId
-      });
-    } else if (!result.success) {
+    if (!result.success) {
       throw new Error(result.error);
     }
-    // If result.data is null, just don't send anything (no saved config)
+
+    // Only send message if config exists
+    if (result.data!.config) {
+      figma.ui.postMessage({
+        type: 'github-config-loaded',
+        data: result.data!.config,
+        requestId: msg.requestId
+      });
+    }
   }
 
   private async handleSaveGitHubConfig(msg: PluginMessage): Promise<void> {
-    const result = await this.githubController.saveConfig(msg.data);
+    const result = await this.useCaseRegistry.execute('save-github-config', {
+      config: msg.data
+    });
 
     if (!result.success) {
       throw new Error(result.error);

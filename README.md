@@ -2,6 +2,8 @@
 
 A Figma plugin that imports W3C Design Tokens and syncs them to Figma Variables and Styles with automatic type detection, reference resolution, and hierarchical organization.
 
+**🏗️ Architecture:** Built with v3.0 Layered Architecture (100% Use Case pattern adoption)
+
 ## Features
 
 - ✅ **Multiple Token Formats** - W3C Design Tokens, Style Dictionary (auto-detected)
