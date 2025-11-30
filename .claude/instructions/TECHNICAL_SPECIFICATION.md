@@ -2,45 +2,107 @@
 
 ## Architecture Overview
 
-### System Structure
+### Layered Architecture (v3.0)
+
+The system follows **Hexagonal Architecture** (Ports & Adapters) with clear layer separation:
 
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                   PRESENTATION LAYER                         │
+│  src/frontend/           Plugin UI (React)                  │
+│  src/backend/main.ts     Plugin backend (dependency wiring) │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   APPLICATION LAYER                          │
+│  src/application/                                            │
+│  ├── use-cases/         Business operations                 │
+│  │   ├── ImportTokensUseCase.ts                            │
+│  │   ├── SyncToFigmaVariablesUseCase.ts                    │
+│  │   └── GetTokensUseCase.ts                               │
+│  ├── interfaces/        Application interfaces              │
+│  └── UseCaseRegistry.ts Central command registry            │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      DOMAIN LAYER                            │
+│  src/core/              Pure business logic                 │
+│  ├── models/            Entities (Token, etc.)              │
+│  ├── services/          Domain services (Validator, etc.)   │
+│  ├── ports/             Interfaces for infrastructure       │
+│  │   ├── ITokenParser.ts                                   │
+│  │   ├── ITokenExporter.ts                                 │
+│  │   └── ITokenRepository.ts                               │
+│  └── interfaces/        Domain interfaces                   │
+└─────────────────────────────────────────────────────────────┘
+                            ↑
+┌─────────────────────────────────────────────────────────────┐
+│                  INFRASTRUCTURE LAYER                        │
+│  src/infrastructure/    External system adapters            │
+│  ├── input/             Parsers (W3C, Style Dictionary)     │
+│  │   ├── W3CTokenParser.ts                                 │
+│  │   └── TokenParserRegistry.ts                            │
+│  ├── output/            Exporters (Figma, JSON, CSS)        │
+│  │   ├── FigmaVariablesExporter.ts                         │
+│  │   └── TokenExporterRegistry.ts                          │
+│  └── storage/           Persistence implementations         │
+│      └── InMemoryTokenRepository.ts                         │
+└─────────────────────────────────────────────────────────────┘
+
 src/
-├── backend/              # Figma plugin backend
-│   ├── main.ts          # Entry point
-│   ├── controllers/     # Business logic
-│   ├── services/        # Core services
-│   └── utils/           # Utilities
+├── application/           # APPLICATION LAYER (NEW)
+│   ├── use-cases/        # Business operations
+│   ├── interfaces/       # Application contracts
+│   └── UseCaseRegistry.ts
 │
-├── frontend/            # Plugin UI
-│   ├── index.ts        # Entry point
+├── core/                 # DOMAIN LAYER
+│   ├── models/          # Entities, value objects
+│   ├── services/        # Domain services
+│   ├── ports/           # Infrastructure interfaces (NEW)
+│   └── interfaces/      # Domain contracts
+│
+├── infrastructure/       # INFRASTRUCTURE LAYER (NEW)
+│   ├── input/           # Parsers
+│   ├── output/          # Exporters
+│   └── storage/         # Repositories
+│
+├── backend/             # PRESENTATION LAYER
+│   ├── main.ts         # Dependency injection setup
+│   ├── controllers/    # Request handlers
+│   └── services/       # Presentation services
+│
+├── frontend/           # PRESENTATION LAYER
 │   ├── components/     # UI components
-│   ├── services/       # Frontend services
-│   └── state/          # State management
+│   └── state/          # UI state
 │
-├── core/               # Core architecture
-│   ├── interfaces/     # Abstractions
-│   ├── registries/     # Dynamic registration
-│   ├── adapters/       # Implementations
-│   ├── models/         # Data models
-│   └── services/       # Domain services
-│
-├── shared/             # Shared code
-│   ├── types.ts       # TypeScript types
-│   └── constants.ts   # Constants
-│
+├── shared/             # Shared utilities
 └── __tests__/         # Test suites
-    ├── core/
-    └── utils/
 ```
+
+### Dependency Rule
+
+**Critical**: Dependencies flow **inward** toward the domain:
+
+```
+Presentation → Application → Domain ← Infrastructure
+```
+
+- **Domain** has ZERO dependencies on outer layers
+- **Application** orchestrates domain + infrastructure
+- **Infrastructure** implements domain ports
+- **Presentation** calls application use cases
 
 ### Key Design Patterns
 
-**Registry Pattern**: Add new file sources/formats without modifying existing code
-**Strategy Pattern**: Different parsing strategies for different formats
-**Adapter Pattern**: Wrap existing services to match interfaces
+**Layered Architecture**: Clear separation of concerns across layers
+**Hexagonal Architecture**: Domain at center, adapters at edges
+**Ports & Adapters**: Domain defines ports, infrastructure provides adapters
+**Use Case Pattern**: Each user action is a dedicated use case
+**Registry Pattern**: Dynamic registration of parsers/exporters
+**Strategy Pattern**: Different parsing/export strategies
+**Repository Pattern**: Abstract storage interface
+**Dependency Injection**: All dependencies injected in main.ts
 **Result Pattern**: Type-safe error handling (no exceptions)
-**Batch Processor**: Parallel processing with rate limiting
 
 ---
 
