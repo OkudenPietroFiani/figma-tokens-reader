@@ -2692,9 +2692,9 @@
      */
     convertColorValue(value) {
       const result = converters.color.toRGB(value);
-      if (result.success) {
-        const { r, g, b } = result.data;
-        return { r, g, b };
+      if (result.success && result.data) {
+        const rgb = result.data;
+        return { r: rgb.r, g: rgb.g, b: rgb.b };
       }
       console.error(`[FigmaSyncService] Color conversion FAILED`);
       console.error(`  Input value:`, JSON.stringify(value));
@@ -2708,10 +2708,14 @@
      */
     convertColorToRGBA(value) {
       const result = converters.color.toRGB(value);
-      if (result.success) {
+      if (result.success && result.data) {
         const rgb = result.data;
-        debug.log(`[FigmaSyncService] Converted color to RGBA: r=${rgb.r}, g=${rgb.g}, b=${rgb.b}, a=${rgb.a}`);
-        return { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+        const r = rgb.r;
+        const g = rgb.g;
+        const b = rgb.b;
+        const a = rgb.a;
+        debug.log(`[FigmaSyncService] Converted color to RGBA: r=${r}, g=${g}, b=${b}, a=${a}`);
+        return { r, g, b, a };
       }
       console.error(`[FigmaSyncService] Color to RGBA conversion FAILED`);
       console.error(`  Input value:`, JSON.stringify(value));
@@ -2737,7 +2741,7 @@
         }
       }
       const result = converters.dimension.toPixels(value, percentageBase);
-      if (result.success) {
+      if (result.success && result.data !== void 0) {
         const pixels = result.data;
         debug.log(`[FigmaSyncService] Converted ${JSON.stringify(value)} to ${pixels}px`);
         return pixels;
