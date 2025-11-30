@@ -4078,10 +4078,12 @@
       var _a, _b, _c, _d, _e;
       const criteria = {
         projectId: input.projectId,
-        collection: input.collection,
         status: "active"
         // Only sync active tokens
       };
+      if (input.collection) {
+        criteria.collection = input.collection;
+      }
       let tokens = input.tokenIds ? input.tokenIds.map((id) => this.repository.findById(id)).filter((t) => t !== void 0) : this.repository.query(criteria);
       if (tokens.length === 0) {
         return Failure("No tokens found matching the criteria");
