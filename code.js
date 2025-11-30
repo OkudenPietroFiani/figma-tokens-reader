@@ -4552,23 +4552,16 @@
       };
       for (const fileSpec of input.files) {
         console.log(`[ImportFromGitHubUseCase] Fetching ${fileSpec.path}...`);
-        const fileContent = await this.githubService.fetchFileContent(
-          config,
-          fileSpec.path
-        );
-        if (!fileContent.success) {
-          console.warn(
-            `[ImportFromGitHubUseCase] Failed to fetch ${fileSpec.path}: ${fileContent.error}`
-          );
-          continue;
-        }
         let tokenData;
         try {
-          tokenData = JSON.parse(fileContent.data);
+          tokenData = await this.githubService.fetchFileContent(
+            config,
+            fileSpec.path
+          );
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Invalid JSON";
+          const message = error instanceof Error ? error.message : "Unknown error";
           console.warn(
-            `[ImportFromGitHubUseCase] Failed to parse ${fileSpec.path}: ${message}`
+            `[ImportFromGitHubUseCase] Failed to fetch ${fileSpec.path}: ${message}`
           );
           continue;
         }
