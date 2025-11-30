@@ -104,12 +104,6 @@
     // Generic
     UNKNOWN_ERROR: "An unknown error occurred"
   };
-  var SUCCESS_MESSAGES = {
-    IMPORT_SUCCESS: " Tokens imported successfully",
-    SYNC_SUCCESS: " Tokens synced to Figma",
-    SCOPE_APPLIED: " Scopes updated successfully",
-    CONFIG_SAVED: " Configuration saved"
-  };
 
   // src/shared/types.ts
   var Success = (data) => ({ success: true, data });
@@ -3286,586 +3280,6 @@
   };
   TokenFormatRegistry.strategies = /* @__PURE__ */ new Map();
 
-  // src/shared/utils.ts
-  function deepClone(obj) {
-    if (obj === null || typeof obj !== "object") {
-      return obj;
-    }
-    if (obj instanceof Date) {
-      return new Date(obj.getTime());
-    }
-    if (obj instanceof Array) {
-      return obj.map((item) => deepClone(item));
-    }
-    if (obj instanceof Set) {
-      return new Set(Array.from(obj).map(deepClone));
-    }
-    if (obj instanceof Map) {
-      const cloned2 = /* @__PURE__ */ new Map();
-      obj.forEach((value, key) => {
-        cloned2.set(deepClone(key), deepClone(value));
-      });
-      return cloned2;
-    }
-    const cloned = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        cloned[key] = deepClone(obj[key]);
-      }
-    }
-    return cloned;
-  }
-
-  // src/core/services/TokenProcessor.ts
-  var TokenProcessor = class {
-    /**
-     * Process raw token data into Token[] using auto-detected format
-     *
-     * @param data - Raw token data
-     * @param options - Processing options (projectId, source info, etc.)
-     * @returns Array of processed tokens
-     */
-    async processTokenData(data, options) {
-      try {
-        const strategy = TokenFormatRegistry.detectFormat(data);
-        if (!strategy) {
-          return Failure("Could not detect token format");
-        }
-        const parseContext = {
-          filePath: options.filePath,
-          collection: options.collection
-        };
-        const parseResult = strategy.parseTokens(data, parseContext);
-        if (!parseResult.success) {
-          return Failure(`Failed to parse tokens: ${parseResult.error}`);
-        }
-        const tokens = this.convertProcessedTokens(
-          parseResult.data || [],
-          strategy,
-          options
-        );
-        return Success(tokens);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[TokenProcessor] Failed to process token data: ${message}`);
-        return Failure(message);
-      }
-    }
-    /**
-     * Process multiple token files
-     *
-     * @param files - Array of {data, collection} objects
-     * @param options - Processing options
-     * @returns Combined array of tokens from all files
-     */
-    async processMultipleFiles(files, options) {
-      try {
-        const allTokens = [];
-        for (const file of files) {
-          const collection = file.collection || this.inferCollectionFromPath(file.filePath);
-          const result = await this.processTokenData(file.data, __spreadProps(__spreadValues({}, options), {
-            collection,
-            filePath: file.filePath
-            // Pass filePath for level analysis
-          }));
-          if (result.success && result.data) {
-            allTokens.push(...result.data);
-          } else {
-            console.warn(`[TokenProcessor] Failed to process file: ${result.error}`);
-          }
-        }
-        if (allTokens.length === 0) {
-          return Failure("No tokens could be processed from the provided files");
-        }
-        return Success(allTokens);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[TokenProcessor] Failed to process multiple files: ${message}`);
-        return Failure(message);
-      }
-    }
-    // ==================== PRIVATE METHODS ====================
-    /**
-     * Convert ProcessedToken[] to Token[]
-     */
-    convertProcessedTokens(processed, strategy, options) {
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      const tokens = [];
-      for (const pt of processed) {
-        const id = this.generateTokenId(options.projectId, pt.path);
-        const qualifiedName = pt.path.join(".");
-        const name = pt.path[pt.path.length - 1];
-        const isAlias = strategy.isReference(pt.value);
-        const aliasTo = isAlias ? strategy.extractReference(pt.value) : void 0;
-        const type = this.mapToTokenType(pt.type);
-        const source = {
-          type: options.sourceType,
-          location: options.sourceLocation,
-          imported: now,
-          branch: options.sourceBranch,
-          commit: options.sourceCommit
-        };
-        const collection = options.collection || "default";
-        const formatInfo = strategy.getFormatInfo();
-        const sourceFormat = this.mapFormatName(formatInfo.name);
-        const token = {
-          id,
-          path: pt.path,
-          name,
-          qualifiedName,
-          type,
-          rawValue: deepClone(pt.originalValue !== void 0 ? pt.originalValue : pt.value),
-          value: deepClone(pt.value),
-          resolvedValue: isAlias ? void 0 : deepClone(pt.value),
-          aliasTo: aliasTo ? this.generateTokenId(options.projectId, aliasTo.split(".")) : void 0,
-          projectId: options.projectId,
-          collection,
-          theme: options.theme,
-          brand: options.brand,
-          sourceFormat,
-          source,
-          extensions: {},
-          tags: this.inferTags(pt.path, pt.type),
-          status: "active",
-          created: now,
-          lastModified: now
-        };
-        tokens.push(token);
-      }
-      return tokens;
-    }
-    /**
-     * Generate stable token ID
-     */
-    generateTokenId(projectId, path) {
-      const key = `${projectId}:${path.join(".")}`;
-      return this.simpleHash(key);
-    }
-    /**
-     * Simple hash function for ID generation
-     */
-    simpleHash(str) {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash;
-      }
-      return `token_${Math.abs(hash).toString(36)}`;
-    }
-    /**
-     * Map format-specific type to TokenType
-     */
-    mapToTokenType(type) {
-      const normalized = type.toLowerCase();
-      const typeMap = {
-        color: "color",
-        dimension: "dimension",
-        fontsize: "fontSize",
-        fontweight: "fontWeight",
-        fontfamily: "fontFamily",
-        lineheight: "lineHeight",
-        letterspacing: "letterSpacing",
-        spacing: "spacing",
-        shadow: "shadow",
-        border: "border",
-        duration: "duration",
-        cubicbezier: "cubicBezier",
-        number: "number",
-        string: "string",
-        typography: "typography",
-        boolean: "boolean"
-      };
-      if (normalized.includes("font")) {
-        if (normalized.includes("size")) return "fontSize";
-        if (normalized.includes("weight")) return "fontWeight";
-        if (normalized.includes("family")) return "fontFamily";
-      }
-      if (normalized.includes("line") && normalized.includes("height")) {
-        return "lineHeight";
-      }
-      if (normalized.includes("letter") && normalized.includes("spacing")) {
-        return "letterSpacing";
-      }
-      return typeMap[normalized] || "other";
-    }
-    /**
-     * Map format name to source format type
-     */
-    mapFormatName(formatName) {
-      const normalized = formatName.toLowerCase();
-      if (normalized.includes("w3c")) return "w3c";
-      if (normalized.includes("style") && normalized.includes("dictionary")) return "style-dictionary";
-      if (normalized.includes("figma")) return "figma";
-      return "custom";
-    }
-    /**
-     * Infer collection from file path
-     * Examples:
-     * - tokens/primitives.json -> primitives
-     * - tokens/semantic/colors.json -> semantic
-     * - colors.json -> default
-     */
-    inferCollectionFromPath(filePath) {
-      if (!filePath) return "default";
-      const parts = filePath.toLowerCase().split("/");
-      const collectionKeywords = [
-        "primitive",
-        "primitives",
-        "semantic",
-        "semantics",
-        "base",
-        "core",
-        "foundation",
-        "component",
-        "components"
-      ];
-      for (const part of parts) {
-        for (const keyword of collectionKeywords) {
-          if (part.includes(keyword)) {
-            return part.replace(/\.(json|js|ts)$/i, "");
-          }
-        }
-      }
-      const filename = parts[parts.length - 1];
-      return filename.replace(/\.(json|js|ts)$/i, "") || "default";
-    }
-    /**
-     * Infer tags from token path and type
-     */
-    inferTags(path, type) {
-      const tags = [];
-      tags.push(type);
-      if (path.length > 1) {
-        tags.push(path[0]);
-        if (path.length > 2) {
-          tags.push(`${path[0]}.${path[1]}`);
-        }
-      }
-      return tags;
-    }
-  };
-
-  // src/backend/controllers/TokenController.ts
-  var TokenController = class {
-    constructor(figmaSyncService, storage, tokenRepository, tokenResolver) {
-      this.figmaSyncService = figmaSyncService;
-      this.storage = storage;
-      this.tokenRepository = tokenRepository;
-      this.tokenResolver = tokenResolver;
-    }
-    /**
-     * Import tokens to Figma variables (v2.0)
-     * Converts legacy TokenData format to Token[] and syncs via FigmaSyncService
-     *
-     * @param data - Token import data with primitives and semantics
-     * @returns Import statistics
-     */
-    async importTokens(data) {
-      return ErrorHandler.handle(async () => {
-        const { primitives, semantics } = data;
-        if (!primitives && !semantics) {
-          throw new Error("No token data provided. Expected primitives or semantics.");
-        }
-        ErrorHandler.info(
-          `Importing tokens (primitives: ${primitives ? "yes" : "no"}, semantics: ${semantics ? "yes" : "no"})`,
-          "TokenController"
-        );
-        const processor = new TokenProcessor();
-        const allTokens = [];
-        let stats = { added: 0, updated: 0, skipped: 0 };
-        if (primitives) {
-          const primResult = await processor.processTokenData(primitives, {
-            projectId: "default",
-            collection: "primitive",
-            sourceType: "local",
-            sourceLocation: "primitives"
-          });
-          if (primResult.success && primResult.data) {
-            allTokens.push(...primResult.data);
-          } else if (!primResult.success) {
-            throw new Error(`Failed to process primitives: ${primResult.error}`);
-          }
-        }
-        if (semantics) {
-          const semResult = await processor.processTokenData(semantics, {
-            projectId: "default",
-            collection: "semantic",
-            sourceType: "local",
-            sourceLocation: "semantics"
-          });
-          if (semResult.success && semResult.data) {
-            allTokens.push(...semResult.data);
-          } else if (!semResult.success) {
-            throw new Error(`Failed to process semantics: ${semResult.error}`);
-          }
-        }
-        this.tokenRepository.add(allTokens);
-        ErrorHandler.info(
-          `Resolving ${allTokens.length} tokens...`,
-          "TokenController"
-        );
-        const resolveResult = await this.tokenResolver.resolveAllTokens("default");
-        if (!resolveResult.success) {
-          ErrorHandler.warn(
-            `Token resolution failed: ${resolveResult.error}. Continuing with unresolved values.`,
-            "TokenController"
-          );
-        } else {
-          const resolvedValues = resolveResult.data;
-          ErrorHandler.info(
-            `Resolved ${resolvedValues.size} token values`,
-            "TokenController"
-          );
-          for (const [tokenId, resolvedValue] of resolvedValues.entries()) {
-            this.tokenRepository.update(tokenId, { resolvedValue });
-          }
-          const updatedTokens = [];
-          for (const token of allTokens) {
-            const updated = this.tokenRepository.get(token.id);
-            if (updated) {
-              updatedTokens.push(updated);
-            }
-          }
-          allTokens.length = 0;
-          allTokens.push(...updatedTokens);
-        }
-        const syncResult = await this.figmaSyncService.syncTokens(allTokens);
-        if (!syncResult.success) {
-          throw new Error(syncResult.error || "Failed to sync tokens to Figma");
-        }
-        stats.added = allTokens.length;
-        ErrorHandler.info(
-          `Import completed: ${stats.added} tokens synced to Figma`,
-          "TokenController"
-        );
-        ErrorHandler.notifyUser(
-          `${SUCCESS_MESSAGES.IMPORT_SUCCESS}: ${stats.added} tokens synced`,
-          "success"
-        );
-        return stats;
-      }, "Import Tokens");
-    }
-    /**
-     * Save token state to persistent storage
-     * Allows resuming work without re-importing
-     *
-     * @param state - Token state to save
-     */
-    async saveTokens(state) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.validateRequired(
-          state,
-          ["tokenFiles"],
-          "Save Tokens"
-        );
-        const result = await this.storage.saveTokenState(state);
-        if (!result.success) {
-          throw new Error(result.error || "Failed to save token state");
-        }
-        ErrorHandler.info("Token state saved successfully", "TokenController");
-      }, "Save Token State");
-    }
-    /**
-     * Load token state from persistent storage
-     * Restores previously imported tokens
-     *
-     * @returns Token state or null if not found
-     */
-    async loadTokens() {
-      return ErrorHandler.handle(async () => {
-        const result = await this.storage.getTokenState();
-        if (!result.success) {
-          throw new Error(result.error || "Failed to load token state");
-        }
-        if (!result.data) {
-          ErrorHandler.info("No saved token state found", "TokenController");
-          return null;
-        }
-        ErrorHandler.info(
-          `Token state loaded: ${Object.keys(result.data.tokenFiles).length} files`,
-          "TokenController"
-        );
-        return result.data;
-      }, "Load Token State");
-    }
-    /**
-     * Clear all saved token state
-     * Useful for plugin reset
-     */
-    async clearTokens() {
-      return ErrorHandler.handle(async () => {
-        const result = await this.storage.clearTokenState();
-        if (!result.success) {
-          throw new Error(result.error || "Failed to clear token state");
-        }
-        ErrorHandler.info("Token state cleared", "TokenController");
-        ErrorHandler.notifyUser("Token state cleared", "success");
-      }, "Clear Token State");
-    }
-    /**
-     * Get all tokens from repository (v2.0)
-     * Returns Token[] array instead of legacy TokenMetadata[]
-     */
-    getTokens() {
-      return this.tokenRepository.getAll();
-    }
-  };
-
-  // src/backend/controllers/GitHubController.ts
-  var GitHubController = class {
-    constructor(githubService, storage) {
-      this.githubService = githubService;
-      this.storage = storage;
-    }
-    /**
-     * Fetch list of files from GitHub repository
-     * Returns only .json files suitable for token import
-     *
-     * @param config - GitHub repository configuration
-     * @returns Array of file paths
-     */
-    async fetchFiles(config) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.validateRequired(
-          config,
-          ["owner", "repo", "branch"],
-          "Fetch GitHub Files"
-        );
-        ErrorHandler.info(
-          `Fetching files from ${config.owner}/${config.repo}@${config.branch}`,
-          "GitHubController"
-        );
-        const fileObjects = await this.githubService.fetchRepositoryFiles(config);
-        const filePaths = fileObjects.map((file) => file.path);
-        ErrorHandler.info(
-          `Found ${filePaths.length} JSON files in repository`,
-          "GitHubController"
-        );
-        return filePaths;
-      }, "Fetch GitHub Files");
-    }
-    /**
-     * Import multiple token files from GitHub
-     * Fetches and parses selected files
-     *
-     * @param config - GitHub configuration with selected files
-     * @returns Token data organized by primitives/semantics
-     */
-    async importFiles(config) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.validateRequired(
-          config,
-          ["owner", "repo", "branch", "files"],
-          "Import GitHub Files"
-        );
-        ErrorHandler.assert(
-          config.files && config.files.length > 0,
-          "No files selected for import",
-          "Import GitHub Files"
-        );
-        ErrorHandler.info(
-          `Importing ${config.files.length} files from ${config.owner}/${config.repo}@${config.branch}`,
-          "GitHubController"
-        );
-        const result = await this.githubService.fetchMultipleFiles(
-          config,
-          config.files
-        );
-        ErrorHandler.info(
-          `Files imported successfully (primitives: ${result.primitives ? "yes" : "no"}, semantics: ${result.semantics ? "yes" : "no"})`,
-          "GitHubController"
-        );
-        return result;
-      }, "Import GitHub Files");
-    }
-    /**
-     * Save GitHub configuration to storage
-     * Allows resuming GitHub sync without re-entering credentials
-     *
-     * @param config - GitHub configuration to save
-     */
-    async saveConfig(config) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.validateRequired(
-          config,
-          ["owner", "repo", "branch"],
-          "Save GitHub Config"
-        );
-        const result = await this.storage.saveGitHubConfig(config);
-        if (!result.success) {
-          throw new Error(result.error || "Failed to save GitHub configuration");
-        }
-        ErrorHandler.info("GitHub configuration saved", "GitHubController");
-        ErrorHandler.notifyUser(SUCCESS_MESSAGES.CONFIG_SAVED, "success");
-      }, "Save GitHub Config");
-    }
-    /**
-     * Load GitHub configuration from storage
-     * Restores previously saved credentials and repo info
-     *
-     * @returns GitHub config or null if not found
-     */
-    async loadConfig() {
-      return ErrorHandler.handle(async () => {
-        const result = await this.storage.getGitHubConfig();
-        if (!result.success) {
-          throw new Error(result.error || "Failed to load GitHub configuration");
-        }
-        if (!result.data) {
-          ErrorHandler.info("No saved GitHub config found", "GitHubController");
-          return null;
-        }
-        ErrorHandler.info(
-          `GitHub config loaded: ${result.data.owner}/${result.data.repo}@${result.data.branch}`,
-          "GitHubController"
-        );
-        return result.data;
-      }, "Load GitHub Config");
-    }
-    /**
-     * Clear saved GitHub configuration
-     * Useful for disconnecting from repository
-     */
-    async clearConfig() {
-      return ErrorHandler.handle(async () => {
-        const result = await this.storage.clearGitHubConfig();
-        if (!result.success) {
-          throw new Error(result.error || "Failed to clear GitHub configuration");
-        }
-        ErrorHandler.info("GitHub configuration cleared", "GitHubController");
-        ErrorHandler.notifyUser("GitHub configuration cleared", "success");
-      }, "Clear GitHub Config");
-    }
-    /**
-     * Validate GitHub configuration
-     * Tests connection to repository without fetching files
-     *
-     * @param config - GitHub configuration to validate
-     * @returns True if valid, false otherwise
-     */
-    async validateConfig(config) {
-      return ErrorHandler.handle(async () => {
-        ErrorHandler.validateRequired(
-          config,
-          ["owner", "repo", "branch"],
-          "Validate GitHub Config"
-        );
-        try {
-          await this.githubService.fetchRepositoryFiles(config);
-          ErrorHandler.info("GitHub configuration is valid", "GitHubController");
-          return true;
-        } catch (error) {
-          ErrorHandler.warn(
-            `GitHub configuration validation failed: ${ErrorHandler.formatError(error)}`,
-            "GitHubController"
-          );
-          return false;
-        }
-      }, "Validate GitHub Config");
-    }
-  };
-
   // src/core/services/TokenLevelAnalyzer.ts
   var TokenLevelAnalyzer = class {
     constructor() {
@@ -4874,6 +4288,268 @@
     }
   };
 
+  // src/application/use-cases/SaveTokenStateUseCase.ts
+  var SaveTokenStateUseCase = class extends UseCase {
+    constructor(storage) {
+      super();
+      this.storage = storage;
+    }
+    async executeImpl(input) {
+      console.log("[SaveTokenStateUseCase] Saving token state...");
+      const result = await this.storage.saveTokenState(input.tokenState);
+      if (!result.success) {
+        return Failure(`Failed to save token state: ${result.error}`);
+      }
+      console.log("[SaveTokenStateUseCase] Token state saved successfully");
+      return Success({ saved: true });
+    }
+    validate(input) {
+      if (!input.tokenState) {
+        return Failure("tokenState is required");
+      }
+      if (typeof input.tokenState !== "object") {
+        return Failure("tokenState must be an object");
+      }
+      if (!input.tokenState.tokenFiles) {
+        return Failure("tokenState.tokenFiles is required");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/LoadTokenStateUseCase.ts
+  var LoadTokenStateUseCase = class extends UseCase {
+    constructor(storage) {
+      super();
+      this.storage = storage;
+    }
+    async executeImpl(input) {
+      console.log("[LoadTokenStateUseCase] Loading token state...");
+      const result = await this.storage.getTokenState();
+      if (!result.success) {
+        console.log("[LoadTokenStateUseCase] No saved state found");
+        return Success({ tokenState: null });
+      }
+      const tokenState = result.data || null;
+      if (tokenState) {
+        console.log("[LoadTokenStateUseCase] Token state loaded successfully");
+      } else {
+        console.log("[LoadTokenStateUseCase] No saved state available");
+      }
+      return Success({ tokenState });
+    }
+    validate(input) {
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/SaveGitHubConfigUseCase.ts
+  var SaveGitHubConfigUseCase = class extends UseCase {
+    constructor(storage) {
+      super();
+      this.storage = storage;
+    }
+    async executeImpl(input) {
+      console.log("[SaveGitHubConfigUseCase] Saving GitHub configuration...");
+      const result = await this.storage.saveFileSourceConfig(input.config);
+      if (!result.success) {
+        return Failure(`Failed to save GitHub config: ${result.error}`);
+      }
+      console.log("[SaveGitHubConfigUseCase] GitHub config saved successfully");
+      return Success({ saved: true });
+    }
+    validate(input) {
+      if (!input.config) {
+        return Failure("config is required");
+      }
+      if (typeof input.config !== "object") {
+        return Failure("config must be an object");
+      }
+      if (!input.config.type || input.config.type !== "github") {
+        return Failure('config.type must be "github"');
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/LoadGitHubConfigUseCase.ts
+  var LoadGitHubConfigUseCase = class extends UseCase {
+    constructor(storage) {
+      super();
+      this.storage = storage;
+    }
+    async executeImpl(input) {
+      console.log("[LoadGitHubConfigUseCase] Loading GitHub configuration...");
+      const result = await this.storage.getFileSourceConfig();
+      if (!result.success || !result.data) {
+        console.log("[LoadGitHubConfigUseCase] No saved GitHub config found");
+        return Success({ config: null });
+      }
+      const config = result.data;
+      console.log("[LoadGitHubConfigUseCase] GitHub config loaded successfully");
+      return Success({ config });
+    }
+    validate(input) {
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/FetchGitHubFilesUseCase.ts
+  var FetchGitHubFilesUseCase = class extends UseCase {
+    constructor(githubService) {
+      super();
+      this.githubService = githubService;
+    }
+    async executeImpl(input) {
+      console.log(
+        `[FetchGitHubFilesUseCase] Fetching files from ${input.owner}/${input.repo}` + (input.path ? ` at ${input.path}` : "")
+      );
+      const config = {
+        type: "github",
+        owner: input.owner,
+        repo: input.repo,
+        path: input.path,
+        token: input.token
+      };
+      const result = await this.githubService.fetchFiles(config);
+      if (!result.success) {
+        return Failure(`Failed to fetch GitHub files: ${result.error}`);
+      }
+      const files = result.data || [];
+      console.log(`[FetchGitHubFilesUseCase] Found ${files.length} files`);
+      return Success({ files });
+    }
+    validate(input) {
+      if (!input.owner || typeof input.owner !== "string") {
+        return Failure("owner is required and must be a string");
+      }
+      if (!input.repo || typeof input.repo !== "string") {
+        return Failure("repo is required and must be a string");
+      }
+      if (input.path && typeof input.path !== "string") {
+        return Failure("path must be a string");
+      }
+      if (input.token && typeof input.token !== "string") {
+        return Failure("token must be a string");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/ImportFromGitHubUseCase.ts
+  var ImportFromGitHubUseCase = class extends UseCase {
+    constructor(githubService, useCaseRegistry) {
+      super();
+      this.githubService = githubService;
+      this.useCaseRegistry = useCaseRegistry;
+    }
+    async executeImpl(input) {
+      console.log(
+        `[ImportFromGitHubUseCase] Importing ${input.files.length} file(s) from ${input.owner}/${input.repo}`
+      );
+      let filesImported = 0;
+      let tokensImported = 0;
+      const config = {
+        type: "github",
+        owner: input.owner,
+        repo: input.repo,
+        token: input.token
+      };
+      for (const fileSpec of input.files) {
+        console.log(`[ImportFromGitHubUseCase] Fetching ${fileSpec.path}...`);
+        const fileContent = await this.githubService.fetchFileContent(
+          config,
+          fileSpec.path
+        );
+        if (!fileContent.success) {
+          console.warn(
+            `[ImportFromGitHubUseCase] Failed to fetch ${fileSpec.path}: ${fileContent.error}`
+          );
+          continue;
+        }
+        let tokenData;
+        try {
+          tokenData = JSON.parse(fileContent.data);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Invalid JSON";
+          console.warn(
+            `[ImportFromGitHubUseCase] Failed to parse ${fileSpec.path}: ${message}`
+          );
+          continue;
+        }
+        const importResult = await this.useCaseRegistry.execute("import-tokens", {
+          data: tokenData,
+          projectId: "default",
+          collection: fileSpec.collection || this.inferCollection(fileSpec.path),
+          filePath: fileSpec.path,
+          source: {
+            type: "github",
+            location: `${input.owner}/${input.repo}/${fileSpec.path}`
+          }
+        });
+        if (!importResult.success) {
+          console.warn(
+            `[ImportFromGitHubUseCase] Failed to import ${fileSpec.path}: ${importResult.error}`
+          );
+          continue;
+        }
+        filesImported++;
+        tokensImported += importResult.data.count;
+        console.log(
+          `[ImportFromGitHubUseCase] Imported ${importResult.data.count} tokens from ${fileSpec.path}`
+        );
+      }
+      if (filesImported === 0) {
+        return Failure("No files were successfully imported");
+      }
+      console.log(`[ImportFromGitHubUseCase] Syncing ${tokensImported} tokens to Figma...`);
+      const syncResult = await this.useCaseRegistry.execute("sync-to-figma", {
+        projectId: "default",
+        options: { overwrite: true }
+      });
+      if (!syncResult.success) {
+        return Failure(`Files imported but sync failed: ${syncResult.error}`);
+      }
+      const { created, updated, failed } = syncResult.data;
+      console.log(
+        `[ImportFromGitHubUseCase] Complete: ${filesImported} files, ${tokensImported} tokens imported, ${created + updated} synced to Figma`
+      );
+      return Success({
+        filesImported,
+        tokensImported,
+        tokensSynced: created + updated,
+        stats: { created, updated, failed }
+      });
+    }
+    validate(input) {
+      if (!input.owner || typeof input.owner !== "string") {
+        return Failure("owner is required and must be a string");
+      }
+      if (!input.repo || typeof input.repo !== "string") {
+        return Failure("repo is required and must be a string");
+      }
+      if (!input.files || !Array.isArray(input.files) || input.files.length === 0) {
+        return Failure("files is required and must be a non-empty array");
+      }
+      for (const file of input.files) {
+        if (!file.path || typeof file.path !== "string") {
+          return Failure("Each file must have a path (string)");
+        }
+      }
+      return Success(true);
+    }
+    /**
+     * Infer collection name from file path
+     * e.g., "tokens/primitives.json" → "primitive"
+     */
+    inferCollection(filePath) {
+      const filename = filePath.split("/").pop() || filePath;
+      const nameWithoutExt = filename.replace(/\.(json|tokens)$/i, "");
+      const cleaned = nameWithoutExt.replace(/[-_]tokens$/i, "").replace(/s$/, "");
+      return cleaned.toLowerCase();
+    }
+  };
+
   // src/infrastructure/input/TokenParserRegistry.ts
   var TokenParserRegistry = class {
     constructor() {
@@ -4940,6 +4616,266 @@
      */
     clear() {
       this.parsers = [];
+    }
+  };
+
+  // src/shared/utils.ts
+  function deepClone(obj) {
+    if (obj === null || typeof obj !== "object") {
+      return obj;
+    }
+    if (obj instanceof Date) {
+      return new Date(obj.getTime());
+    }
+    if (obj instanceof Array) {
+      return obj.map((item) => deepClone(item));
+    }
+    if (obj instanceof Set) {
+      return new Set(Array.from(obj).map(deepClone));
+    }
+    if (obj instanceof Map) {
+      const cloned2 = /* @__PURE__ */ new Map();
+      obj.forEach((value, key) => {
+        cloned2.set(deepClone(key), deepClone(value));
+      });
+      return cloned2;
+    }
+    const cloned = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        cloned[key] = deepClone(obj[key]);
+      }
+    }
+    return cloned;
+  }
+
+  // src/core/services/TokenProcessor.ts
+  var TokenProcessor = class {
+    /**
+     * Process raw token data into Token[] using auto-detected format
+     *
+     * @param data - Raw token data
+     * @param options - Processing options (projectId, source info, etc.)
+     * @returns Array of processed tokens
+     */
+    async processTokenData(data, options) {
+      try {
+        const strategy = TokenFormatRegistry.detectFormat(data);
+        if (!strategy) {
+          return Failure("Could not detect token format");
+        }
+        const parseContext = {
+          filePath: options.filePath,
+          collection: options.collection
+        };
+        const parseResult = strategy.parseTokens(data, parseContext);
+        if (!parseResult.success) {
+          return Failure(`Failed to parse tokens: ${parseResult.error}`);
+        }
+        const tokens = this.convertProcessedTokens(
+          parseResult.data || [],
+          strategy,
+          options
+        );
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[TokenProcessor] Failed to process token data: ${message}`);
+        return Failure(message);
+      }
+    }
+    /**
+     * Process multiple token files
+     *
+     * @param files - Array of {data, collection} objects
+     * @param options - Processing options
+     * @returns Combined array of tokens from all files
+     */
+    async processMultipleFiles(files, options) {
+      try {
+        const allTokens = [];
+        for (const file of files) {
+          const collection = file.collection || this.inferCollectionFromPath(file.filePath);
+          const result = await this.processTokenData(file.data, __spreadProps(__spreadValues({}, options), {
+            collection,
+            filePath: file.filePath
+            // Pass filePath for level analysis
+          }));
+          if (result.success && result.data) {
+            allTokens.push(...result.data);
+          } else {
+            console.warn(`[TokenProcessor] Failed to process file: ${result.error}`);
+          }
+        }
+        if (allTokens.length === 0) {
+          return Failure("No tokens could be processed from the provided files");
+        }
+        return Success(allTokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[TokenProcessor] Failed to process multiple files: ${message}`);
+        return Failure(message);
+      }
+    }
+    // ==================== PRIVATE METHODS ====================
+    /**
+     * Convert ProcessedToken[] to Token[]
+     */
+    convertProcessedTokens(processed, strategy, options) {
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const tokens = [];
+      for (const pt of processed) {
+        const id = this.generateTokenId(options.projectId, pt.path);
+        const qualifiedName = pt.path.join(".");
+        const name = pt.path[pt.path.length - 1];
+        const isAlias = strategy.isReference(pt.value);
+        const aliasTo = isAlias ? strategy.extractReference(pt.value) : void 0;
+        const type = this.mapToTokenType(pt.type);
+        const source = {
+          type: options.sourceType,
+          location: options.sourceLocation,
+          imported: now,
+          branch: options.sourceBranch,
+          commit: options.sourceCommit
+        };
+        const collection = options.collection || "default";
+        const formatInfo = strategy.getFormatInfo();
+        const sourceFormat = this.mapFormatName(formatInfo.name);
+        const token = {
+          id,
+          path: pt.path,
+          name,
+          qualifiedName,
+          type,
+          rawValue: deepClone(pt.originalValue !== void 0 ? pt.originalValue : pt.value),
+          value: deepClone(pt.value),
+          resolvedValue: isAlias ? void 0 : deepClone(pt.value),
+          aliasTo: aliasTo ? this.generateTokenId(options.projectId, aliasTo.split(".")) : void 0,
+          projectId: options.projectId,
+          collection,
+          theme: options.theme,
+          brand: options.brand,
+          sourceFormat,
+          source,
+          extensions: {},
+          tags: this.inferTags(pt.path, pt.type),
+          status: "active",
+          created: now,
+          lastModified: now
+        };
+        tokens.push(token);
+      }
+      return tokens;
+    }
+    /**
+     * Generate stable token ID
+     */
+    generateTokenId(projectId, path) {
+      const key = `${projectId}:${path.join(".")}`;
+      return this.simpleHash(key);
+    }
+    /**
+     * Simple hash function for ID generation
+     */
+    simpleHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return `token_${Math.abs(hash).toString(36)}`;
+    }
+    /**
+     * Map format-specific type to TokenType
+     */
+    mapToTokenType(type) {
+      const normalized = type.toLowerCase();
+      const typeMap = {
+        color: "color",
+        dimension: "dimension",
+        fontsize: "fontSize",
+        fontweight: "fontWeight",
+        fontfamily: "fontFamily",
+        lineheight: "lineHeight",
+        letterspacing: "letterSpacing",
+        spacing: "spacing",
+        shadow: "shadow",
+        border: "border",
+        duration: "duration",
+        cubicbezier: "cubicBezier",
+        number: "number",
+        string: "string",
+        typography: "typography",
+        boolean: "boolean"
+      };
+      if (normalized.includes("font")) {
+        if (normalized.includes("size")) return "fontSize";
+        if (normalized.includes("weight")) return "fontWeight";
+        if (normalized.includes("family")) return "fontFamily";
+      }
+      if (normalized.includes("line") && normalized.includes("height")) {
+        return "lineHeight";
+      }
+      if (normalized.includes("letter") && normalized.includes("spacing")) {
+        return "letterSpacing";
+      }
+      return typeMap[normalized] || "other";
+    }
+    /**
+     * Map format name to source format type
+     */
+    mapFormatName(formatName) {
+      const normalized = formatName.toLowerCase();
+      if (normalized.includes("w3c")) return "w3c";
+      if (normalized.includes("style") && normalized.includes("dictionary")) return "style-dictionary";
+      if (normalized.includes("figma")) return "figma";
+      return "custom";
+    }
+    /**
+     * Infer collection from file path
+     * Examples:
+     * - tokens/primitives.json -> primitives
+     * - tokens/semantic/colors.json -> semantic
+     * - colors.json -> default
+     */
+    inferCollectionFromPath(filePath) {
+      if (!filePath) return "default";
+      const parts = filePath.toLowerCase().split("/");
+      const collectionKeywords = [
+        "primitive",
+        "primitives",
+        "semantic",
+        "semantics",
+        "base",
+        "core",
+        "foundation",
+        "component",
+        "components"
+      ];
+      for (const part of parts) {
+        for (const keyword of collectionKeywords) {
+          if (part.includes(keyword)) {
+            return part.replace(/\.(json|js|ts)$/i, "");
+          }
+        }
+      }
+      const filename = parts[parts.length - 1];
+      return filename.replace(/\.(json|js|ts)$/i, "") || "default";
+    }
+    /**
+     * Infer tags from token path and type
+     */
+    inferTags(path, type) {
+      const tags = [];
+      tags.push(type);
+      if (path.length > 1) {
+        tags.push(path[0]);
+        if (path.length > 2) {
+          tags.push(`${path[0]}.${path[1]}`);
+        }
+      }
+      return tags;
     }
   };
 
@@ -6478,7 +6414,6 @@
 
   // src/backend/main.ts
   var PluginBackend = class {
-    // TODO: Migrate GitHub operations to use cases
     constructor() {
       this.registerArchitectureComponents();
       this.githubService = new GitHubService();
@@ -6487,9 +6422,7 @@
       this.tokenResolver = new TokenResolver(this.tokenRepository);
       this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
       this.initializeLayeredArchitecture();
-      this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
-      this.githubController = new GitHubController(this.githubService, this.storage);
-      ErrorHandler.info("Plugin backend initialized (v3.0 Layered Architecture)", "PluginBackend");
+      ErrorHandler.info("Plugin backend initialized (v3.0 Layered Architecture - 100% Adoption)", "PluginBackend");
     }
     /**
      * Initialize layered architecture components (Sprint 3)
@@ -6550,6 +6483,36 @@
       this.useCaseRegistry.register("apply-scopes", applyScopesUseCase, {
         description: "Apply scope assignments to Figma variables",
         category: "scopes"
+      });
+      const saveTokenStateUseCase = new SaveTokenStateUseCase(this.storage);
+      this.useCaseRegistry.register("save-token-state", saveTokenStateUseCase, {
+        description: "Save token state to plugin storage",
+        category: "storage"
+      });
+      const loadTokenStateUseCase = new LoadTokenStateUseCase(this.storage);
+      this.useCaseRegistry.register("load-token-state", loadTokenStateUseCase, {
+        description: "Load token state from plugin storage",
+        category: "storage"
+      });
+      const saveGitHubConfigUseCase = new SaveGitHubConfigUseCase(this.storage);
+      this.useCaseRegistry.register("save-github-config", saveGitHubConfigUseCase, {
+        description: "Save GitHub configuration to plugin storage",
+        category: "github"
+      });
+      const loadGitHubConfigUseCase = new LoadGitHubConfigUseCase(this.storage);
+      this.useCaseRegistry.register("load-github-config", loadGitHubConfigUseCase, {
+        description: "Load GitHub configuration from plugin storage",
+        category: "github"
+      });
+      const fetchGitHubFilesUseCase = new FetchGitHubFilesUseCase(this.githubService);
+      this.useCaseRegistry.register("fetch-github-files", fetchGitHubFilesUseCase, {
+        description: "Fetch list of token files from GitHub repository",
+        category: "github"
+      });
+      const importFromGitHubUseCase = new ImportFromGitHubUseCase(this.githubService, this.useCaseRegistry);
+      this.useCaseRegistry.register("import-from-github", importFromGitHubUseCase, {
+        description: "Import and sync tokens from GitHub repository",
+        category: "github"
       });
       ErrorHandler.info(
         `Layered architecture initialized: ${this.parserRegistry.count()} parsers, ${this.exporterRegistry.count()} exporters, ${this.useCaseRegistry.count()} use cases`,
@@ -6699,61 +6662,78 @@
       });
     }
     async handleSaveTokens(msg) {
-      const result = await this.tokenController.saveTokens(msg.data);
+      const result = await this.useCaseRegistry.execute("save-token-state", {
+        tokenState: msg.data
+      });
       if (!result.success) {
         throw new Error(result.error);
       }
     }
     async handleLoadTokens(msg) {
-      const result = await this.tokenController.loadTokens();
+      const result = await this.useCaseRegistry.execute("load-token-state", {});
       if (!result.success) {
         throw new Error(result.error);
       }
       figma.ui.postMessage({
         type: "tokens-loaded",
-        data: result.data || {},
+        data: result.data.tokenState || {},
         requestId: msg.requestId
       });
     }
     // ==================== GITHUB HANDLERS ====================
     async handleGitHubFetchFiles(msg) {
-      const result = await this.githubController.fetchFiles(msg.data);
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "github-files-fetched",
-          data: { files: result.data },
-          requestId: msg.requestId
-        });
-      } else {
+      const result = await this.useCaseRegistry.execute("fetch-github-files", {
+        owner: msg.data.owner,
+        repo: msg.data.repo,
+        path: msg.data.path,
+        token: msg.data.token
+      });
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "github-files-fetched",
+        data: { files: result.data.files },
+        requestId: msg.requestId
+      });
     }
     async handleGitHubImportFiles(msg) {
-      const result = await this.githubController.importFiles(msg.data);
-      if (result.success) {
-        figma.ui.postMessage({
-          type: "github-files-imported",
-          data: result.data,
-          requestId: msg.requestId
-        });
-      } else {
+      const result = await this.useCaseRegistry.execute("import-from-github", {
+        owner: msg.data.owner,
+        repo: msg.data.repo,
+        files: msg.data.files,
+        token: msg.data.token
+      });
+      if (!result.success) {
         throw new Error(result.error);
       }
+      figma.ui.postMessage({
+        type: "github-files-imported",
+        data: {
+          filesImported: result.data.filesImported,
+          tokensImported: result.data.tokensImported,
+          stats: result.data.stats
+        },
+        requestId: msg.requestId
+      });
     }
     async handleLoadGitHubConfig(msg) {
-      const result = await this.githubController.loadConfig();
-      if (result.success && result.data) {
+      const result = await this.useCaseRegistry.execute("load-github-config", {});
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      if (result.data.config) {
         figma.ui.postMessage({
           type: "github-config-loaded",
-          data: result.data,
+          data: result.data.config,
           requestId: msg.requestId
         });
-      } else if (!result.success) {
-        throw new Error(result.error);
       }
     }
     async handleSaveGitHubConfig(msg) {
-      const result = await this.githubController.saveConfig(msg.data);
+      const result = await this.useCaseRegistry.execute("save-github-config", {
+        config: msg.data
+      });
       if (!result.success) {
         throw new Error(result.error);
       }
