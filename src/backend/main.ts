@@ -456,10 +456,17 @@ class PluginBackend {
   }
 
   private async handleGitHubImportFiles(msg: PluginMessage): Promise<void> {
+    // Convert files array: string[] to Array<{path: string}>
+    const files = Array.isArray(msg.data.files)
+      ? msg.data.files.map((file: any) =>
+          typeof file === 'string' ? { path: file } : file
+        )
+      : [];
+
     const result = await this.useCaseRegistry.execute('import-from-github', {
       owner: msg.data.owner,
       repo: msg.data.repo,
-      files: msg.data.files,
+      files: files,
       token: msg.data.token
     });
 
@@ -496,8 +503,15 @@ class PluginBackend {
   }
 
   private async handleSaveGitHubConfig(msg: PluginMessage): Promise<void> {
+    // Convert GitHubConfig to FileSourceConfig by adding type field
+    const config = {
+      ...msg.data,
+      type: 'github' as const,
+      location: `${msg.data.owner}/${msg.data.repo}`
+    };
+
     const result = await this.useCaseRegistry.execute('save-github-config', {
-      config: msg.data
+      config: config
     });
 
     if (!result.success) {

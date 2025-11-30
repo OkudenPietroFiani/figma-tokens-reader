@@ -6793,10 +6793,13 @@
       });
     }
     async handleGitHubImportFiles(msg) {
+      const files = Array.isArray(msg.data.files) ? msg.data.files.map(
+        (file) => typeof file === "string" ? { path: file } : file
+      ) : [];
       const result = await this.useCaseRegistry.execute("import-from-github", {
         owner: msg.data.owner,
         repo: msg.data.repo,
-        files: msg.data.files,
+        files,
         token: msg.data.token
       });
       if (!result.success) {
@@ -6826,8 +6829,12 @@
       }
     }
     async handleSaveGitHubConfig(msg) {
+      const config = __spreadProps(__spreadValues({}, msg.data), {
+        type: "github",
+        location: `${msg.data.owner}/${msg.data.repo}`
+      });
       const result = await this.useCaseRegistry.execute("save-github-config", {
-        config: msg.data
+        config
       });
       if (!result.success) {
         throw new Error(result.error);
