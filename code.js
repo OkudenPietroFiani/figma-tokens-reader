@@ -4894,6 +4894,733 @@
     }
   };
 
+  // src/application/UseCaseRegistry.ts
+  var UseCaseRegistry = class {
+    constructor() {
+      this.useCases = /* @__PURE__ */ new Map();
+      this.metadata = /* @__PURE__ */ new Map();
+    }
+    /**
+     * Register a use case with the registry
+     *
+     * @param name - Unique identifier for the use case
+     * @param useCase - Use case instance
+     * @param metadata - Optional metadata about the use case
+     */
+    register(name, useCase, metadata) {
+      var _a;
+      if (this.useCases.has(name)) {
+        console.warn(`[UseCaseRegistry] Overwriting existing use case: ${name}`);
+      }
+      this.useCases.set(name, useCase);
+      this.metadata.set(name, {
+        name,
+        description: (metadata == null ? void 0 : metadata.description) || "",
+        category: (metadata == null ? void 0 : metadata.category) || "general",
+        requiresAuth: (_a = metadata == null ? void 0 : metadata.requiresAuth) != null ? _a : false
+      });
+      console.log(`[UseCaseRegistry] Registered use case: ${name}`);
+    }
+    /**
+     * Get a use case by name
+     *
+     * @param name - Use case name
+     * @returns Use case instance or undefined
+     */
+    get(name) {
+      return this.useCases.get(name);
+    }
+    /**
+     * Check if a use case is registered
+     *
+     * @param name - Use case name
+     * @returns True if registered
+     */
+    has(name) {
+      return this.useCases.has(name);
+    }
+    /**
+     * Execute a use case by name
+     *
+     * Convenience method that looks up the use case and executes it.
+     *
+     * @param name - Use case name
+     * @param input - Use case input
+     * @returns Result from use case execution
+     */
+    async execute(name, input) {
+      const useCase = this.useCases.get(name);
+      if (!useCase) {
+        return Failure(`Use case not found: ${name}. Available: ${this.listNames().join(", ")}`);
+      }
+      console.log(`[UseCaseRegistry] Executing use case: ${name}`);
+      try {
+        return await useCase.execute(input);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[UseCaseRegistry] Use case '${name}' failed:`, message);
+        return Failure(`Use case execution failed: ${message}`);
+      }
+    }
+    /**
+     * List all registered use case names
+     *
+     * @returns Array of use case names
+     */
+    listNames() {
+      return Array.from(this.useCases.keys());
+    }
+    /**
+     * List all registered use cases with metadata
+     *
+     * @returns Array of use case metadata
+     */
+    list() {
+      return Array.from(this.metadata.values());
+    }
+    /**
+     * Get metadata for a specific use case
+     *
+     * @param name - Use case name
+     * @returns Metadata or undefined
+     */
+    getMetadata(name) {
+      return this.metadata.get(name);
+    }
+    /**
+     * Get use cases by category
+     *
+     * @param category - Category name
+     * @returns Array of use case names in category
+     */
+    getByCategory(category) {
+      return Array.from(this.metadata.entries()).filter(([_, meta]) => meta.category === category).map(([name]) => name);
+    }
+    /**
+     * Clear all registered use cases
+     *
+     * Useful for testing or resetting the registry.
+     */
+    clear() {
+      this.useCases.clear();
+      this.metadata.clear();
+      console.log("[UseCaseRegistry] Cleared all use cases");
+    }
+    /**
+     * Get count of registered use cases
+     */
+    count() {
+      return this.useCases.size;
+    }
+  };
+
+  // src/application/interfaces/IUseCase.ts
+  var UseCase = class {
+    /**
+     * Template method for executing use case with error handling
+     */
+    async execute(input) {
+      try {
+        if (this.validate) {
+          const validation = this.validate(input);
+          if (!validation.success) {
+            return validation;
+          }
+        }
+        return await this.executeImpl(input);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[${this.constructor.name}] Error:`, message);
+        return {
+          success: false,
+          error: message
+        };
+      }
+    }
+  };
+
+  // src/application/use-cases/ImportTokensUseCase.ts
+  var ImportTokensUseCase = class extends UseCase {
+    constructor(parserRegistry, repository) {
+      super();
+      this.parserRegistry = parserRegistry;
+      this.repository = repository;
+    }
+    async executeImpl(input) {
+      var _a;
+      const parser = this.parserRegistry.detectParser(input.data);
+      if (!parser) {
+        return Failure("Could not detect token format. Ensure data is valid W3C or Style Dictionary format.");
+      }
+      console.log(`[ImportTokensUseCase] Detected format: ${parser.name}`);
+      const parseContext = {
+        filePath: input.filePath,
+        collection: input.collection
+      };
+      const parseResult = await parser.parse(input.data, parseContext);
+      if (!parseResult.success) {
+        return Failure(`Failed to parse tokens: ${parseResult.error}`);
+      }
+      const tokens = parseResult.data || [];
+      if (tokens.length === 0) {
+        return Failure("No tokens found in the provided data");
+      }
+      const collection = input.collection || ((_a = tokens[0]) == null ? void 0 : _a.collection) || "default";
+      console.log(`[ImportTokensUseCase] Parsed ${tokens.length} tokens for collection '${collection}'`);
+      if (input.replace) {
+        const replaceResult = this.repository.replaceCollection(
+          collection,
+          input.projectId,
+          tokens
+        );
+        if (!replaceResult.success) {
+          return Failure(`Failed to replace tokens: ${replaceResult.error}`);
+        }
+        return Success({
+          tokens: replaceResult.data || [],
+          count: tokens.length,
+          collection,
+          replaced: true
+        });
+      }
+      const saveResult = this.repository.saveMany(tokens);
+      if (!saveResult.success) {
+        return Failure(`Failed to save tokens: ${saveResult.error}`);
+      }
+      return Success({
+        tokens: saveResult.data || [],
+        count: tokens.length,
+        collection,
+        replaced: false
+      });
+    }
+    validate(input) {
+      if (!input.data || typeof input.data !== "object") {
+        return Failure("Input data must be a valid object");
+      }
+      if (!input.projectId || typeof input.projectId !== "string") {
+        return Failure("Project ID is required and must be a string");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/SyncToFigmaVariablesUseCase.ts
+  var SyncToFigmaVariablesUseCase = class extends UseCase {
+    constructor(repository, figmaExporter) {
+      super();
+      this.repository = repository;
+      this.figmaExporter = figmaExporter;
+    }
+    async executeImpl(input) {
+      var _a, _b, _c, _d, _e;
+      const criteria = {
+        projectId: input.projectId,
+        collection: input.collection,
+        status: "active"
+        // Only sync active tokens
+      };
+      let tokens = input.tokenIds ? input.tokenIds.map((id) => this.repository.findById(id)).filter((t) => t !== void 0) : this.repository.query(criteria);
+      if (tokens.length === 0) {
+        return Failure("No tokens found matching the criteria");
+      }
+      console.log(`[SyncToFigmaVariablesUseCase] Found ${tokens.length} tokens to sync`);
+      const collections = [...new Set(tokens.map((t) => t.collection))];
+      if (this.figmaExporter.validate) {
+        const validation = this.figmaExporter.validate(tokens);
+        if (!validation.success || validation.data && !validation.data.valid) {
+          const errors = ((_a = validation.data) == null ? void 0 : _a.errors.map((e) => e.message).join(", ")) || "Unknown validation errors";
+          return Failure(`Token validation failed: ${errors}`);
+        }
+      }
+      const exportOptions = {
+        target: "figma-variables",
+        projectId: input.projectId,
+        collection: input.collection,
+        overwrite: (_c = (_b = input.options) == null ? void 0 : _b.overwrite) != null ? _c : true,
+        dryRun: (_e = (_d = input.options) == null ? void 0 : _d.dryRun) != null ? _e : false
+      };
+      const exportResult = await this.figmaExporter.export(tokens, exportOptions);
+      if (!exportResult.success) {
+        return Failure(`Failed to sync to Figma: ${exportResult.error}`);
+      }
+      const result = exportResult.data;
+      console.log(
+        `[SyncToFigmaVariablesUseCase] Synced ${result.exported} tokens (${result.created} created, ${result.updated} updated, ${result.failed} failed)`
+      );
+      return Success(__spreadProps(__spreadValues({}, result), {
+        total: tokens.length,
+        collections
+      }));
+    }
+    validate(input) {
+      if (!input.projectId || typeof input.projectId !== "string") {
+        return Failure("Project ID is required and must be a string");
+      }
+      if (input.tokenIds && !Array.isArray(input.tokenIds)) {
+        return Failure("Token IDs must be an array");
+      }
+      return Success(true);
+    }
+  };
+
+  // src/application/use-cases/GetTokensUseCase.ts
+  var GetTokensUseCase = class extends UseCase {
+    constructor(repository) {
+      super();
+      this.repository = repository;
+    }
+    async executeImpl(input) {
+      const criteria = {
+        projectId: input.projectId,
+        collection: input.collection,
+        type: input.type,
+        search: input.search,
+        tags: input.tags,
+        status: "active"
+        // Only return active tokens by default
+      };
+      const allTokens = this.repository.query(criteria);
+      const total = allTokens.length;
+      let tokens = allTokens;
+      if (input.pagination) {
+        const { limit, offset } = input.pagination;
+        tokens = allTokens.slice(offset, offset + limit);
+      }
+      console.log(
+        `[GetTokensUseCase] Retrieved ${tokens.length} tokens` + (input.pagination ? ` (showing ${input.pagination.offset}-${input.pagination.offset + tokens.length} of ${total})` : "")
+      );
+      const pagination = input.pagination ? {
+        limit: input.pagination.limit,
+        offset: input.pagination.offset,
+        hasMore: input.pagination.offset + input.pagination.limit < total
+      } : void 0;
+      return Success({
+        tokens,
+        total,
+        filters: criteria,
+        pagination
+      });
+    }
+    validate(input) {
+      if (input.pagination) {
+        if (input.pagination.limit < 1) {
+          return Failure("Pagination limit must be at least 1");
+        }
+        if (input.pagination.offset < 0) {
+          return Failure("Pagination offset cannot be negative");
+        }
+      }
+      return Success(true);
+    }
+  };
+
+  // src/infrastructure/input/TokenParserRegistry.ts
+  var TokenParserRegistry = class {
+    constructor() {
+      this.parsers = [];
+    }
+    /**
+     * Register a token parser
+     */
+    register(parser) {
+      const existing = this.parsers.find((p) => p.name === parser.name);
+      if (existing) {
+        console.warn(`[TokenParserRegistry] Parser '${parser.name}' already registered, replacing...`);
+        this.parsers = this.parsers.filter((p) => p.name !== parser.name);
+      }
+      this.parsers.push(parser);
+      console.log(`[TokenParserRegistry] Registered parser: ${parser.name}`);
+    }
+    /**
+     * Auto-detect the best parser for the given data
+     *
+     * Returns the parser with the highest confidence score.
+     * Returns null if no parser can handle the data (all scores = 0).
+     */
+    detectParser(data) {
+      if (this.parsers.length === 0) {
+        console.error("[TokenParserRegistry] No parsers registered");
+        return null;
+      }
+      const scores = this.parsers.map((parser) => ({
+        parser,
+        score: parser.detectFormat(data)
+      }));
+      scores.sort((a, b) => b.score - a.score);
+      const best = scores[0];
+      if (best.score === 0) {
+        console.warn("[TokenParserRegistry] No parser detected the format");
+        return null;
+      }
+      console.log(
+        `[TokenParserRegistry] Detected format: ${best.parser.name} (confidence: ${(best.score * 100).toFixed(0)}%)`
+      );
+      return best.parser;
+    }
+    /**
+     * Get a parser by name
+     */
+    getParser(name) {
+      return this.parsers.find((p) => p.name === name);
+    }
+    /**
+     * List all registered parsers
+     */
+    listParsers() {
+      return [...this.parsers];
+    }
+    /**
+     * Get count of registered parsers
+     */
+    count() {
+      return this.parsers.length;
+    }
+    /**
+     * Clear all parsers (useful for testing)
+     */
+    clear() {
+      this.parsers = [];
+    }
+  };
+
+  // src/infrastructure/input/W3CTokenParser.ts
+  var W3CTokenParser = class {
+    constructor() {
+      this.name = "W3C Design Tokens";
+      this.strategy = new W3CTokenFormatStrategy();
+      this.processor = new TokenProcessor();
+    }
+    /**
+     * Detect if data is W3C format
+     */
+    detectFormat(data) {
+      return this.strategy.detectFormat(data);
+    }
+    /**
+     * Parse W3C tokens into universal Token model
+     */
+    async parse(data, context) {
+      try {
+        const result = await this.processor.processTokenData(data, {
+          projectId: (context == null ? void 0 : context.collection) || "default",
+          collection: context == null ? void 0 : context.collection,
+          filePath: context == null ? void 0 : context.filePath,
+          sourceType: "local",
+          sourceLocation: (context == null ? void 0 : context.filePath) || "unknown"
+        });
+        return result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[W3CTokenParser] Parse error: ${message}`);
+        return Failure(`Failed to parse W3C tokens: ${message}`);
+      }
+    }
+  };
+
+  // src/infrastructure/output/TokenExporterRegistry.ts
+  var TokenExporterRegistry = class {
+    constructor() {
+      this.exporters = /* @__PURE__ */ new Map();
+    }
+    /**
+     * Register a token exporter
+     */
+    register(exporter) {
+      const targetFormat = exporter.targetFormat;
+      if (this.exporters.has(targetFormat)) {
+        console.warn(
+          `[TokenExporterRegistry] Exporter for '${targetFormat}' already registered, replacing...`
+        );
+      }
+      this.exporters.set(targetFormat, exporter);
+      console.log(`[TokenExporterRegistry] Registered exporter: ${exporter.name} (${targetFormat})`);
+    }
+    /**
+     * Get exporter by target format
+     */
+    getExporter(targetFormat) {
+      const exporter = this.exporters.get(targetFormat);
+      if (!exporter) {
+        console.warn(`[TokenExporterRegistry] No exporter found for format: ${targetFormat}`);
+        console.log(`Available formats: ${Array.from(this.exporters.keys()).join(", ")}`);
+      }
+      return exporter;
+    }
+    /**
+     * List all registered exporters
+     */
+    listExporters() {
+      return Array.from(this.exporters.values());
+    }
+    /**
+     * Get all available target formats
+     */
+    getAvailableFormats() {
+      return Array.from(this.exporters.keys());
+    }
+    /**
+     * Check if a format is supported
+     */
+    hasFormat(targetFormat) {
+      return this.exporters.has(targetFormat);
+    }
+    /**
+     * Get count of registered exporters
+     */
+    count() {
+      return this.exporters.size;
+    }
+    /**
+     * Clear all exporters (useful for testing)
+     */
+    clear() {
+      this.exporters.clear();
+    }
+  };
+
+  // src/infrastructure/output/FigmaVariablesExporter.ts
+  var FigmaVariablesExporter = class {
+    constructor(repository, resolver) {
+      this.name = "Figma Variables";
+      this.targetFormat = "figma-variables";
+      this.syncService = new FigmaSyncService(repository, resolver);
+    }
+    /**
+     * Export tokens to Figma Variables
+     */
+    async export(tokens, options) {
+      var _a;
+      try {
+        const syncOptions = {
+          updateExisting: (_a = options == null ? void 0 : options.overwrite) != null ? _a : true,
+          preserveScopes: true,
+          createStyles: true,
+          // Also create text/effect styles
+          percentageBase: 16
+        };
+        if (options == null ? void 0 : options.dryRun) {
+          console.log("[FigmaVariablesExporter] Dry run mode - not actually syncing");
+          return Success({
+            exported: tokens.length,
+            created: tokens.length,
+            updated: 0,
+            failed: 0,
+            metadata: { dryRun: true }
+          });
+        }
+        const syncResult = await this.syncService.syncTokens(tokens, syncOptions);
+        if (!syncResult.success) {
+          return Failure(`Figma sync failed: ${syncResult.error}`);
+        }
+        const stats = syncResult.data.stats;
+        const result = {
+          exported: stats.created + stats.updated,
+          created: stats.created,
+          updated: stats.updated,
+          failed: stats.failed,
+          errors: stats.failed > 0 ? [{ token: "various", error: `${stats.failed} tokens failed` }] : [],
+          metadata: {
+            collections: syncResult.data.collections,
+            variableCount: syncResult.data.variables.size
+          }
+        };
+        console.log(
+          `[FigmaVariablesExporter] Exported ${result.exported} tokens (${result.created} created, ${result.updated} updated)`
+        );
+        return Success(result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[FigmaVariablesExporter] Export error: ${message}`);
+        return Failure(`Failed to export to Figma Variables: ${message}`);
+      }
+    }
+    /**
+     * Optional: Validate tokens before export
+     *
+     * Figma Variables support most token types, so validation is lenient.
+     * Could be extended to check for unsupported types or invalid values.
+     */
+    validate(tokens) {
+      if (!tokens || tokens.length === 0) {
+        return Failure("No tokens to export");
+      }
+      return Success({
+        valid: true,
+        errors: [],
+        warnings: []
+      });
+    }
+  };
+
+  // src/infrastructure/storage/InMemoryTokenRepository.ts
+  var InMemoryTokenRepository = class {
+    constructor() {
+      this.repository = new TokenRepository();
+    }
+    // ==================== QUERIES ====================
+    findById(id) {
+      return this.repository.get(id);
+    }
+    findByQualifiedName(qualifiedName, projectId) {
+      return this.repository.getByQualifiedName(qualifiedName, projectId);
+    }
+    query(criteria) {
+      const query = {
+        projectId: criteria.projectId,
+        collection: criteria.collection,
+        type: criteria.type,
+        theme: criteria.theme,
+        brand: criteria.brand,
+        status: criteria.status,
+        tags: criteria.tags
+      };
+      let results = this.repository.query(query);
+      if (criteria.search) {
+        const searchLower = criteria.search.toLowerCase();
+        results = results.filter(
+          (token) => token.name.toLowerCase().includes(searchLower) || token.qualifiedName.toLowerCase().includes(searchLower) || token.path.some((p) => p.toLowerCase().includes(searchLower))
+        );
+      }
+      return results;
+    }
+    findByProject(projectId) {
+      return this.repository.query({ projectId });
+    }
+    findByCollection(collection, projectId) {
+      return this.repository.query({ collection, projectId });
+    }
+    exists(id) {
+      return this.repository.has(id);
+    }
+    count(criteria) {
+      if (!criteria) {
+        return this.repository.size();
+      }
+      return this.query(criteria).length;
+    }
+    // ==================== COMMANDS ====================
+    save(token) {
+      try {
+        this.repository.set(token);
+        return Success(token);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to save token: ${message}`);
+      }
+    }
+    saveMany(tokens) {
+      try {
+        this.repository.bulkSet(tokens);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to save tokens: ${message}`);
+      }
+    }
+    delete(id) {
+      try {
+        const existed = this.repository.has(id);
+        if (existed) {
+          this.repository.delete(id);
+        }
+        return Success(existed);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to delete token: ${message}`);
+      }
+    }
+    deleteMany(ids) {
+      try {
+        let deleted = 0;
+        for (const id of ids) {
+          if (this.repository.has(id)) {
+            this.repository.delete(id);
+            deleted++;
+          }
+        }
+        return Success(deleted);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to delete tokens: ${message}`);
+      }
+    }
+    deleteWhere(criteria) {
+      try {
+        const tokens = this.query(criteria);
+        const ids = tokens.map((t) => t.id);
+        return this.deleteMany(ids);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to delete tokens: ${message}`);
+      }
+    }
+    clear() {
+      try {
+        this.repository.clear();
+        return Success(true);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to clear repository: ${message}`);
+      }
+    }
+    // ==================== BULK OPERATIONS ====================
+    replaceProject(projectId, tokens) {
+      try {
+        const existing = this.findByProject(projectId);
+        for (const token of existing) {
+          this.repository.delete(token.id);
+        }
+        this.repository.bulkSet(tokens);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to replace project: ${message}`);
+      }
+    }
+    replaceCollection(collection, projectId, tokens) {
+      try {
+        const existing = this.findByCollection(collection, projectId);
+        for (const token of existing) {
+          this.repository.delete(token.id);
+        }
+        this.repository.bulkSet(tokens);
+        return Success(tokens);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return Failure(`Failed to replace collection: ${message}`);
+      }
+    }
+    // ==================== INDEXES & OPTIMIZATION ====================
+    getCollections(projectId) {
+      const tokens = projectId ? this.findByProject(projectId) : this.repository.getAll();
+      const collections = new Set(tokens.map((t) => t.collection));
+      return Array.from(collections);
+    }
+    getProjects() {
+      const tokens = this.repository.getAll();
+      const projects = new Set(tokens.map((t) => t.projectId));
+      return Array.from(projects);
+    }
+    rebuildIndexes() {
+      this.repository.rebuildIndexes();
+    }
+    // ==================== ADDITIONAL METHODS (not in port) ====================
+    /**
+     * Get the underlying core repository (for backward compatibility)
+     * Use sparingly - prefer using the port interface
+     */
+    getCoreRepository() {
+      return this.repository;
+    }
+    /**
+     * Get all tokens (convenience method)
+     */
+    getAll() {
+      return this.repository.getAll();
+    }
+  };
+
   // src/core/registries/TokenVisualizerRegistry.ts
   var TokenVisualizerRegistry = class {
     /**
@@ -6088,6 +6815,7 @@
       this.tokenRepository = new TokenRepository();
       this.tokenResolver = new TokenResolver(this.tokenRepository);
       this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
+      this.initializeLayeredArchitecture();
       this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
       this.githubController = new GitHubController(this.githubService, this.storage);
       this.scopeController = new ScopeController();
@@ -6097,7 +6825,52 @@
         this.storage,
         this.tokenRepository
       );
-      ErrorHandler.info("Plugin backend initialized (v2.0 Architecture)", "PluginBackend");
+      ErrorHandler.info("Plugin backend initialized (v3.0 Layered Architecture)", "PluginBackend");
+    }
+    /**
+     * Initialize layered architecture components (Sprint 3)
+     *
+     * Creates:
+     * - Infrastructure layer (parsers, exporters, repositories)
+     * - Application layer (use cases)
+     * - Use case registry for command execution
+     *
+     * @private
+     */
+    initializeLayeredArchitecture() {
+      ErrorHandler.info("Initializing layered architecture...", "PluginBackend");
+      this.parserRegistry = new TokenParserRegistry();
+      this.parserRegistry.register(new W3CTokenParser());
+      this.exporterRegistry = new TokenExporterRegistry();
+      const figmaExporter = new FigmaVariablesExporter(this.tokenRepository, this.tokenResolver);
+      this.exporterRegistry.register(figmaExporter);
+      this.repositoryAdapter = new InMemoryTokenRepository();
+      this.useCaseRegistry = new UseCaseRegistry();
+      const importTokensUseCase = new ImportTokensUseCase(
+        this.parserRegistry,
+        this.repositoryAdapter
+      );
+      this.useCaseRegistry.register("import-tokens", importTokensUseCase, {
+        description: "Import design tokens from JSON files",
+        category: "import"
+      });
+      const syncToFigmaUseCase = new SyncToFigmaVariablesUseCase(
+        this.repositoryAdapter,
+        figmaExporter
+      );
+      this.useCaseRegistry.register("sync-to-figma", syncToFigmaUseCase, {
+        description: "Sync tokens to Figma Variables",
+        category: "sync"
+      });
+      const getTokensUseCase = new GetTokensUseCase(this.repositoryAdapter);
+      this.useCaseRegistry.register("get-tokens", getTokensUseCase, {
+        description: "Query and retrieve tokens",
+        category: "query"
+      });
+      ErrorHandler.info(
+        `Layered architecture initialized: ${this.parserRegistry.count()} parsers, ${this.exporterRegistry.count()} exporters, ${this.useCaseRegistry.count()} use cases`,
+        "PluginBackend"
+      );
     }
     /**
      * Register new architecture components

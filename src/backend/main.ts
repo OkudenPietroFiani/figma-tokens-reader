@@ -27,6 +27,17 @@ import { GitHubFileSource } from '../core/adapters/GitHubFileSource';
 import { W3CTokenFormatStrategy } from '../core/adapters/W3CTokenFormatStrategy';
 import { StyleDictionaryFormatStrategy } from '../core/adapters/StyleDictionaryFormatStrategy';
 
+// Layered Architecture (Sprint 3)
+import { UseCaseRegistry } from '../application/UseCaseRegistry';
+import { ImportTokensUseCase } from '../application/use-cases/ImportTokensUseCase';
+import { SyncToFigmaVariablesUseCase } from '../application/use-cases/SyncToFigmaVariablesUseCase';
+import { GetTokensUseCase } from '../application/use-cases/GetTokensUseCase';
+import { TokenParserRegistry } from '../infrastructure/input/TokenParserRegistry';
+import { W3CTokenParser } from '../infrastructure/input/W3CTokenParser';
+import { TokenExporterRegistry } from '../infrastructure/output/TokenExporterRegistry';
+import { FigmaVariablesExporter } from '../infrastructure/output/FigmaVariablesExporter';
+import { InMemoryTokenRepository } from '../infrastructure/storage/InMemoryTokenRepository';
+
 // Documentation Architecture
 import { TokenVisualizerRegistry } from '../core/registries/TokenVisualizerRegistry';
 import { ColorVisualizer } from '../core/visualizers/ColorVisualizer';
@@ -54,6 +65,12 @@ class PluginBackend {
   private tokenResolver: TokenResolver;
   private figmaSyncService: FigmaSyncService;
 
+  // Layered Architecture (Sprint 3)
+  private useCaseRegistry: UseCaseRegistry;
+  private parserRegistry: TokenParserRegistry;
+  private exporterRegistry: TokenExporterRegistry;
+  private repositoryAdapter: InMemoryTokenRepository;
+
   // Controllers
   private tokenController: TokenController;
   private githubController: GitHubController;
@@ -71,6 +88,9 @@ class PluginBackend {
     this.tokenResolver = new TokenResolver(this.tokenRepository);
     this.figmaSyncService = new FigmaSyncService(this.tokenRepository, this.tokenResolver);
 
+    // Initialize layered architecture (Sprint 3)
+    this.initializeLayeredArchitecture();
+
     // Initialize controllers with dependency injection
     this.tokenController = new TokenController(this.figmaSyncService, this.storage, this.tokenRepository, this.tokenResolver);
     this.githubController = new GitHubController(this.githubService, this.storage);
@@ -84,7 +104,73 @@ class PluginBackend {
       this.tokenRepository
     );
 
-    ErrorHandler.info('Plugin backend initialized (v2.0 Architecture)', 'PluginBackend');
+    ErrorHandler.info('Plugin backend initialized (v3.0 Layered Architecture)', 'PluginBackend');
+  }
+
+  /**
+   * Initialize layered architecture components (Sprint 3)
+   *
+   * Creates:
+   * - Infrastructure layer (parsers, exporters, repositories)
+   * - Application layer (use cases)
+   * - Use case registry for command execution
+   *
+   * @private
+   */
+  private initializeLayeredArchitecture(): void {
+    ErrorHandler.info('Initializing layered architecture...', 'PluginBackend');
+
+    // 1. Create infrastructure components
+
+    // Input adapters (parsers)
+    this.parserRegistry = new TokenParserRegistry();
+    this.parserRegistry.register(new W3CTokenParser());
+    // TODO: Add StyleDictionaryParser when implemented
+
+    // Output adapters (exporters)
+    this.exporterRegistry = new TokenExporterRegistry();
+    const figmaExporter = new FigmaVariablesExporter(this.tokenRepository, this.tokenResolver);
+    this.exporterRegistry.register(figmaExporter);
+    // TODO: Add FigmaStylesExporter, JSONExporter, CSSExporter when implemented
+
+    // Storage adapter (repository)
+    this.repositoryAdapter = new InMemoryTokenRepository();
+
+    // 2. Create application layer (use cases)
+    this.useCaseRegistry = new UseCaseRegistry();
+
+    // Import use case
+    const importTokensUseCase = new ImportTokensUseCase(
+      this.parserRegistry,
+      this.repositoryAdapter
+    );
+    this.useCaseRegistry.register('import-tokens', importTokensUseCase, {
+      description: 'Import design tokens from JSON files',
+      category: 'import'
+    });
+
+    // Sync to Figma use case
+    const syncToFigmaUseCase = new SyncToFigmaVariablesUseCase(
+      this.repositoryAdapter,
+      figmaExporter
+    );
+    this.useCaseRegistry.register('sync-to-figma', syncToFigmaUseCase, {
+      description: 'Sync tokens to Figma Variables',
+      category: 'sync'
+    });
+
+    // Get tokens (query) use case
+    const getTokensUseCase = new GetTokensUseCase(this.repositoryAdapter);
+    this.useCaseRegistry.register('get-tokens', getTokensUseCase, {
+      description: 'Query and retrieve tokens',
+      category: 'query'
+    });
+
+    ErrorHandler.info(
+      `Layered architecture initialized: ${this.parserRegistry.count()} parsers, ` +
+      `${this.exporterRegistry.count()} exporters, ${this.useCaseRegistry.count()} use cases`,
+      'PluginBackend'
+    );
   }
 
   /**
